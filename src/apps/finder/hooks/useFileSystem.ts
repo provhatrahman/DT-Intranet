@@ -17,6 +17,7 @@ import { useTextEditStore } from "@/stores/useTextEditStore";
 import { useAppStore } from "@/stores/useAppStore";
 import { migrateIndexedDBToUUIDs } from "@/utils/indexedDBMigration";
 import { useFinderStore } from "@/stores/useFinderStore";
+import { useThemeStore } from "@/stores/useThemeStore";
 
 // STORES is now imported from @/utils/indexedDB to avoid duplication
 
@@ -314,6 +315,7 @@ export function useFileSystem(
   // Get current username for admin check
   const username = useChatsStore((state) => state.username);
   const isAdmin = username?.toLowerCase() === "ryo";
+  const currentTheme = useThemeStore((state) => state.current);
   const finderInstance = instanceId
     ? finderStore.getInstance(instanceId)
     : null;
@@ -733,6 +735,22 @@ export function useFileSystem(
           modifiedAt: item.modifiedAt ? new Date(item.modifiedAt) : undefined,
         }));
       }
+      // 2.5. Handle Desktop Directory - filter by hiddenOnThemes to match Desktop component
+      else if (currentPath === "/Desktop") {
+        const itemsMetadata = fileStore.getItemsInPath(currentPath);
+        // Filter out items that are hidden for the current theme (same logic as Desktop component)
+        const filteredItems = itemsMetadata.filter(
+          (item) =>
+            !item.hiddenOnThemes || !item.hiddenOnThemes.includes(currentTheme)
+        );
+        // Map metadata to display items. Content fetching happens on open.
+        displayFiles = filteredItems.map((item) => ({
+          ...item,
+          icon: getFileIcon(item),
+          appId: item.appId,
+          modifiedAt: item.modifiedAt ? new Date(item.modifiedAt) : undefined,
+        }));
+      }
       // 3. Handle Real Directories (Uses useFilesStore)
       else {
         const itemsMetadata = fileStore.getItemsInPath(currentPath);
@@ -860,6 +878,7 @@ export function useFileSystem(
     videoTracks,
     internetExplorerStore.favorites,
     isAdmin,
+    currentTheme, // Re-run when theme changes to update Desktop folder visibility
   ]);
 
   // Define handleFileOpen

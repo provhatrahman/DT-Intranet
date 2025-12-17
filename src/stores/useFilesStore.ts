@@ -186,6 +186,15 @@ const getParentPath = (path: string): string => {
   return "/" + parts.slice(0, -1).join("/");
 };
 
+// Default folders to hide in root (Macintosh HD) view
+// These folders will be hidden by default for all users
+const DEFAULT_HIDDEN_FOLDERS = [
+  "/Applets",
+  "/Images",
+  "/Videos",
+  // Add more folder paths here to hide them by default
+];
+
 // Track files pending lazy load (path -> FileSystemItemData)
 const pendingLazyLoadFiles = new Map<string, FileSystemItemData>();
 
@@ -788,11 +797,13 @@ export const useFilesStore = create<FilesStoreState>()(
 
         if (path === "/") {
           // Special case for root: Return top-level active directories/virtual directories
+          // Filter out default hidden folders
           return allItems.filter(
             (item) =>
               item.status === "active" &&
               item.path !== "/" && // Exclude the root item itself
-              getParentPath(item.path) === "/" // Ensure it's a direct child of root
+              getParentPath(item.path) === "/" && // Ensure it's a direct child of root
+              !DEFAULT_HIDDEN_FOLDERS.includes(item.path) // Hide default hidden folders
           );
         }
 
