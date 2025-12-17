@@ -33,7 +33,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User, Clock, DollarSign, Building2, Link as LinkIcon, Target, AlertCircle, CheckCircle2, TrendingUp } from "lucide-react";
 
 const CURRENT_USER_ID = "user-1"; // Dummy user ID for voting
 
@@ -596,7 +596,8 @@ function ProjectDetailView({
           className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Hero Section */}
               <Card
                 className={cn(
                   "relative overflow-hidden transition-all",
@@ -636,111 +637,242 @@ function ProjectDetailView({
                     }}
                   />
                 )}
-                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <CardTitle 
-                    className={isMacOSTheme ? "" : ""}
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    {project.name}
-                  </CardTitle>
-                  <CardDescription
-                    style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                  >
-                    {project.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                        Project Size
-                      </Label>
-                      <Select
-                        value={project.projectSize}
-                        onValueChange={(value) =>
-                          onUpdateProject({
-                            projectSize: value as "Small" | "Med" | "Large",
-                          })
-                        }
+                <CardHeader className={cn("relative z-10 pb-3", isMacOSTheme && "bg-transparent")}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle 
+                        className={cn("text-2xl mb-2", isMacOSTheme ? "" : "")}
+                        style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Small">Small</SelectItem>
-                          <SelectItem value="Med">Med</SelectItem>
-                          <SelectItem value="Large">Large</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        {project.name}
+                      </CardTitle>
+                      <CardDescription
+                        className="text-base"
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                      >
+                        {project.description}
+                      </CardDescription>
                     </div>
-                    <div>
-                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                        Deadline
-                      </Label>
-                      <Input
-                        type="date"
-                        value={project.deadline}
-                        onChange={(e) =>
-                          onUpdateProject({ deadline: e.target.value })
-                        }
-                      />
+                    <Badge 
+                      variant="outline"
+                      className={cn(
+                        "shrink-0 text-sm px-3 py-1",
+                        project.projectSize === "Large" && "bg-blue-50 text-blue-700 border-blue-200",
+                        project.projectSize === "Med" && "bg-purple-50 text-purple-700 border-purple-200",
+                        project.projectSize === "Small" && "bg-green-50 text-green-700 border-green-200"
+                      )}
+                    >
+                      {project.projectSize}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className={cn("relative z-10 pt-0", isMacOSTheme && "bg-transparent")}>
+                  {/* Key Metrics - Mobile Optimized */}
+                  <div className="space-y-1.5 mb-4 md:hidden">
+                    <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
+                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground">Event Date: </span>
+                        <span className="text-sm font-medium">{project.date}</span>
+                      </div>
                     </div>
-                    <div>
-                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                        Project Lead
-                      </Label>
-                      <Input
-                        value={project.projectLead}
-                        onChange={(e) =>
-                          onUpdateProject({ projectLead: e.target.value })
-                        }
-                      />
+                    <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground">Venue: </span>
+                        <span className="text-sm font-medium">{project.venue}</span>
+                      </div>
                     </div>
-                    <div>
-                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                        Team
-                      </Label>
-                      <Input
-                        value={project.team.join(", ")}
-                        onChange={(e) =>
-                          onUpdateProject({
-                            team: e.target.value.split(",").map((t) => t.trim()),
-                          })
-                        }
-                        placeholder="Comma-separated names"
-                      />
+                    <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
+                      <DollarSign className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground">Fee: </span>
+                        <span className="text-sm font-medium">{project.fee}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
+                      <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground">Timings: </span>
+                        <span className="text-sm font-medium">{project.timings}</span>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Google Drive Link
-                    </Label>
-                    <Input
-                      type="url"
-                      value={project.googleDriveLink}
-                      onChange={(e) =>
-                        onUpdateProject({ googleDriveLink: e.target.value })
-                      }
-                      placeholder="https://drive.google.com/..."
-                    />
+                  
+                  {/* Key Metrics Grid - Desktop */}
+                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="p-2 rounded-md bg-background shrink-0">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground mb-1">Event Date</div>
+                        <div className="text-sm font-medium break-words">{project.date}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="p-2 rounded-md bg-background shrink-0">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground mb-1">Venue</div>
+                        <div className="text-sm font-medium break-words">{project.venue}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="p-2 rounded-md bg-background shrink-0">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground mb-1">Fee</div>
+                        <div className="text-sm font-medium break-words">{project.fee}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="p-2 rounded-md bg-background shrink-0">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground mb-1">Timings</div>
+                        <div className="text-sm font-medium break-words">{project.timings}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      <span className="font-medium">Venue:</span> {project.venue}
+
+                  {/* Project Details Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Project Details
+                      </h3>
                     </div>
-                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      <span className="font-medium">Date:</span> {project.date}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                          <Calendar className="h-3 w-3" />
+                          Deadline
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            type="date"
+                            value={project.deadline}
+                            onChange={(e) =>
+                              onUpdateProject({ deadline: e.target.value })
+                            }
+                          />
+                          {project.deadline && (() => {
+                            const daysUntilDeadline = Math.ceil(
+                              (new Date(project.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            return daysUntilDeadline >= 0 && daysUntilDeadline <= 7 ? (
+                              <div className="absolute right-2 top-2">
+                                <AlertCircle className={cn(
+                                  "h-4 w-4",
+                                  daysUntilDeadline <= 3 ? "text-red-500" : "text-yellow-500"
+                                )} />
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                          <TrendingUp className="h-3 w-3" />
+                          Project Size
+                        </Label>
+                        <Select
+                          value={project.projectSize}
+                          onValueChange={(value) =>
+                            onUpdateProject({
+                              projectSize: value as "Small" | "Med" | "Large",
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Small">Small</SelectItem>
+                            <SelectItem value="Med">Med</SelectItem>
+                            <SelectItem value="Large">Large</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                          <User className="h-3 w-3" />
+                          Project Lead
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            value={project.projectLead}
+                            onChange={(e) =>
+                              onUpdateProject({ projectLead: e.target.value })
+                            }
+                            className="pl-8"
+                          />
+                          <User className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                          <Users className="h-3 w-3" />
+                          Team
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            value={project.team.join(", ")}
+                            onChange={(e) =>
+                              onUpdateProject({
+                                team: e.target.value.split(",").map((t) => t.trim()),
+                              })
+                            }
+                            placeholder="Comma-separated names"
+                            className="pl-8"
+                          />
+                          <Users className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        </div>
+                      </div>
                     </div>
-                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      <span className="font-medium">Fee:</span> {project.fee}
+                    <div>
+                      <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        <LinkIcon className="h-3 w-3" />
+                        Google Drive Link
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="url"
+                          value={project.googleDriveLink}
+                          onChange={(e) =>
+                            onUpdateProject({ googleDriveLink: e.target.value })
+                          }
+                          placeholder="https://drive.google.com/..."
+                          className="pl-8"
+                        />
+                        <LinkIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      </div>
                     </div>
-                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      <span className="font-medium">Timings:</span>{" "}
-                      {project.timings}
+                  </div>
+
+                  {/* Event Info Section */}
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Event Information
+                      </h3>
                     </div>
-                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      <span className="font-medium">Promoter:</span>{" "}
-                      {project.promoter}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 p-2 rounded-md bg-muted/20">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div>
+                          <span className="text-xs text-muted-foreground">Promoter:</span>
+                          <span className="ml-2 font-medium" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                            {project.promoter}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -785,95 +917,161 @@ function ProjectDetailView({
                     }}
                   />
                 )}
-                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <CardTitle
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    Status Updates
-                  </CardTitle>
+                <CardHeader className={cn("relative z-10 pb-3", isMacOSTheme && "bg-transparent")}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle
+                        className="text-lg"
+                        style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                      >
+                        Status Updates
+                      </CardTitle>
+                    </div>
+                    {project.statusUpdates.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {project.statusUpdates.length} {project.statusUpdates.length === 1 ? "update" : "updates"}
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
                   <div className="flex gap-2">
-                    <Input
-                      value={statusUpdateText}
-                      onChange={(e) => setStatusUpdateText(e.target.value)}
-                      placeholder="Add a status update..."
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          onAddStatusUpdate(project.id, statusUpdateText);
-                          setStatusUpdateText("");
-                        }
-                      }}
-                    />
+                    <div className="relative flex-1">
+                      <Input
+                        value={statusUpdateText}
+                        onChange={(e) => setStatusUpdateText(e.target.value)}
+                        placeholder="Add a status update..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            onAddStatusUpdate(project.id, statusUpdateText);
+                            setStatusUpdateText("");
+                          }
+                        }}
+                        className="pl-9"
+                      />
+                      <MessageSquare className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
                     <Button
                       className={isMacOSTheme ? "aqua-button secondary" : ""}
                       onClick={() => {
                         onAddStatusUpdate(project.id, statusUpdateText);
                         setStatusUpdateText("");
                       }}
+                      disabled={!statusUpdateText.trim()}
                     >
                       Add
                     </Button>
                   </div>
-                  <ScrollArea className="h-48">
-                    <div className="space-y-2">
-                      {project.statusUpdates
-                        .sort(
-                          (a, b) =>
-                            new Date(b.timestamp).getTime() -
-                            new Date(a.timestamp).getTime()
-                        )
-                        .map((update) => (
-                          <div
-                            key={update.id}
-                            className={cn(
-                              "p-2 rounded text-sm relative overflow-hidden",
-                              isMacOSTheme ? "" : "bg-muted/50"
-                            )}
-                            style={
-                              isMacOSTheme
-                                ? {
-                                    borderRadius: "6px",
-                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
-                                    border: "1px solid rgba(0, 0, 0, 0.08)",
-                                    boxShadow: `
-                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
-                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
-                                    `,
-                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-                                  }
-                                : {}
-                            }
-                          >
-                            {isMacOSTheme && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  left: "3px",
-                                  right: "3px",
-                                  top: "1px",
-                                  height: "10px",
-                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
-                                  borderRadius: "4px 4px 2px 2px",
-                                  filter: "blur(0.5px)",
-                                  pointerEvents: "none",
-                                  zIndex: 1,
-                                }}
-                              />
-                            )}
-                            <div 
-                              className="text-xs text-muted-foreground relative z-10"
-                              style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                            >
-                              {new Date(update.timestamp).toLocaleString()}
-                            </div>
-                            <div className="relative z-10" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                              {update.text}
-                            </div>
-                          </div>
-                        ))}
+                  {project.statusUpdates.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No status updates yet</p>
+                      <p className="text-xs mt-1">Add your first update above</p>
                     </div>
-                  </ScrollArea>
+                  ) : (
+                    <ScrollArea className="h-64">
+                      <div className="space-y-3 pr-4">
+                        {project.statusUpdates
+                          .sort(
+                            (a, b) =>
+                              new Date(b.timestamp).getTime() -
+                              new Date(a.timestamp).getTime()
+                          )
+                          .map((update, index) => {
+                            const isRecent = index === 0 && (() => {
+                              const hoursSinceUpdate = (new Date().getTime() - new Date(update.timestamp).getTime()) / (1000 * 60 * 60);
+                              return hoursSinceUpdate < 24;
+                            })();
+                            return (
+                              <div
+                                key={update.id}
+                                className={cn(
+                                  "p-3 rounded-lg text-sm relative overflow-hidden transition-all",
+                                  isMacOSTheme ? "" : "bg-muted/50",
+                                  isRecent && "ring-2 ring-primary/20"
+                                )}
+                                style={
+                                  isMacOSTheme
+                                    ? {
+                                        borderRadius: "8px",
+                                        background: isRecent 
+                                          ? "linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(250, 250, 250, 0.85))"
+                                          : "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                        border: "1px solid rgba(0, 0, 0, 0.08)",
+                                        boxShadow: `
+                                          inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                          inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                        `,
+                                        textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                                      }
+                                    : {}
+                                }
+                              >
+                                {isMacOSTheme && (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      left: "4px",
+                                      right: "4px",
+                                      top: "2px",
+                                      height: "12px",
+                                      background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                                      borderRadius: "6px 6px 2px 2px",
+                                      filter: "blur(0.5px)",
+                                      pointerEvents: "none",
+                                      zIndex: 1,
+                                    }}
+                                  />
+                                )}
+                                <div className="flex items-start gap-3 relative z-10">
+                                  <div className={cn(
+                                    "mt-0.5 p-1.5 rounded-full shrink-0",
+                                    isRecent ? "bg-primary/10" : "bg-muted"
+                                  )}>
+                                    <CheckCircle2 className={cn(
+                                      "h-3 w-3",
+                                      isRecent ? "text-primary" : "text-muted-foreground"
+                                    )} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <span 
+                                        className="text-xs font-medium text-muted-foreground"
+                                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                      >
+                                        {new Date(update.timestamp).toLocaleDateString()}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground/60">•</span>
+                                      <span 
+                                        className="text-xs text-muted-foreground"
+                                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                      >
+                                        {new Date(update.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      {isRecent && (
+                                        <>
+                                          <span className="text-xs text-muted-foreground/60">•</span>
+                                          <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
+                                            Recent
+                                          </Badge>
+                                        </>
+                                      )}
+                                    </div>
+                                    <p 
+                                      className="text-sm leading-relaxed"
+                                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                    >
+                                      {update.text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </CardContent>
               </Card>
             </div>
