@@ -15,6 +15,7 @@ const APP_NAMES: Record<string, string> = {
   terminal: "Terminal",
   "applet-viewer": "Applet Store",
   "control-panels": "Control Panels",
+  "active-projects": "Active Projects",
 };
 
 // App descriptions
@@ -34,6 +35,7 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   terminal: "Command line interface with Ryo AI",
   "applet-viewer": "Explore and install community applets",
   "control-panels": "Set themes, sounds, and system preferences",
+  "active-projects": "Manage active projects and curations",
 };
 
 // App ID to macOS icon mapping
@@ -53,6 +55,7 @@ const APP_ICONS: Record<string, string> = {
   terminal: "terminal.png",
   "applet-viewer": "app.png",
   "control-panels": "control-panels/appearance-manager/app.png",
+  "active-projects": "pc.png",
 };
 
 function generateOgHtml(options: {

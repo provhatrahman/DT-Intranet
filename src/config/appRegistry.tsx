@@ -183,6 +183,11 @@ const LazyIncomingOffersApp = createLazyComponent<unknown>(
   "incoming-offers"
 );
 
+const LazyActiveProjectsApp = createLazyComponent<unknown>(
+  () => import("@/apps/active-projects/components/ActiveProjectsAppComponent").then(m => ({ default: m.ActiveProjectsAppComponent })),
+  "active-projects"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -204,6 +209,7 @@ import { appMetadata as appletViewerMetadata, helpItems as appletViewerHelpItems
 import { appMetadata as controlPanelsMetadata, helpItems as controlPanelsHelpItems } from "@/apps/control-panels";
 import { appMetadata as adminMetadata, helpItems as adminHelpItems } from "@/apps/admin";
 import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
+import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
 
 // ============================================================================
 // APP REGISTRY
@@ -444,6 +450,19 @@ export const appRegistry = {
     windowConfig: {
       defaultSize: { width: 900, height: 600 },
       minSize: { width: 600, height: 400 },
+    } as WindowConstraints,
+  },
+  ["active-projects"]: {
+    id: "active-projects",
+    name: "Active Projects",
+    icon: { type: "image", src: activeProjectsMetadata.icon },
+    description: "Manage active projects and curations",
+    component: LazyActiveProjectsApp,
+    helpItems: activeProjectsHelpItems,
+    metadata: activeProjectsMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
     } as WindowConstraints,
   },
 } as const;

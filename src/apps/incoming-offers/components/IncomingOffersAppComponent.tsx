@@ -57,6 +57,7 @@ export function IncomingOffersAppComponent({
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
+  const isMacOSTheme = currentTheme === "macosx";
 
   // Initialize user votes from localStorage if available (simulated persistence)
   useEffect(() => {
@@ -177,9 +178,28 @@ export function IncomingOffersAppComponent({
             minHeight: 400,
         }}
       >
-        <div className="flex flex-col h-full bg-background text-foreground">
+        <div 
+          className={cn(
+            "flex flex-col h-full text-foreground",
+            isMacOSTheme ? "bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]" : "bg-background"
+          )}
+        >
           {/* Toolbar */}
-          <div className="flex items-center gap-4 p-4 border-b bg-muted/30">
+          <div 
+            className={cn(
+              "flex items-center gap-4 p-4 border-b",
+              isMacOSTheme ? "" : "bg-muted/30"
+            )}
+            style={
+              isMacOSTheme
+                ? {
+                    backgroundImage: "var(--os-pinstripe-window)",
+                    borderBottom: "var(--os-metrics-titlebar-border-width, 1px) solid var(--os-color-titlebar-border-inactive, rgba(0, 0, 0, 0.2))",
+                    opacity: 0.95,
+                  }
+                : undefined
+            }
+          >
             <div className="relative flex-1 max-w-sm">
               <Input
                 placeholder="Search offers..."
@@ -201,7 +221,13 @@ export function IncomingOffersAppComponent({
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-auto p-4 bg-muted/10">
+          <div 
+            className={cn(
+              "flex-1 overflow-auto p-4",
+              isMacOSTheme ? "" : "bg-muted/10"
+            )}
+            style={isMacOSTheme ? { background: "transparent" } : undefined}
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredOffers.map((offer) => (
                 <OfferCard
@@ -213,7 +239,10 @@ export function IncomingOffersAppComponent({
                 />
               ))}
               {filteredOffers.length === 0 && (
-                  <div className="col-span-full text-center py-10 text-muted-foreground">
+                  <div 
+                    className="col-span-full text-center py-10 text-muted-foreground"
+                    style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                  >
                       No offers found.
                   </div>
               )}
@@ -359,20 +388,51 @@ function OfferCard({
         
         <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
             <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium">Date</span>
-                <span>{offer.date}</span>
+                <span 
+                  className="text-muted-foreground font-medium"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  Date
+                </span>
+                <span style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                  {offer.date}
+                </span>
             </div>
             <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium">Fee</span>
-                <span>{offer.fee}</span>
+                <span 
+                  className="text-muted-foreground font-medium"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  Fee
+                </span>
+                <span style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                  {offer.fee}
+                </span>
             </div>
             <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium">Venue</span>
-                <span className="break-words">{offer.venue}</span>
+                <span 
+                  className="text-muted-foreground font-medium"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  Venue
+                </span>
+                <span 
+                  className="break-words"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  {offer.venue}
+                </span>
             </div>
              <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium">Time</span>
-                <span>{offer.timings}</span>
+                <span 
+                  className="text-muted-foreground font-medium"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  Time
+                </span>
+                <span style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                  {offer.timings}
+                </span>
             </div>
         </div>
       </CardContent>
@@ -513,6 +573,33 @@ function VoteButton({
     children: React.ReactNode;
     color: "green" | "blue" | "red" | "orange";
 }) {
+    const currentTheme = useThemeStore((state) => state.current);
+    const isMacOSTheme = currentTheme === "macosx";
+    
+    const getColorGradient = () => {
+        if (color === "green") {
+            return active 
+                ? "linear-gradient(to bottom, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))"
+                : "linear-gradient(to bottom, rgba(34, 197, 94, 0.3), rgba(22, 163, 74, 0.3))";
+        }
+        if (color === "blue") {
+            return active 
+                ? "linear-gradient(to bottom, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9))"
+                : "linear-gradient(to bottom, rgba(59, 130, 246, 0.3), rgba(37, 99, 235, 0.3))";
+        }
+        if (color === "red") {
+            return active 
+                ? "linear-gradient(to bottom, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))"
+                : "linear-gradient(to bottom, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.3))";
+        }
+        if (color === "orange") {
+            return active 
+                ? "linear-gradient(to bottom, rgba(249, 115, 22, 0.9), rgba(234, 88, 12, 0.9))"
+                : "linear-gradient(to bottom, rgba(249, 115, 22, 0.3), rgba(234, 88, 12, 0.3))";
+        }
+        return "linear-gradient(to bottom, rgba(200, 200, 200, 0.3), rgba(180, 180, 180, 0.3))";
+    };
+    
     const getColorOverlay = () => {
         if (color === "green") {
             return active 
@@ -536,6 +623,75 @@ function VoteButton({
         }
         return "transparent";
     };
+
+    if (isMacOSTheme) {
+        return (
+            <button
+                onClick={onClick}
+                className={cn(
+                    "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none relative overflow-hidden rounded-md transition-all",
+                    active && "transform translate-y-0"
+                )}
+                style={{
+                    background: getColorGradient(),
+                    borderRadius: "6px",
+                    border: "none",
+                    boxShadow: active
+                        ? `
+                            0 2px 4px rgba(0, 0, 0, 0.18),
+                            0 1px 1px rgba(0, 0, 0, 0.3),
+                            inset 0 1px 2px rgba(255, 255, 255, 0.5),
+                            inset 0 0 4px rgba(0, 0, 0, 0.1),
+                            inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
+                            inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                          `
+                        : `
+                            0 1px 2px rgba(0, 0, 0, 0.12),
+                            inset 0 1px 1px rgba(255, 255, 255, 0.3),
+                            inset 0 0 2px rgba(0, 0, 0, 0.05)
+                          `,
+                    WebkitFontSmoothing: "antialiased",
+                    cursor: "default",
+                    transform: active ? "translateY(-1px)" : "translateY(0)",
+                }}
+            >
+                {active && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            left: "3px",
+                            right: "3px",
+                            top: "2px",
+                            height: "12px",
+                            background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                            borderRadius: "4px 4px 2px 2px",
+                            filter: "blur(0.5px)",
+                            pointerEvents: "none",
+                            zIndex: 1,
+                        }}
+                    />
+                )}
+                <span 
+                    className="font-semibold text-[10px] leading-tight text-center relative z-10"
+                    style={{ 
+                        textShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.3)" : "0 1px 1px rgba(0, 0, 0, 0.2)",
+                        color: active ? "white" : "black"
+                    }}
+                >
+                    {children}
+                </span>
+                <span 
+                    className="text-[9px] opacity-90 relative z-10"
+                    style={{ 
+                        textShadow: active ? "0 1px 1px rgba(0, 0, 0, 0.3)" : "0 1px 1px rgba(0, 0, 0, 0.15)",
+                        color: active ? "white" : "black"
+                    }}
+                >
+                    ({count})
+                </span>
+            </button>
+        );
+    }
 
     return (
         <Button

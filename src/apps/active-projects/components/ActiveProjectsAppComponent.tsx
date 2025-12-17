@@ -1,0 +1,1510 @@
+import { useState, useEffect } from "react";
+import { AppProps } from "../../base/types";
+import { WindowFrame } from "@/components/layout/WindowFrame";
+import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
+import { HelpDialog } from "@/components/dialogs/HelpDialog";
+import { AboutDialog } from "@/components/dialogs/AboutDialog";
+import { helpItems, appMetadata } from "..";
+import { useThemeStore } from "@/stores/useThemeStore";
+import { ActiveProject, dummyProjects, StatusUpdate } from "../data";
+import { DJ, dummyDJs, searchDJs, addDJ } from "../djDatabase";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { getTabStyles } from "@/utils/tabStyles";
+import { cn } from "@/lib/utils";
+import * as React from "react";
+import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User } from "lucide-react";
+
+const CURRENT_USER_ID = "user-1"; // Dummy user ID for voting
+
+export function ActiveProjectsAppComponent({
+  isWindowOpen,
+  onClose,
+  isForeground,
+  skipInitialSound,
+  instanceId,
+  onNavigateNext,
+  onNavigatePrevious,
+}: AppProps) {
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [projects, setProjects] = useState<ActiveProject[]>(dummyProjects);
+  // Start with no selection on mobile to show list first
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    window.innerWidth < 768 ? null : dummyProjects[0]?.id || null
+  );
+  const [djs, setDJs] = useState<DJ[]>(dummyDJs);
+  const [djSearchQuery, setDJSearchQuery] = useState("");
+  const [showAddDJDialog, setShowAddDJDialog] = useState(false);
+  const [newDJForm, setNewDJForm] = useState<Partial<DJ>>({});
+
+  const currentTheme = useThemeStore((state) => state.current);
+  const isMacOSTheme = currentTheme === "macosx";
+  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
+  const tabStyles = getTabStyles(currentTheme);
+
+  // Ensure selectedProjectId is set when projects load (only on desktop)
+  useEffect(() => {
+    if (!isMobile && projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId, isMobile]);
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  const menuBar = (
+    <ActiveProjectsMenuBar
+      onClose={onClose}
+      onShowHelp={() => setIsHelpDialogOpen(true)}
+      onShowAbout={() => setIsAboutDialogOpen(true)}
+    />
+  );
+
+  const handleAddStatusUpdate = (projectId: string, text: string) => {
+    if (!text.trim()) return;
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id === projectId) {
+          const newUpdate: StatusUpdate = {
+            id: `status-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            text: text.trim(),
+            userId: CURRENT_USER_ID,
+          };
+          return {
+            ...p,
+            statusUpdates: [...p.statusUpdates, newUpdate],
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleAddCurationSuggestion = (
+    projectId: string,
+    name: string,
+    workLink?: string
+  ) => {
+    if (!name.trim()) return;
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id === projectId) {
+          return {
+            ...p,
+            curationSuggestions: [
+              ...p.curationSuggestions,
+              {
+                id: `curation-${Date.now()}`,
+                name: name.trim(),
+                workLink: workLink?.trim() || undefined,
+                votes: {},
+              },
+            ],
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleVoteCuration = (
+    projectId: string,
+    suggestionId: string,
+    userId: string
+  ) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id === projectId) {
+          return {
+            ...p,
+            curationSuggestions: p.curationSuggestions.map((s) => {
+              if (s.id === suggestionId) {
+                const hasVoted = s.votes[userId] || false;
+                return {
+                  ...s,
+                  votes: {
+                    ...s.votes,
+                    [userId]: !hasVoted,
+                  },
+                };
+              }
+              return s;
+            }),
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleAssignDJ = (projectId: string, djId: string) => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id === projectId) {
+          if (p.finalLineup.includes(djId)) {
+            return {
+              ...p,
+              finalLineup: p.finalLineup.filter((id) => id !== djId),
+            };
+          } else {
+            return {
+              ...p,
+              finalLineup: [...p.finalLineup, djId],
+            };
+          }
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleAddNewDJ = () => {
+    if (
+      !newDJForm.name ||
+      !newDJForm.artistName ||
+      !newDJForm.location ||
+      !newDJForm.creativeDisciplines
+    ) {
+      return;
+    }
+    const newDJ = addDJ({
+      name: newDJForm.name,
+      artistName: newDJForm.artistName,
+      contactDetails: newDJForm.contactDetails || "",
+      location: newDJForm.location,
+      creativeDisciplines: newDJForm.creativeDisciplines,
+      linksToWork: newDJForm.linksToWork || "",
+      genre: newDJForm.genre || "",
+      timesBooked: 0,
+      mostRecentEvent: "",
+      mostRecentEventDate: "",
+    });
+    setDJs((prev) => [...prev, newDJ]);
+    setNewDJForm({});
+    setShowAddDJDialog(false);
+  };
+
+  const filteredDJs = searchDJs(djSearchQuery, djs);
+
+  if (!isWindowOpen) return null;
+
+  return (
+    <>
+      {!isXpTheme && isForeground && menuBar}
+      <WindowFrame
+        title="Active Projects"
+        onClose={onClose}
+        isForeground={isForeground}
+        appId="active-projects"
+        skipInitialSound={skipInitialSound}
+        instanceId={instanceId}
+        onNavigateNext={onNavigateNext}
+        onNavigatePrevious={onNavigatePrevious}
+        menuBar={isXpTheme ? menuBar : undefined}
+      >
+        <div
+          className={cn(
+            "flex h-full w-full min-h-0",
+            isMacOSTheme 
+              ? "p-4 pt-2 bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]" 
+              : "p-4 bg-background"
+          )}
+        >
+          {/* Project List Sidebar */}
+          {(!isMobile || !selectedProjectId) && (
+            <div 
+              className={cn(
+                "flex flex-col min-h-0",
+                isMobile ? "w-full" : "w-64 pr-4 mr-4",
+                isMacOSTheme && !isMobile && "border-r border-r-black/10"
+              )}
+            >
+            <h2 
+              className={cn(
+                "text-lg font-semibold mb-3",
+                isMacOSTheme && "text-shadow-[0_1px_2px_rgba(0,0,0,0.1)]"
+              )}
+              style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+            >
+              Projects
+            </h2>
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-2">
+                {projects.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-2">
+                    No projects available
+                  </div>
+                ) : (
+                  projects.map((project) => {
+                    const isSelected = selectedProjectId === project.id;
+                    const latestStatusUpdate = project.statusUpdates.length > 0
+                      ? project.statusUpdates.sort(
+                          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                        )[0]
+                      : null;
+                    return (
+                      <button
+                        key={project.id}
+                        onClick={() => setSelectedProjectId(project.id)}
+                        className={cn(
+                          "w-full text-left p-3.5 rounded-md transition-all relative overflow-hidden",
+                          isMacOSTheme ? "" : isSelected ? "bg-muted" : "hover:bg-muted/50"
+                        )}
+                        style={
+                          isMacOSTheme
+                            ? {
+                                borderRadius: "8px",
+                                background: isSelected
+                                  ? "linear-gradient(to bottom, rgba(48, 123, 201, 0.25), rgba(152, 189, 228, 0.25))"
+                                  : "linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(245, 245, 245, 0.6))",
+                                border: isSelected
+                                  ? "1px solid rgba(48, 123, 201, 0.5)"
+                                  : "1px solid rgba(0, 0, 0, 0.1)",
+                                boxShadow: isSelected
+                                  ? `
+                                    0 2px 4px rgba(0, 0, 0, 0.14),
+                                    0 1px 1px rgba(0, 0, 0, 0.25),
+                                    inset 0 1px 2px rgba(255, 255, 255, 0.7),
+                                    inset 0 0 4px rgba(0, 0, 0, 0.05),
+                                    inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                                    inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                                  `
+                                  : `
+                                    0 1px 2px rgba(0, 0, 0, 0.1),
+                                    inset 0 1px 1px rgba(255, 255, 255, 0.5)
+                                  `,
+                                WebkitFontSmoothing: "antialiased",
+                                textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                              }
+                            : {}
+                        }
+                        onMouseEnter={(e) => {
+                          if (isMacOSTheme && !isSelected && e.currentTarget) {
+                            e.currentTarget.style.background = "linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(250, 250, 250, 0.8))";
+                            e.currentTarget.style.boxShadow = `
+                              0 2px 4px rgba(0, 0, 0, 0.12),
+                              inset 0 1px 1px rgba(255, 255, 255, 0.6)
+                            `;
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (isMacOSTheme && !isSelected && e.currentTarget) {
+                            e.currentTarget.style.background = "linear-gradient(to bottom, rgba(255, 255, 255, 0.6), rgba(245, 245, 245, 0.6))";
+                            e.currentTarget.style.boxShadow = `
+                              0 1px 2px rgba(0, 0, 0, 0.1),
+                              inset 0 1px 1px rgba(255, 255, 255, 0.5)
+                            `;
+                          }
+                        }}
+                      >
+                        {isMacOSTheme && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: "4px",
+                              right: "4px",
+                              top: "2px",
+                              height: isSelected ? "16px" : "12px",
+                              background: "linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.2))",
+                              borderRadius: "6px 6px 2px 2px",
+                              filter: "blur(0.5px)",
+                              pointerEvents: "none",
+                              zIndex: 1,
+                            }}
+                          />
+                        )}
+                        <div className="relative z-10 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-medium text-sm flex-1" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}>
+                              {project.name}
+                            </div>
+                            <Badge 
+                              variant="secondary" 
+                              className={cn(
+                                "text-xs shrink-0",
+                                project.projectSize === "Large" && "bg-blue-100 text-blue-800",
+                                project.projectSize === "Med" && "bg-green-100 text-green-800",
+                                project.projectSize === "Small" && "bg-gray-100 text-gray-800"
+                              )}
+                            >
+                              {project.projectSize}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                              <Calendar className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{project.date}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{project.venue}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                              <User className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{project.projectLead}</span>
+                            </div>
+                            
+                            {latestStatusUpdate && (
+                              <div className="flex items-start gap-1.5 pt-1 border-t border-black/5">
+                                <MessageSquare className="h-3 w-3 shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs text-muted-foreground line-clamp-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                                    {latestStatusUpdate.text}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {(project.curationSuggestions.length > 0 || project.finalLineup.length > 0) && (
+                              <div className="flex items-center gap-3 pt-1 border-t border-black/5">
+                                {project.curationSuggestions.length > 0 && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                                    <Music className="h-3 w-3" />
+                                    <span>{project.curationSuggestions.length}</span>
+                                  </div>
+                                )}
+                                {project.finalLineup.length > 0 && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                                    <Users className="h-3 w-3" />
+                                    <span>{project.finalLineup.length}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+          )}
+
+          {/* Main Content */}
+          {(!isMobile || selectedProjectId) && (
+            <div className={cn(
+              "flex-1 flex flex-col min-w-0 min-h-0",
+              isMacOSTheme ? "bg-transparent" : "bg-background"
+            )}>
+            {projects.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                No projects available. Projects are created from incoming offers.
+              </div>
+            ) : selectedProject ? (
+              <ProjectDetailView
+                project={selectedProject}
+                djs={filteredDJs}
+                allDJs={djs}
+                djSearchQuery={djSearchQuery}
+                onDJSearchChange={setDJSearchQuery}
+                onAddStatusUpdate={handleAddStatusUpdate}
+                onAddCurationSuggestion={handleAddCurationSuggestion}
+                onVoteCuration={handleVoteCuration}
+                onAssignDJ={handleAssignDJ}
+                onUpdateProject={(updates) =>
+                  setProjects((prev) =>
+                    prev.map((p) =>
+                      p.id === selectedProject.id ? { ...p, ...updates } : p
+                    )
+                  )
+                }
+                showAddDJDialog={showAddDJDialog}
+                onShowAddDJDialog={setShowAddDJDialog}
+                newDJForm={newDJForm}
+                onNewDJFormChange={setNewDJForm}
+                onAddNewDJ={handleAddNewDJ}
+                tabStyles={tabStyles}
+                isMobile={isMobile}
+                onBack={() => setSelectedProjectId(null)}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                Select a project to view details
+              </div>
+            )}
+          </div>
+          )}
+        </div>
+
+        <HelpDialog
+          isOpen={isHelpDialogOpen}
+          onOpenChange={setIsHelpDialogOpen}
+          helpItems={helpItems}
+          appId="active-projects"
+        />
+        <AboutDialog
+          isOpen={isAboutDialogOpen}
+          onOpenChange={setIsAboutDialogOpen}
+          metadata={appMetadata}
+          appId="active-projects"
+        />
+      </WindowFrame>
+    </>
+  );
+}
+
+function ProjectDetailView({
+  project,
+  djs,
+  allDJs,
+  djSearchQuery,
+  onDJSearchChange,
+  onAddStatusUpdate,
+  onAddCurationSuggestion,
+  onVoteCuration,
+  onAssignDJ,
+  onUpdateProject,
+  showAddDJDialog,
+  onShowAddDJDialog,
+  newDJForm,
+  onNewDJFormChange,
+  onAddNewDJ,
+  tabStyles,
+  isMobile,
+  onBack,
+}: {
+  project: ActiveProject;
+  djs: DJ[];
+  allDJs: DJ[];
+  djSearchQuery: string;
+  onDJSearchChange: (query: string) => void;
+  onAddStatusUpdate: (projectId: string, text: string) => void;
+  onAddCurationSuggestion: (
+    projectId: string,
+    name: string,
+    workLink?: string
+  ) => void;
+  onVoteCuration: (
+    projectId: string,
+    suggestionId: string,
+    userId: string
+  ) => void;
+  onAssignDJ: (projectId: string, djId: string) => void;
+  onUpdateProject: (updates: Partial<ActiveProject>) => void;
+  showAddDJDialog: boolean;
+  onShowAddDJDialog: (show: boolean) => void;
+  newDJForm: Partial<DJ>;
+  onNewDJFormChange: (form: Partial<DJ>) => void;
+  onAddNewDJ: () => void;
+  tabStyles: ReturnType<typeof getTabStyles>;
+  isMobile: boolean;
+  onBack: () => void;
+}) {
+  const currentTheme = useThemeStore((state) => state.current);
+  const isMacOSTheme = currentTheme === "macosx";
+  const [statusUpdateText, setStatusUpdateText] = useState("");
+  const [curationName, setCurationName] = useState("");
+  const [curationLink, setCurationLink] = useState("");
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      {isMobile && (
+        <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+          <Button variant="ghost" size="sm" onClick={onBack} className="p-0 h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-semibold text-sm truncate">{project.name}</span>
+        </div>
+      )}
+      <Tabs defaultValue="overview" className="flex-1 flex flex-col min-w-0 min-h-0">
+        <TabsList className={tabStyles.tabListClasses}>
+          <TabsTrigger className={tabStyles.tabTriggerClasses} value="overview">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            className={tabStyles.tabTriggerClasses}
+            value="curation"
+          >
+            Curation
+          </TabsTrigger>
+          <TabsTrigger
+            className={tabStyles.tabTriggerClasses}
+            value="lineup"
+          >
+            Final Lineup
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="overview"
+          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
+        >
+          <ScrollArea className="flex-1">
+            <div className="space-y-4">
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle 
+                    className={isMacOSTheme ? "" : ""}
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    {project.name}
+                  </CardTitle>
+                  <CardDescription
+                    style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                  >
+                    {project.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Project Size
+                      </Label>
+                      <Select
+                        value={project.projectSize}
+                        onValueChange={(value) =>
+                          onUpdateProject({
+                            projectSize: value as "Small" | "Med" | "Large",
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Small">Small</SelectItem>
+                          <SelectItem value="Med">Med</SelectItem>
+                          <SelectItem value="Large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Deadline
+                      </Label>
+                      <Input
+                        type="date"
+                        value={project.deadline}
+                        onChange={(e) =>
+                          onUpdateProject({ deadline: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Project Lead
+                      </Label>
+                      <Input
+                        value={project.projectLead}
+                        onChange={(e) =>
+                          onUpdateProject({ projectLead: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        Team
+                      </Label>
+                      <Input
+                        value={project.team.join(", ")}
+                        onChange={(e) =>
+                          onUpdateProject({
+                            team: e.target.value.split(",").map((t) => t.trim()),
+                          })
+                        }
+                        placeholder="Comma-separated names"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Google Drive Link
+                    </Label>
+                    <Input
+                      type="url"
+                      value={project.googleDriveLink}
+                      onChange={(e) =>
+                        onUpdateProject({ googleDriveLink: e.target.value })
+                      }
+                      placeholder="https://drive.google.com/..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      <span className="font-medium">Venue:</span> {project.venue}
+                    </div>
+                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      <span className="font-medium">Date:</span> {project.date}
+                    </div>
+                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      <span className="font-medium">Fee:</span> {project.fee}
+                    </div>
+                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      <span className="font-medium">Timings:</span>{" "}
+                      {project.timings}
+                    </div>
+                    <div style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      <span className="font-medium">Promoter:</span>{" "}
+                      {project.promoter}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    Status Updates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <div className="flex gap-2">
+                    <Input
+                      value={statusUpdateText}
+                      onChange={(e) => setStatusUpdateText(e.target.value)}
+                      placeholder="Add a status update..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          onAddStatusUpdate(project.id, statusUpdateText);
+                          setStatusUpdateText("");
+                        }
+                      }}
+                    />
+                    <Button
+                      className={isMacOSTheme ? "aqua-button secondary" : ""}
+                      onClick={() => {
+                        onAddStatusUpdate(project.id, statusUpdateText);
+                        setStatusUpdateText("");
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {project.statusUpdates
+                        .sort(
+                          (a, b) =>
+                            new Date(b.timestamp).getTime() -
+                            new Date(a.timestamp).getTime()
+                        )
+                        .map((update) => (
+                          <div
+                            key={update.id}
+                            className={cn(
+                              "p-2 rounded text-sm relative overflow-hidden",
+                              isMacOSTheme ? "" : "bg-muted/50"
+                            )}
+                            style={
+                              isMacOSTheme
+                                ? {
+                                    borderRadius: "6px",
+                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                    border: "1px solid rgba(0, 0, 0, 0.08)",
+                                    boxShadow: `
+                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                    `,
+                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                                  }
+                                : {}
+                            }
+                          >
+                            {isMacOSTheme && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  left: "3px",
+                                  right: "3px",
+                                  top: "1px",
+                                  height: "10px",
+                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                                  borderRadius: "4px 4px 2px 2px",
+                                  filter: "blur(0.5px)",
+                                  pointerEvents: "none",
+                                  zIndex: 1,
+                                }}
+                              />
+                            )}
+                            <div 
+                              className="text-xs text-muted-foreground relative z-10"
+                              style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                            >
+                              {new Date(update.timestamp).toLocaleString()}
+                            </div>
+                            <div className="relative z-10" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                              {update.text}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent
+          value="curation"
+          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
+        >
+          <ScrollArea className="flex-1">
+            <div className="space-y-4">
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    Add Curation Suggestion
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Name
+                    </Label>
+                    <Input
+                      value={curationName}
+                      onChange={(e) => setCurationName(e.target.value)}
+                      placeholder="Artist name"
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Work Link (Optional)
+                    </Label>
+                    <Input
+                      type="url"
+                      value={curationLink}
+                      onChange={(e) => setCurationLink(e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <Button
+                    className={isMacOSTheme ? "aqua-button secondary" : ""}
+                    onClick={() => {
+                      onAddCurationSuggestion(
+                        project.id,
+                        curationName,
+                        curationLink
+                      );
+                      setCurationName("");
+                      setCurationLink("");
+                    }}
+                  >
+                    Add Suggestion
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-2">
+                <h3 
+                  className="font-semibold"
+                  style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                >
+                  Suggestions
+                </h3>
+                {project.curationSuggestions.map((suggestion) => {
+                  const voteCount = Object.values(suggestion.votes).filter(
+                    (v) => v
+                  ).length;
+                  const hasVoted = suggestion.votes[CURRENT_USER_ID] || false;
+                  return (
+                    <Card
+                      key={suggestion.id}
+                      className={cn(
+                        "relative overflow-hidden transition-all",
+                        isMacOSTheme && "border-none"
+                      )}
+                      style={
+                        isMacOSTheme
+                          ? {
+                              borderRadius: "8px",
+                              background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                              boxShadow: `
+                                0 2px 4px rgba(0, 0, 0, 0.14),
+                                0 1px 1px rgba(0, 0, 0, 0.25),
+                                inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                                inset 0 0 4px rgba(0, 0, 0, 0.05),
+                                inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                                inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                              `,
+                              WebkitFontSmoothing: "antialiased",
+                            }
+                          : {}
+                      }
+                    >
+                      {isMacOSTheme && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: "6px",
+                            right: "6px",
+                            top: "2px",
+                            height: "16px",
+                            background: "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2))",
+                            borderRadius: "8px 8px 4px 4px",
+                            filter: "blur(0.5px)",
+                            pointerEvents: "none",
+                            zIndex: 1,
+                          }}
+                        />
+                      )}
+                      <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div 
+                              className="font-medium"
+                              style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                            >
+                              {suggestion.name}
+                            </div>
+                            {suggestion.workLink && (
+                              <a
+                                href={suggestion.workLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                              >
+                                View Work
+                              </a>
+                            )}
+                          </div>
+                          <Button
+                            variant={isMacOSTheme ? "aqua_select" : "outline"}
+                            size="sm"
+                            onClick={() =>
+                              onVoteCuration(
+                                project.id,
+                                suggestion.id,
+                                CURRENT_USER_ID
+                              )
+                            }
+                            className={hasVoted && !isMacOSTheme ? "bg-blue-100" : ""}
+                            data-state={hasVoted ? "on" : "off"}
+                          >
+                            👍 {voteCount}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {project.curationSuggestions.length === 0 && (
+                  <div className="text-muted-foreground text-sm p-4">
+                    No suggestions yet. Add one above.
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent
+          value="lineup"
+          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
+        >
+          <ScrollArea className="flex-1">
+            <div className="space-y-4">
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    Search DJ Database
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <Input
+                    value={djSearchQuery}
+                    onChange={(e) => onDJSearchChange(e.target.value)}
+                    placeholder="Search by name, artist name, location..."
+                  />
+                  <Button
+                    variant={isMacOSTheme ? "aqua_select" : "outline"}
+                    onClick={() => onShowAddDJDialog(true)}
+                  >
+                    Add New DJ
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {showAddDJDialog && (
+                <Card
+                  className={cn(
+                    "relative overflow-hidden transition-all",
+                    isMacOSTheme && "border-none"
+                  )}
+                  style={
+                    isMacOSTheme
+                      ? {
+                          borderRadius: "8px",
+                          background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                          boxShadow: `
+                            0 2px 4px rgba(0, 0, 0, 0.14),
+                            0 1px 1px rgba(0, 0, 0, 0.25),
+                            inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                            inset 0 0 4px rgba(0, 0, 0, 0.05),
+                            inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                            inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                          `,
+                          WebkitFontSmoothing: "antialiased",
+                        }
+                      : {}
+                  }
+                >
+                  {isMacOSTheme && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "6px",
+                        right: "6px",
+                        top: "2px",
+                        height: "20px",
+                        background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                        borderRadius: "8px 8px 4px 4px",
+                        filter: "blur(0.5px)",
+                        pointerEvents: "none",
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                    <CardTitle
+                      style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                    >
+                      Add New DJ
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Name *
+                    </Label>
+                    <Input
+                      value={newDJForm.name || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({ ...newDJForm, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Artist Name *
+                    </Label>
+                    <Input
+                      value={newDJForm.artistName || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          artistName: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Contact Details
+                    </Label>
+                    <Input
+                      value={newDJForm.contactDetails || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          contactDetails: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Location *
+                    </Label>
+                    <Input
+                      value={newDJForm.location || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          location: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Creative Disciplines *
+                    </Label>
+                    <Input
+                      value={newDJForm.creativeDisciplines || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          creativeDisciplines: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., DJ / Producer / Live performer"
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Links to Work
+                    </Label>
+                    <Input
+                      value={newDJForm.linksToWork || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          linksToWork: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                      Genre
+                    </Label>
+                    <Input
+                      value={newDJForm.genre || ""}
+                      onChange={(e) =>
+                        onNewDJFormChange({
+                          ...newDJForm,
+                          genre: e.target.value,
+                        })
+                      }
+                      placeholder="Leave blank if not applicable"
+                    />
+                  </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        className={isMacOSTheme ? "aqua-button secondary" : ""}
+                        onClick={onAddNewDJ}
+                      >
+                        Add DJ
+                      </Button>
+                      <Button
+                        variant={isMacOSTheme ? "aqua_select" : "outline"}
+                        onClick={() => {
+                          onShowAddDJDialog(false);
+                          onNewDJFormChange({});
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="space-y-2">
+                <h3 
+                  className="font-semibold"
+                  style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                >
+                  Available DJs
+                </h3>
+                <div className="space-y-2">
+                  {djs.map((dj) => {
+                    const isAssigned = project.finalLineup.includes(dj.id);
+                    return (
+                      <Card
+                        key={dj.id}
+                        className={cn(
+                          "relative overflow-hidden transition-all",
+                          isMacOSTheme && "border-none"
+                        )}
+                        style={
+                          isMacOSTheme
+                            ? {
+                                borderRadius: "8px",
+                                background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                                boxShadow: `
+                                  0 2px 4px rgba(0, 0, 0, 0.14),
+                                  0 1px 1px rgba(0, 0, 0, 0.25),
+                                  inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                                  inset 0 0 4px rgba(0, 0, 0, 0.05),
+                                  inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                                  inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                                `,
+                                WebkitFontSmoothing: "antialiased",
+                              }
+                            : {}
+                        }
+                      >
+                        {isMacOSTheme && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: "6px",
+                              right: "6px",
+                              top: "2px",
+                              height: "16px",
+                              background: "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2))",
+                              borderRadius: "8px 8px 4px 4px",
+                              filter: "blur(0.5px)",
+                              pointerEvents: "none",
+                              zIndex: 1,
+                            }}
+                          />
+                        )}
+                        <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div 
+                                className="font-medium"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                              >
+                                {dj.name} ({dj.artistName})
+                              </div>
+                              <div 
+                                className="text-sm text-muted-foreground"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                              >
+                                {dj.location} • {dj.creativeDisciplines}
+                              </div>
+                              {dj.genre && (
+                                <div 
+                                  className="text-xs text-muted-foreground"
+                                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                >
+                                  {dj.genre}
+                                </div>
+                              )}
+                              {dj.linksToWork && (
+                                <a
+                                  href={
+                                    dj.linksToWork.startsWith("http")
+                                      ? dj.linksToWork
+                                      : `https://${dj.linksToWork}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                >
+                                  View Work
+                                </a>
+                              )}
+                            </div>
+                            <Button
+                              variant={isMacOSTheme ? (isAssigned ? "aqua_select" : "aqua_select") : (isAssigned ? "default" : "outline")}
+                              size="sm"
+                              onClick={() => onAssignDJ(project.id, dj.id)}
+                              data-state={isAssigned ? "on" : "off"}
+                            >
+                              {isAssigned ? "Remove" : "Assign"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  {djs.length === 0 && (
+                    <div className="text-muted-foreground text-sm p-4">
+                      No DJs found. Try a different search or add a new DJ.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    Final Lineup
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  {project.finalLineup.length > 0 ? (
+                    <div className="space-y-2">
+                      {project.finalLineup.map((djId) => {
+                        const dj = allDJs.find((d) => d.id === djId);
+                        if (!dj) return null;
+                        return (
+                          <div
+                            key={djId}
+                            className={cn(
+                              "p-2 rounded flex items-center justify-between relative overflow-hidden",
+                              isMacOSTheme ? "" : "bg-muted/50"
+                            )}
+                            style={
+                              isMacOSTheme
+                                ? {
+                                    borderRadius: "6px",
+                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                    border: "1px solid rgba(0, 0, 0, 0.08)",
+                                    boxShadow: `
+                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                    `,
+                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                                  }
+                                : {}
+                            }
+                          >
+                            {isMacOSTheme && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  left: "3px",
+                                  right: "3px",
+                                  top: "1px",
+                                  height: "10px",
+                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                                  borderRadius: "4px 4px 2px 2px",
+                                  filter: "blur(0.5px)",
+                                  pointerEvents: "none",
+                                  zIndex: 1,
+                                }}
+                              />
+                            )}
+                            <div className="relative z-10">
+                              <div 
+                                className="font-medium"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                              >
+                                {dj.name} ({dj.artistName})
+                              </div>
+                              <div 
+                                className="text-sm text-muted-foreground"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                              >
+                                {dj.location}
+                              </div>
+                            </div>
+                            <Button
+                              variant={isMacOSTheme ? "aqua_select" : "outline"}
+                              size="sm"
+                              onClick={() => onAssignDJ(project.id, djId)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      No DJs assigned yet. Search and assign above.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
