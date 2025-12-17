@@ -58,6 +58,9 @@ export function ActiveProjectsAppComponent({
   const [djSearchQuery, setDJSearchQuery] = useState("");
   const [showAddDJDialog, setShowAddDJDialog] = useState(false);
   const [newDJForm, setNewDJForm] = useState<Partial<DJ>>({});
+  const [djSearchPage, setDJSearchPage] = useState(1);
+  const [lineupPage, setLineupPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOSTheme = currentTheme === "macosx";
@@ -207,6 +210,16 @@ export function ActiveProjectsAppComponent({
   };
 
   const filteredDJs = searchDJs(djSearchQuery, djs);
+  
+  // Reset pagination when search query changes
+  useEffect(() => {
+    setDJSearchPage(1);
+  }, [djSearchQuery]);
+  
+  // Reset lineup pagination when project changes
+  useEffect(() => {
+    setLineupPage(1);
+  }, [selectedProjectId]);
 
   if (!isWindowOpen) return null;
 
@@ -442,6 +455,11 @@ export function ActiveProjectsAppComponent({
                 tabStyles={tabStyles}
                 isMobile={isMobile}
                 onBack={() => setSelectedProjectId(null)}
+                djSearchPage={djSearchPage}
+                onDJSearchPageChange={setDJSearchPage}
+                lineupPage={lineupPage}
+                onLineupPageChange={setLineupPage}
+                itemsPerPage={ITEMS_PER_PAGE}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -488,6 +506,11 @@ function ProjectDetailView({
   tabStyles,
   isMobile,
   onBack,
+  djSearchPage,
+  onDJSearchPageChange,
+  lineupPage,
+  onLineupPageChange,
+  itemsPerPage,
 }: {
   project: ActiveProject;
   djs: DJ[];
@@ -515,12 +538,29 @@ function ProjectDetailView({
   tabStyles: ReturnType<typeof getTabStyles>;
   isMobile: boolean;
   onBack: () => void;
+  djSearchPage: number;
+  onDJSearchPageChange: (page: number) => void;
+  lineupPage: number;
+  onLineupPageChange: (page: number) => void;
+  itemsPerPage: number;
 }) {
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOSTheme = currentTheme === "macosx";
   const [statusUpdateText, setStatusUpdateText] = useState("");
   const [curationName, setCurationName] = useState("");
   const [curationLink, setCurationLink] = useState("");
+
+  // Pagination logic for DJ search results
+  const totalDJPages = Math.ceil(djs.length / itemsPerPage);
+  const startDJIndex = (djSearchPage - 1) * itemsPerPage;
+  const endDJIndex = startDJIndex + itemsPerPage;
+  const paginatedDJs = djs.slice(startDJIndex, endDJIndex);
+
+  // Pagination logic for final lineup
+  const totalLineupPages = Math.ceil(project.finalLineup.length / itemsPerPage);
+  const startLineupIndex = (lineupPage - 1) * itemsPerPage;
+  const endLineupIndex = startLineupIndex + itemsPerPage;
+  const paginatedLineup = project.finalLineup.slice(startLineupIndex, endLineupIndex);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -1084,6 +1124,164 @@ function ProjectDetailView({
                   <CardTitle
                     style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                   >
+                    Final Lineup
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  {project.finalLineup.length > 0 ? (
+                    <div className="space-y-4">
+                      {totalLineupPages > 1 && (
+                        <div className="flex items-center justify-between text-sm text-muted-foreground pb-2 border-b">
+                          <span>
+                            Showing {startLineupIndex + 1}-{Math.min(endLineupIndex, project.finalLineup.length)} of {project.finalLineup.length} DJs
+                          </span>
+                          <span>
+                            Page {lineupPage} of {totalLineupPages}
+                          </span>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {paginatedLineup.map((djId) => {
+                        const dj = allDJs.find((d) => d.id === djId);
+                        if (!dj) return null;
+                        return (
+                          <div
+                            key={djId}
+                            className={cn(
+                              "p-2 rounded flex items-center justify-between relative overflow-hidden",
+                              isMacOSTheme ? "" : "bg-muted/50"
+                            )}
+                            style={
+                              isMacOSTheme
+                                ? {
+                                    borderRadius: "6px",
+                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                    border: "1px solid rgba(0, 0, 0, 0.08)",
+                                    boxShadow: `
+                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                    `,
+                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                                  }
+                                : {}
+                            }
+                          >
+                            {isMacOSTheme && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  left: "3px",
+                                  right: "3px",
+                                  top: "1px",
+                                  height: "10px",
+                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                                  borderRadius: "4px 4px 2px 2px",
+                                  filter: "blur(0.5px)",
+                                  pointerEvents: "none",
+                                  zIndex: 1,
+                                }}
+                              />
+                            )}
+                            <div className="relative z-10">
+                              <div 
+                                className="font-medium"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                              >
+                                {dj.name} ({dj.artistName})
+                              </div>
+                              <div 
+                                className="text-sm text-muted-foreground"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                              >
+                                {dj.location}
+                              </div>
+                            </div>
+                            <Button
+                              variant={isMacOSTheme ? "aqua_select" : "outline"}
+                              size="sm"
+                              onClick={() => onAssignDJ(project.id, djId)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        );
+                      })}
+                      </div>
+                      {totalLineupPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-4 border-t">
+                          <Button
+                            variant={isMacOSTheme ? "aqua_select" : "outline"}
+                            size="sm"
+                            onClick={() => onLineupPageChange(Math.max(1, lineupPage - 1))}
+                            disabled={lineupPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            Page {lineupPage} of {totalLineupPages}
+                          </span>
+                          <Button
+                            variant={isMacOSTheme ? "aqua_select" : "outline"}
+                            size="sm"
+                            onClick={() => onLineupPageChange(Math.min(totalLineupPages, lineupPage + 1))}
+                            disabled={lineupPage === totalLineupPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      No DJs assigned yet. Search and assign below.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <CardTitle
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
                     Search DJ Database
                   </CardTitle>
                 </CardHeader>
@@ -1269,14 +1467,23 @@ function ProjectDetailView({
               )}
 
               <div className="space-y-2">
-                <h3 
-                  className="font-semibold"
-                  style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                >
-                  Available DJs
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 
+                    className="font-semibold"
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                  >
+                    Available DJs {djs.length > 0 && `(${djs.length})`}
+                  </h3>
+                  {totalDJPages > 1 && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>
+                        Page {djSearchPage} of {totalDJPages}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-2">
-                  {djs.map((dj) => {
+                  {paginatedDJs.map((dj) => {
                     const isAssigned = project.finalLineup.includes(dj.id);
                     return (
                       <Card
@@ -1371,136 +1578,37 @@ function ProjectDetailView({
                       </Card>
                     );
                   })}
-                  {djs.length === 0 && (
+                  {paginatedDJs.length === 0 && (
                     <div className="text-muted-foreground text-sm p-4">
                       No DJs found. Try a different search or add a new DJ.
                     </div>
                   )}
                 </div>
+                {totalDJPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 pt-4">
+                    <Button
+                      variant={isMacOSTheme ? "aqua_select" : "outline"}
+                      size="sm"
+                      onClick={() => onDJSearchPageChange(Math.max(1, djSearchPage - 1))}
+                      disabled={djSearchPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {djSearchPage} of {totalDJPages}
+                    </span>
+                    <Button
+                      variant={isMacOSTheme ? "aqua_select" : "outline"}
+                      size="sm"
+                      onClick={() => onDJSearchPageChange(Math.min(totalDJPages, djSearchPage + 1))}
+                      disabled={djSearchPage === totalDJPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              <Card
-                className={cn(
-                  "relative overflow-hidden transition-all",
-                  isMacOSTheme && "border-none"
-                )}
-                style={
-                  isMacOSTheme
-                    ? {
-                        borderRadius: "8px",
-                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-                        boxShadow: `
-                          0 2px 4px rgba(0, 0, 0, 0.14),
-                          0 1px 1px rgba(0, 0, 0, 0.25),
-                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                          inset 0 0 4px rgba(0, 0, 0, 0.05),
-                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                        `,
-                        WebkitFontSmoothing: "antialiased",
-                      }
-                    : {}
-                }
-              >
-                {isMacOSTheme && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "6px",
-                      right: "6px",
-                      top: "2px",
-                      height: "20px",
-                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
-                      borderRadius: "8px 8px 4px 4px",
-                      filter: "blur(0.5px)",
-                      pointerEvents: "none",
-                      zIndex: 1,
-                    }}
-                  />
-                )}
-                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <CardTitle
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    Final Lineup
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
-                  {project.finalLineup.length > 0 ? (
-                    <div className="space-y-2">
-                      {project.finalLineup.map((djId) => {
-                        const dj = allDJs.find((d) => d.id === djId);
-                        if (!dj) return null;
-                        return (
-                          <div
-                            key={djId}
-                            className={cn(
-                              "p-2 rounded flex items-center justify-between relative overflow-hidden",
-                              isMacOSTheme ? "" : "bg-muted/50"
-                            )}
-                            style={
-                              isMacOSTheme
-                                ? {
-                                    borderRadius: "6px",
-                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
-                                    border: "1px solid rgba(0, 0, 0, 0.08)",
-                                    boxShadow: `
-                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
-                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
-                                    `,
-                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-                                  }
-                                : {}
-                            }
-                          >
-                            {isMacOSTheme && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  left: "3px",
-                                  right: "3px",
-                                  top: "1px",
-                                  height: "10px",
-                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
-                                  borderRadius: "4px 4px 2px 2px",
-                                  filter: "blur(0.5px)",
-                                  pointerEvents: "none",
-                                  zIndex: 1,
-                                }}
-                              />
-                            )}
-                            <div className="relative z-10">
-                              <div 
-                                className="font-medium"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
-                              >
-                                {dj.name} ({dj.artistName})
-                              </div>
-                              <div 
-                                className="text-sm text-muted-foreground"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                              >
-                                {dj.location}
-                              </div>
-                            </div>
-                            <Button
-                              variant={isMacOSTheme ? "aqua_select" : "outline"}
-                              size="sm"
-                              onClick={() => onAssignDJ(project.id, djId)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">
-                      No DJs assigned yet. Search and assign above.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           </ScrollArea>
         </TabsContent>
