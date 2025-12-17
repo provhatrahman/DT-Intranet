@@ -17,7 +17,8 @@ export type AppId =
   | "applet-viewer"
   | "control-panels"
   | "admin"
-  | "incoming-offers";
+  | "incoming-offers"
+  | "active-projects";
 
 /**
  * Get translated app name

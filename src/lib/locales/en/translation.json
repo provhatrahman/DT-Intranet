@@ -2052,6 +2052,10 @@
           "description": "Filter and sort offers by date, fee, or other criteria to find what you're looking for."
         }
       }
+    },
+    "active-projects": {
+      "name": "Active Projects",
+      "description": "Manage active projects and curations"
     }
   },
   "settings": {
