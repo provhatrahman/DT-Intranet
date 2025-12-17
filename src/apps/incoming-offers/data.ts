@@ -14,7 +14,7 @@ export interface Offer {
 export const dummyOffers: Offer[] = [
   {
     id: "1",
-    name: "Summer Vibes Festival",
+    name: "Summer BST Festival",
     description: "Main stage slot for a 1-hour set at the annual Summer Vibes festival. Looking for high energy house/techno.",
     promoter: "Vibes Events Co.",
     venue: "Hyde Park, London",
@@ -62,7 +62,7 @@ export const dummyOffers: Offer[] = [
   },
   {
     id: "5",
-    name: "Underground Club Night",
+    name: "Club Night at Fold",
     description: "Intimate basement gig. 300 cap venue. Pure techno.",
     promoter: "Darkroom",
     venue: "Fold, London",
