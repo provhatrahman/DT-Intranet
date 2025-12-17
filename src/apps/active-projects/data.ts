@@ -41,14 +41,14 @@ export interface ActiveProject {
 // Convert incoming offers to active projects with additional fields
 export const dummyProjects: ActiveProject[] = dummyOffers.map((offer, index) => {
   const sizes: ProjectSize[] = ["Small", "Med", "Large"];
-  const leads = ["Sarah Chen", "Mike Johnson", "Emma Williams", "David Lee"];
+  const leads = ["Dhillon", "Roop", "Kiran", "Izzi"];
   const teams = [
-    ["Sarah Chen", "Alex Brown"],
-    ["Mike Johnson", "Lisa Wang", "Tom Smith"],
-    ["Emma Williams"],
-    ["David Lee", "Sarah Chen", "Alex Brown"],
-    ["Mike Johnson", "Lisa Wang"],
-    ["Emma Williams", "David Lee"],
+    ["Dhillon", "Roop"],
+    ["Kiran", "Izzi", "Dhillon"],
+    ["Roop"],
+    ["Kiran", "Dhillon", "Izzi"],
+    ["Roop", "Kiran"],
+    ["Izzi", "Dhillon"],
   ];
   const deadlines = [
     "2024-06-15",

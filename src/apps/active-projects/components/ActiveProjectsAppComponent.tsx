@@ -632,29 +632,54 @@ function ProjectDetailView({
                   <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
                     <Calendar className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">Event Date: </span>
-                      <span className="text-sm font-medium">{project.date}</span>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Event Date</Label>
+                      <Input
+                        value={project.date}
+                        onChange={(e) =>
+                          onUpdateProject({ date: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                        placeholder="e.g., 2024-07-15 or July 2024"
+                      />
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
                     <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">Venue: </span>
-                      <span className="text-sm font-medium">{project.venue}</span>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Venue</Label>
+                      <Input
+                        value={project.venue}
+                        onChange={(e) =>
+                          onUpdateProject({ venue: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
                     <DollarSign className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">Fee: </span>
-                      <span className="text-sm font-medium">{project.fee}</span>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Fee</Label>
+                      <Input
+                        value={project.fee}
+                        onChange={(e) =>
+                          onUpdateProject({ fee: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 p-2 rounded-md bg-muted/30">
                     <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground">Timings: </span>
-                      <span className="text-sm font-medium">{project.timings}</span>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Timings</Label>
+                      <Input
+                        value={project.timings}
+                        onChange={(e) =>
+                          onUpdateProject({ timings: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                 </div>
@@ -666,8 +691,15 @@ function ProjectDetailView({
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-muted-foreground mb-1">Event Date</div>
-                      <div className="text-sm font-medium break-words">{project.date}</div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Event Date</Label>
+                      <Input
+                        value={project.date}
+                        onChange={(e) =>
+                          onUpdateProject({ date: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                        placeholder="e.g., 2024-07-15 or July 2024"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
@@ -675,8 +707,14 @@ function ProjectDetailView({
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-muted-foreground mb-1">Venue</div>
-                      <div className="text-sm font-medium break-words">{project.venue}</div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Venue</Label>
+                      <Input
+                        value={project.venue}
+                        onChange={(e) =>
+                          onUpdateProject({ venue: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
@@ -684,8 +722,14 @@ function ProjectDetailView({
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-muted-foreground mb-1">Fee</div>
-                      <div className="text-sm font-medium break-words">{project.fee}</div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Fee</Label>
+                      <Input
+                        value={project.fee}
+                        onChange={(e) =>
+                          onUpdateProject({ fee: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
@@ -693,8 +737,14 @@ function ProjectDetailView({
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-muted-foreground mb-1">Timings</div>
-                      <div className="text-sm font-medium break-words">{project.timings}</div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">Timings</Label>
+                      <Input
+                        value={project.timings}
+                        onChange={(e) =>
+                          onUpdateProject({ timings: e.target.value })
+                        }
+                        className="text-sm font-medium h-8"
+                      />
                     </div>
                   </div>
                 </div>
@@ -816,14 +866,18 @@ function ProjectDetailView({
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center gap-2 p-2 rounded-md bg-muted/20">
-                      <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <div>
-                        <span className="text-xs text-muted-foreground">Promoter:</span>
-                        <span className="ml-2 font-medium" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                          {project.promoter}
-                        </span>
-                      </div>
+                    <div className="min-w-0">
+                      <Label className="text-xs mb-2 flex items-center gap-2" style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                        <Building2 className="h-3.5 w-3.5" />
+                        Promoter
+                      </Label>
+                      <Input
+                        value={project.promoter}
+                        onChange={(e) =>
+                          onUpdateProject({ promoter: e.target.value })
+                        }
+                        className="w-full"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1432,7 +1486,7 @@ function ProjectDetailView({
                         Add DJ
                       </Button>
                       <Button
-                        variant="outline"
+                        className={isMacOSTheme ? "aqua-button secondary" : ""}
                         onClick={() => {
                           onNewDJFormChange({});
                           onShowAddDJDialog(false);
