@@ -392,8 +392,7 @@ function OfferCard({
                     active={votes.accept}
                     count={counts?.accept || 0}
                     onClick={() => onVote("accept")}
-                    className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
-                    activeClassName="bg-green-500 text-white hover:bg-green-600 border-green-600"
+                    color="green"
                  >
                     We should do this
                  </VoteButton>
@@ -401,8 +400,7 @@ function OfferCard({
                      active={votes.interested}
                      count={counts?.interested || 0}
                      onClick={() => onVote("interested")}
-                     className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                     activeClassName="bg-blue-500 text-white hover:bg-blue-600 border-blue-600"
+                     color="blue"
                  >
                     I'm Interested
                  </VoteButton>
@@ -410,8 +408,7 @@ function OfferCard({
                      active={votes.decline}
                      count={counts?.decline || 0}
                      onClick={() => onVote("decline")}
-                     className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
-                     activeClassName="bg-red-500 text-white hover:bg-red-600 border-red-600"
+                     color="red"
                  >
                     Decline
                  </VoteButton>
@@ -419,8 +416,7 @@ function OfferCard({
                      active={votes.recommend}
                      count={counts?.recommend || 0}
                      onClick={() => onVote("recommend")}
-                     className="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800"
-                     activeClassName="bg-orange-500 text-white hover:bg-orange-600 border-orange-600"
+                     color="orange"
                  >
                     Recommend Other
                  </VoteButton>
@@ -435,146 +431,52 @@ function VoteButton({
     count, 
     onClick, 
     children,
-    className,
-    activeClassName 
+    color
 }: { 
     active: boolean; 
     count: number; 
     onClick: () => void; 
     children: React.ReactNode;
-    className?: string;
-    activeClassName?: string;
+    color: "green" | "blue" | "red" | "orange";
 }) {
-    const currentTheme = useThemeStore((state) => state.current);
-    const isMacOSTheme = currentTheme === "macosx";
-    const [isFocused, setIsFocused] = React.useState(false);
-    const [isPressed, setIsPressed] = React.useState(false);
-
-    // Determine color scheme from className
-    const isGreen = className?.includes("green");
-    const isBlue = className?.includes("blue");
-    const isRed = className?.includes("red");
-    const isOrange = className?.includes("orange");
-
-    // Get color-specific gradients for bubbly style
-    const getBubblyGradient = () => {
-        if (active) {
-            if (isGreen) {
-                return isPressed
-                    ? "linear-gradient(rgba(34, 197, 94, 0.8), rgba(22, 163, 74, 0.8))"
-                    : "linear-gradient(rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))";
-            }
-            if (isBlue) {
-                return isPressed
-                    ? "linear-gradient(rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8))"
-                    : "linear-gradient(rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9))";
-            }
-            if (isRed) {
-                return isPressed
-                    ? "linear-gradient(rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.8))"
-                    : "linear-gradient(rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))";
-            }
-            if (isOrange) {
-                return isPressed
-                    ? "linear-gradient(rgba(249, 115, 22, 0.8), rgba(234, 88, 12, 0.8))"
-                    : "linear-gradient(rgba(249, 115, 22, 0.9), rgba(234, 88, 12, 0.9))";
-            }
+    const getColorOverlay = () => {
+        if (color === "green") {
+            return active 
+                ? "rgba(34, 197, 94, 0.75)" 
+                : "rgba(34, 197, 94, 0.6)";
         }
-        // Default bubbly gradient for inactive state with subtle color tint
-        if (isGreen) {
-            return isPressed
-                ? "linear-gradient(rgba(140, 180, 140, 0.625), rgba(235, 255, 235, 0.625))"
-                : "linear-gradient(rgba(160, 200, 160, 0.625), rgba(255, 255, 255, 0.625))";
+        if (color === "blue") {
+            return active 
+                ? "rgba(59, 130, 246, 0.75)" 
+                : "rgba(59, 130, 246, 0.6)";
         }
-        if (isBlue) {
-            return isPressed
-                ? "linear-gradient(rgba(140, 160, 180, 0.625), rgba(235, 245, 255, 0.625))"
-                : "linear-gradient(rgba(160, 180, 200, 0.625), rgba(255, 255, 255, 0.625))";
+        if (color === "red") {
+            return active 
+                ? "rgba(239, 68, 68, 0.75)" 
+                : "rgba(239, 68, 68, 0.6)";
         }
-        if (isRed) {
-            return isPressed
-                ? "linear-gradient(rgba(180, 140, 140, 0.625), rgba(255, 235, 235, 0.625))"
-                : "linear-gradient(rgba(200, 160, 160, 0.625), rgba(255, 255, 255, 0.625))";
+        if (color === "orange") {
+            return active 
+                ? "rgba(249, 115, 22, 0.75)" 
+                : "rgba(249, 115, 22, 0.6)";
         }
-        if (isOrange) {
-            return isPressed
-                ? "linear-gradient(rgba(180, 160, 140, 0.625), rgba(255, 245, 235, 0.625))"
-                : "linear-gradient(rgba(200, 180, 160, 0.625), rgba(255, 255, 255, 0.625))";
-        }
-        // Default gray bubbly gradient
-        return isPressed
-            ? "linear-gradient(rgba(140, 140, 140, 0.625), rgba(235, 235, 235, 0.625))"
-            : "linear-gradient(rgba(160, 160, 160, 0.625), rgba(255, 255, 255, 0.625))";
-    };
-
-    const getBubblyShadow = () => {
-        if (isPressed) {
-            return "inset 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.2)";
-        }
-        if (isFocused || active) {
-            const glowColor = isGreen ? "rgba(34, 197, 94, 0.4)" 
-                : isBlue ? "rgba(59, 130, 246, 0.4)"
-                : isRed ? "rgba(239, 68, 68, 0.4)"
-                : isOrange ? "rgba(249, 115, 22, 0.4)"
-                : "rgba(0, 0, 0, 0.3)";
-            return `0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 3px ${glowColor}`;
-        }
-        return "0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3)";
-    };
-
-    const getTextColor = () => {
-        if (active && isMacOSTheme) {
-            return "white";
-        }
-        if (isMacOSTheme) {
-            return "black";
-        }
-        return undefined; // Use default from className
+        return "transparent";
     };
 
     return (
         <Button
-            variant="outline"
-            size="sm"
+            variant="retro"
             onClick={onClick}
             className={cn(
-                "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center transition-all w-full",
-                !isMacOSTheme && className,
-                !isMacOSTheme && active && activeClassName
+                "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none focus:ring-0 relative overflow-hidden",
+                active && "[border-image:url('/assets/button-default.svg')_60_stretch]"
             )}
             style={{
-                ...(isMacOSTheme && {
-                    borderRadius: "6px",
-                    position: "relative",
-                    overflow: "hidden",
-                    cursor: "default",
-                    border: "none",
-                    boxSizing: "border-box",
-                    WebkitFontSmoothing: "antialiased",
-                    background: getBubblyGradient(),
-                    boxShadow: getBubblyShadow(),
-                    color: getTextColor(),
-                    textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
-                }),
-            }}
-            onFocus={(e) => {
-                setIsFocused(true);
-            }}
-            onBlur={(e) => {
-                setIsFocused(false);
-            }}
-            onMouseDown={(e) => {
-                setIsPressed(true);
-            }}
-            onMouseUp={(e) => {
-                setIsPressed(false);
-            }}
-            onMouseLeave={(e) => {
-                setIsPressed(false);
+                backgroundColor: getColorOverlay(),
             }}
         >
-            <span className="font-semibold text-[10px] leading-tight text-center">{children}</span>
-            <span className="text-[9px] opacity-80">({count})</span>
+            <span className="font-semibold text-[10px] leading-tight text-center relative z-10">{children}</span>
+            <span className="text-[9px] opacity-80 relative z-10">({count})</span>
         </Button>
     )
 }
