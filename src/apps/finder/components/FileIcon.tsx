@@ -126,16 +126,16 @@ export function FileIcon({
 
   const sizeClasses = {
     small: {
-      container: "w-[80px]",
+      container: "w-[110px]",
       icon: "w-12 h-12",
       image: "w-[32px] h-[32px]",
-      text: "text-[10px] max-w-[90px]",
+      text: "text-[10px] max-w-[110px]",
     },
     large: {
-      container: "w-24",
+      container: "w-[120px]",
       icon: "w-16 h-16",
       image: "w-12 h-12",
-      text: "text-[12px] max-w-[96px]",
+      text: "text-[12px] max-w-[120px]",
     },
   };
 

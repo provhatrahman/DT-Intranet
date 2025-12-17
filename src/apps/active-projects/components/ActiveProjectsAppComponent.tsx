@@ -1278,7 +1278,7 @@ function ProjectDetailView({
           className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4 pb-4">
+            <div className="space-y-4">
               <Card
                 className={cn(
                   "relative overflow-hidden transition-all",
@@ -1325,7 +1325,7 @@ function ProjectDetailView({
                     Final Lineup
                   </CardTitle>
                 </CardHeader>
-                <CardContent className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
                   {project.finalLineup.length > 0 ? (
                     <div className="space-y-4">
                       {totalLineupPages > 1 && (
@@ -1346,7 +1346,7 @@ function ProjectDetailView({
                           <div
                             key={djId}
                             className={cn(
-                              "p-2 rounded flex items-center justify-between relative overflow-hidden",
+                              "p-2 rounded flex items-center justify-between gap-3 relative overflow-hidden",
                               isMacOSTheme ? "" : "bg-muted/50"
                             )}
                             style={
@@ -1380,15 +1380,15 @@ function ProjectDetailView({
                                 }}
                               />
                             )}
-                            <div className="relative z-10">
+                            <div className="relative z-10 flex-1 min-w-0 pr-2">
                               <div 
-                                className="font-medium"
+                                className="font-medium truncate"
                                 style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
                               >
                                 {dj.name} ({dj.artistName})
                               </div>
                               <div 
-                                className="text-sm text-muted-foreground"
+                                className="text-sm text-muted-foreground truncate"
                                 style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                               >
                                 {dj.location}
@@ -1398,6 +1398,7 @@ function ProjectDetailView({
                               variant={isMacOSTheme ? "aqua_select" : "outline"}
                               size="sm"
                               onClick={() => onAssignDJ(project.id, djId)}
+                              className="shrink-0"
                             >
                               Remove
                             </Button>
@@ -1483,7 +1484,7 @@ function ProjectDetailView({
                     Search DJ Database
                   </CardTitle>
                 </CardHeader>
-                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
+                <CardContent className={cn("p-4 space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
                   <Input
                     value={djSearchQuery}
                     onChange={(e) => onDJSearchChange(e.target.value)}
@@ -1725,23 +1726,23 @@ function ProjectDetailView({
                           />
                         )}
                         <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
                               <div 
-                                className="font-medium"
+                                className="font-medium truncate"
                                 style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
                               >
                                 {dj.name} ({dj.artistName})
                               </div>
                               <div 
-                                className="text-sm text-muted-foreground"
+                                className="text-sm text-muted-foreground truncate"
                                 style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                               >
                                 {dj.location} • {dj.creativeDisciplines}
                               </div>
                               {dj.genre && (
                                 <div 
-                                  className="text-xs text-muted-foreground"
+                                  className="text-xs text-muted-foreground truncate"
                                   style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                                 >
                                   {dj.genre}
@@ -1756,7 +1757,7 @@ function ProjectDetailView({
                                   }
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline"
+                                  className="text-xs text-blue-600 hover:underline truncate block"
                                   style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                                 >
                                   View Work
@@ -1768,6 +1769,7 @@ function ProjectDetailView({
                               size="sm"
                               onClick={() => onAssignDJ(project.id, dj.id)}
                               data-state={isAssigned ? "on" : "off"}
+                              className="shrink-0"
                             >
                               {isAssigned ? "Remove" : "Assign"}
                             </Button>
