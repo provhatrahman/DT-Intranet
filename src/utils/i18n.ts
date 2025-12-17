@@ -16,7 +16,8 @@ export type AppId =
   | "terminal"
   | "applet-viewer"
   | "control-panels"
-  | "admin";
+  | "admin"
+  | "incoming-offers";
 
 /**
  * Get translated app name

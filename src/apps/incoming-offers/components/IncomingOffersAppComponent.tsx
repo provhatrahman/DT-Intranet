@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -402,7 +401,7 @@ function OfferCard({
                      onClick={() => onVote("interested")}
                      color="blue"
                  >
-                    I'm Interested
+                    I'd like to be involved
                  </VoteButton>
                  <VoteButton
                      active={votes.decline}
