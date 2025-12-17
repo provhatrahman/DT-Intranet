@@ -1080,7 +1080,7 @@ function ProjectDetailView({
           className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4">
               <Card
                 className={cn(
                   "relative overflow-hidden transition-all",
