@@ -336,9 +336,7 @@ function OfferCard({
                   {offer.promoter}
                 </CardDescription>
             </div>
-            <Badge variant={offer.source === 'email' ? 'secondary' : 'outline'}>
-                {offer.source}
-            </Badge>
+            <SourceBadge source={offer.source} />
         </div>
       </CardHeader>
       <CardContent 
@@ -367,7 +365,7 @@ function OfferCard({
             </div>
             <div className="flex flex-col">
                 <span className="text-muted-foreground font-medium">Venue</span>
-                <span className="truncate" title={offer.venue}>{offer.venue}</span>
+                <span className="break-words">{offer.venue}</span>
             </div>
              <div className="flex flex-col">
                 <span className="text-muted-foreground font-medium">Time</span>
@@ -424,6 +422,79 @@ function OfferCard({
       </CardFooter>
     </Card>
   );
+}
+
+function SourceBadge({ source }: { source: "email" | "form" }) {
+    const currentTheme = useThemeStore((state) => state.current);
+    const isMacOSTheme = currentTheme === "macosx";
+    
+    const isEmail = source === "email";
+    
+    if (!isMacOSTheme) {
+        return (
+            <Badge variant={isEmail ? 'secondary' : 'outline'}>
+                {source}
+            </Badge>
+        );
+    }
+    
+    // macOS Aqua styling
+    const getColorScheme = () => {
+        if (isEmail) {
+            return {
+                gradient: "linear-gradient(to bottom, rgba(200, 220, 255, 0.9), rgba(180, 200, 240, 0.9))",
+                textShadow: "0 1px 2px rgba(0, 0, 0, 0.15)",
+            };
+        } else {
+            return {
+                gradient: "linear-gradient(to bottom, rgba(255, 240, 200, 0.9), rgba(255, 220, 180, 0.9))",
+                textShadow: "0 1px 2px rgba(0, 0, 0, 0.15)",
+            };
+        }
+    };
+    
+    const colorScheme = getColorScheme();
+    
+    return (
+        <span
+            className="relative inline-flex items-center justify-center px-2.5 py-0.5 text-[10px] font-medium rounded-md overflow-hidden"
+            style={{
+                background: colorScheme.gradient,
+                boxShadow: `
+                    0 2px 4px rgba(0, 0, 0, 0.14),
+                    0 1px 1px rgba(0, 0, 0, 0.25),
+                    inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                    inset 0 0 4px rgba(0, 0, 0, 0.05),
+                    inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                    inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                `,
+                color: "black",
+                textShadow: colorScheme.textShadow,
+                WebkitFontSmoothing: "antialiased",
+                border: "none",
+                cursor: "default",
+                minHeight: "18px",
+                lineHeight: 1.2,
+            }}
+        >
+            {/* Top shine effect */}
+            <div
+                style={{
+                    position: "absolute",
+                    left: "3px",
+                    right: "3px",
+                    top: "1px",
+                    height: "8px",
+                    background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                    borderRadius: "6px 6px 2px 2px",
+                    filter: "blur(0.5px)",
+                    pointerEvents: "none",
+                    zIndex: 1,
+                }}
+            />
+            <span className="relative z-10 uppercase tracking-wide">{source}</span>
+        </span>
+    );
 }
 
 function VoteButton({ 
