@@ -2026,6 +2026,32 @@
           "description": "View system statistics and usage metrics."
         }
       }
+    },
+    "incoming-offers": {
+      "name": "Incoming Offers",
+      "description": "Browse incoming gig and brand offers",
+      "menu": {
+        "incomingOffersHelp": "Incoming Offers Help",
+        "aboutIncomingOffers": "About Incoming Offers"
+      },
+      "help": {
+        "viewingOffers": {
+          "title": "Viewing Offers",
+          "description": "Browse incoming gig and brand offers in a card-based dashboard. Each card shows key details like dates, venue, fee, and promoter."
+        },
+        "voting": {
+          "title": "Voting",
+          "description": "Vote on offers with options: Accept, Interested, Decline, or Recommend. You can select both Accept and Interested together."
+        },
+        "voteCounts": {
+          "title": "Vote Counts",
+          "description": "See aggregated vote counts from all team members for each offer option."
+        },
+        "filtering": {
+          "title": "Filtering",
+          "description": "Filter and sort offers by date, fee, or other criteria to find what you're looking for."
+        }
+      }
     }
   },
   "settings": {

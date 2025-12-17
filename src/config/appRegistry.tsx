@@ -178,6 +178,11 @@ const LazyAdminApp = createLazyComponent<unknown>(
   "admin"
 );
 
+const LazyIncomingOffersApp = createLazyComponent<unknown>(
+  () => import("@/apps/incoming-offers/components/IncomingOffersAppComponent").then(m => ({ default: m.IncomingOffersAppComponent })),
+  "incoming-offers"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -198,6 +203,7 @@ import { appMetadata as terminalMetadata, helpItems as terminalHelpItems } from 
 import { appMetadata as appletViewerMetadata, helpItems as appletViewerHelpItems } from "@/apps/applet-viewer";
 import { appMetadata as controlPanelsMetadata, helpItems as controlPanelsHelpItems } from "@/apps/control-panels";
 import { appMetadata as adminMetadata, helpItems as adminHelpItems } from "@/apps/admin";
+import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
 
 // ============================================================================
 // APP REGISTRY
@@ -424,6 +430,19 @@ export const appRegistry = {
     adminOnly: true, // Only visible to admin user (ryo)
     windowConfig: {
       defaultSize: { width: 800, height: 500 },
+      minSize: { width: 600, height: 400 },
+    } as WindowConstraints,
+  },
+  ["incoming-offers"]: {
+    id: "incoming-offers",
+    name: "Incoming Offers",
+    icon: { type: "image", src: incomingOffersMetadata.icon },
+    description: "Incoming gig and brand offers",
+    component: LazyIncomingOffersApp,
+    helpItems: incomingOffersHelpItems,
+    metadata: incomingOffersMetadata,
+    windowConfig: {
+      defaultSize: { width: 900, height: 600 },
       minSize: { width: 600, height: 400 },
     } as WindowConstraints,
   },
