@@ -55,9 +55,6 @@ export function IncomingOffersAppComponent({
   
   // Local state to track user's votes: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
-  
-  // Mock aggregated counts (base counts + user votes)
-  const [aggregatedCounts, setAggregatedCounts] = useState<Record<string, VoteCounts>>(initialVoteCounts);
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
@@ -69,6 +66,23 @@ export function IncomingOffersAppComponent({
       setUserVotes(JSON.parse(savedVotes));
     }
   }, []);
+
+  // Calculate aggregated counts: base counts + user's vote (1 if voted, 0 if not)
+  const aggregatedCounts = React.useMemo(() => {
+    const counts: Record<string, VoteCounts> = {};
+    offers.forEach((offer) => {
+      const baseCounts = initialVoteCounts[offer.id] || { accept: 0, interested: 0, decline: 0, recommend: 0 };
+      const userVote = userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false };
+      
+      counts[offer.id] = {
+        accept: baseCounts.accept + (userVote.accept ? 1 : 0),
+        interested: baseCounts.interested + (userVote.interested ? 1 : 0),
+        decline: baseCounts.decline + (userVote.decline ? 1 : 0),
+        recommend: baseCounts.recommend + (userVote.recommend ? 1 : 0),
+      };
+    });
+    return counts;
+  }, [userVotes, offers]);
 
   const handleVote = (offerId: string, option: VoteOption) => {
     setUserVotes((prev) => {
@@ -90,6 +104,9 @@ export function IncomingOffersAppComponent({
         }
       } else if (option === "interested") {
         newVote.interested = !newVote.interested;
+        // If interested, also set accept to true (they are linked)
+        // If unclicking interested, also unclick accept
+        newVote.accept = newVote.interested;
         // If interested, clear decline/recommend
         if (newVote.interested) {
             newVote.decline = false;
@@ -116,23 +133,8 @@ export function IncomingOffersAppComponent({
       const newVotes = { ...prev, [offerId]: newVote };
       localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
       
-      // Update aggregated counts (mock logic: simply add user vote to base counts)
-      // In a real app, this would be handled by the backend
-      updateAggregatedCounts(offerId, currentVote, newVote);
-      
       return newVotes;
     });
-  };
-
-  const updateAggregatedCounts = (offerId: string, oldVote: UserVote, newVote: UserVote) => {
-      setAggregatedCounts(prev => {
-          const counts = { ...prev[offerId] };
-          if (newVote.accept !== oldVote.accept) counts.accept += newVote.accept ? 1 : -1;
-          if (newVote.interested !== oldVote.interested) counts.interested += newVote.interested ? 1 : -1;
-          if (newVote.decline !== oldVote.decline) counts.decline += newVote.decline ? 1 : -1;
-          if (newVote.recommend !== oldVote.recommend) counts.recommend += newVote.recommend ? 1 : -1;
-          return { ...prev, [offerId]: counts };
-      });
   };
 
   const filteredOffers = offers
