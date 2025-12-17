@@ -33,7 +33,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User, Clock, DollarSign, Building2, Link as LinkIcon, Target, AlertCircle, CheckCircle2, TrendingUp } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User, Clock, DollarSign, Building2, Link as LinkIcon, Target, AlertCircle, CheckCircle2, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 
 const CURRENT_USER_ID = "user-1"; // Dummy user ID for voting
 
@@ -1275,10 +1275,10 @@ function ProjectDetailView({
 
         <TabsContent
           value="lineup"
-          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
+          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0", isMobile ? "p-2" : "p-4")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
+            <div className={cn("space-y-4 w-full min-w-0 max-w-full", isMobile ? "pr-2" : "pr-4")}>
               <Card
                 className={cn(
                   "relative overflow-hidden transition-all",
@@ -1326,115 +1326,9 @@ function ProjectDetailView({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                  {project.finalLineup.length > 0 ? (
-                    <div className="space-y-4">
-                      {totalLineupPages > 1 && (
-                        <div className="flex items-center justify-between text-sm text-muted-foreground pb-2 border-b">
-                          <span>
-                            Showing {startLineupIndex + 1}-{Math.min(endLineupIndex, project.finalLineup.length)} of {project.finalLineup.length} DJs
-                          </span>
-                          <span>
-                            Page {lineupPage} of {totalLineupPages}
-                          </span>
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        {paginatedLineup.map((djId) => {
-                        const dj = allDJs.find((d) => d.id === djId);
-                        if (!dj) return null;
-                        return (
-                          <div
-                            key={djId}
-                            className={cn(
-                              "p-2 rounded flex items-center justify-between gap-3 relative overflow-hidden",
-                              isMacOSTheme ? "" : "bg-muted/50"
-                            )}
-                            style={
-                              isMacOSTheme
-                                ? {
-                                    borderRadius: "6px",
-                                    background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
-                                    border: "1px solid rgba(0, 0, 0, 0.08)",
-                                    boxShadow: `
-                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
-                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
-                                    `,
-                                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-                                  }
-                                : {}
-                            }
-                          >
-                            {isMacOSTheme && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  left: "3px",
-                                  right: "3px",
-                                  top: "1px",
-                                  height: "10px",
-                                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
-                                  borderRadius: "4px 4px 2px 2px",
-                                  filter: "blur(0.5px)",
-                                  pointerEvents: "none",
-                                  zIndex: 1,
-                                }}
-                              />
-                            )}
-                            <div className="relative z-10 flex-1 min-w-0 pr-2">
-                              <div 
-                                className="font-medium truncate"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
-                              >
-                                {dj.name} ({dj.artistName})
-                              </div>
-                              <div 
-                                className="text-sm text-muted-foreground truncate"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                              >
-                                {dj.location}
-                              </div>
-                            </div>
-                            <Button
-                              variant={isMacOSTheme ? "aqua_select" : "outline"}
-                              size="sm"
-                              onClick={() => onAssignDJ(project.id, djId)}
-                              className="shrink-0"
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        );
-                      })}
-                      </div>
-                      {totalLineupPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-4 border-t">
-                          <Button
-                            variant={isMacOSTheme ? "aqua_select" : "outline"}
-                            size="sm"
-                            onClick={() => onLineupPageChange(Math.max(1, lineupPage - 1))}
-                            disabled={lineupPage === 1}
-                          >
-                            Previous
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            Page {lineupPage} of {totalLineupPages}
-                          </span>
-                          <Button
-                            variant={isMacOSTheme ? "aqua_select" : "outline"}
-                            size="sm"
-                            onClick={() => onLineupPageChange(Math.min(totalLineupPages, lineupPage + 1))}
-                            disabled={lineupPage === totalLineupPages}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">
-                      No DJs assigned yet. Search and assign below.
-                    </div>
-                  )}
+                  <div className="text-muted-foreground text-sm">
+                    No DJs assigned yet. Search and assign below.
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1499,316 +1393,215 @@ function ProjectDetailView({
                 </CardContent>
               </Card>
 
-              {showAddDJDialog && (
-                <Card
-                  className={cn(
-                    "relative overflow-hidden transition-all",
-                    isMacOSTheme && "border-none"
-                  )}
-                  style={
-                    isMacOSTheme
-                      ? {
-                          borderRadius: "8px",
-                          background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-                          boxShadow: `
-                            0 2px 4px rgba(0, 0, 0, 0.14),
-                            0 1px 1px rgba(0, 0, 0, 0.25),
-                            inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                            inset 0 0 4px rgba(0, 0, 0, 0.05),
-                            inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                            inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                          `,
-                          WebkitFontSmoothing: "antialiased",
-                        }
-                      : {}
-                  }
-                >
-                  {isMacOSTheme && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: "6px",
-                        right: "6px",
-                        top: "2px",
-                        height: "20px",
-                        background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
-                        borderRadius: "8px 8px 4px 4px",
-                        filter: "blur(0.5px)",
-                        pointerEvents: "none",
-                        zIndex: 1,
-                      }}
-                    />
-                  )}
-                  <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+              <Card
+                className={cn(
+                  "relative overflow-hidden transition-all w-full max-w-full",
+                  isMacOSTheme && "border-none"
+                )}
+                style={
+                  isMacOSTheme
+                    ? {
+                        borderRadius: "8px",
+                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                        boxShadow: `
+                          0 2px 4px rgba(0, 0, 0, 0.14),
+                          0 1px 1px rgba(0, 0, 0, 0.25),
+                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                        `,
+                        WebkitFontSmoothing: "antialiased",
+                      }
+                    : {}
+                }
+              >
+                {isMacOSTheme && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      right: "6px",
+                      top: "2px",
+                      height: "20px",
+                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+                      borderRadius: "8px 8px 4px 4px",
+                      filter: "blur(0.5px)",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
+                  <div className="flex items-center justify-between">
                     <CardTitle
                       style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                     >
-                      Add New DJ
+                      DJ Database Results
                     </CardTitle>
-                  </CardHeader>
-                  <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Name *
-                    </Label>
-                    <Input
-                      value={newDJForm.name || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({ ...newDJForm, name: e.target.value })
-                      }
-                    />
+                    {djs.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {djs.length} {djs.length === 1 ? "DJ" : "DJs"}
+                      </Badge>
+                    )}
                   </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Artist Name *
-                    </Label>
-                    <Input
-                      value={newDJForm.artistName || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          artistName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Contact Details
-                    </Label>
-                    <Input
-                      value={newDJForm.contactDetails || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          contactDetails: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Location *
-                    </Label>
-                    <Input
-                      value={newDJForm.location || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          location: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Creative Disciplines *
-                    </Label>
-                    <Input
-                      value={newDJForm.creativeDisciplines || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          creativeDisciplines: e.target.value,
-                        })
-                      }
-                      placeholder="e.g., DJ / Producer / Live performer"
-                    />
-                  </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Links to Work
-                    </Label>
-                    <Input
-                      value={newDJForm.linksToWork || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          linksToWork: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
-                      Genre
-                    </Label>
-                    <Input
-                      value={newDJForm.genre || ""}
-                      onChange={(e) =>
-                        onNewDJFormChange({
-                          ...newDJForm,
-                          genre: e.target.value,
-                        })
-                      }
-                      placeholder="Leave blank if not applicable"
-                    />
-                  </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        className={isMacOSTheme ? "aqua-button secondary" : ""}
-                        onClick={onAddNewDJ}
-                      >
-                        Add DJ
-                      </Button>
-                      <Button
-                        className={isMacOSTheme ? "aqua-button secondary" : ""}
-                        onClick={() => {
-                          onShowAddDJDialog(false);
-                          onNewDJFormChange({});
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                </CardHeader>
+                <CardContent className={cn("relative z-10 w-full min-w-0 box-border", isMacOSTheme && "bg-transparent", isMobile ? "p-3" : "p-4")}>
+                  {paginatedDJs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Music className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No DJs found</p>
+                      <p className="text-xs mt-1">
+                        {djSearchQuery ? "Try adjusting your search query" : "Add a new DJ above"}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 
-                    className="font-semibold"
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    Available DJs {djs.length > 0 && `(${djs.length})`}
-                  </h3>
-                  {totalDJPages > 1 && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>
-                        Page {djSearchPage} of {totalDJPages}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {paginatedDJs.map((dj) => {
-                    const isAssigned = project.finalLineup.includes(dj.id);
-                    return (
-                      <Card
-                        key={dj.id}
-                        className={cn(
-                          "relative overflow-hidden transition-all",
-                          isMacOSTheme && "border-none"
-                        )}
-                        style={
-                          isMacOSTheme
-                            ? {
-                                borderRadius: "8px",
-                                background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-                                boxShadow: `
-                                  0 2px 4px rgba(0, 0, 0, 0.14),
-                                  0 1px 1px rgba(0, 0, 0, 0.25),
-                                  inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                                  inset 0 0 4px rgba(0, 0, 0, 0.05),
-                                  inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                                  inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                                `,
-                                WebkitFontSmoothing: "antialiased",
+                  ) : (
+                    <>
+                      <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4 w-full min-w-0", isMobile && "gap-3")}>
+                        {paginatedDJs.map((dj) => {
+                          const isAssigned = project.finalLineup.includes(dj.id);
+                          return (
+                            <Card
+                              key={dj.id}
+                              className={cn(
+                                "relative overflow-hidden transition-all cursor-pointer w-full min-w-0",
+                                isMacOSTheme && "border-none",
+                                isAssigned && "ring-2 ring-primary"
+                              )}
+                              style={
+                                isMacOSTheme
+                                  ? {
+                                      borderRadius: "8px",
+                                      background: isAssigned
+                                        ? "linear-gradient(to bottom, rgba(48, 123, 201, 0.1), rgba(152, 189, 228, 0.1))"
+                                        : "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+                                      boxShadow: `
+                                        0 2px 4px rgba(0, 0, 0, 0.14),
+                                        0 1px 1px rgba(0, 0, 0, 0.25),
+                                        inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                                        inset 0 0 4px rgba(0, 0, 0, 0.05),
+                                        inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                                        inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                                      `,
+                                      WebkitFontSmoothing: "antialiased",
+                                    }
+                                  : {}
                               }
-                            : {}
-                        }
-                      >
-                        {isMacOSTheme && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              left: "6px",
-                              right: "6px",
-                              top: "2px",
-                              height: "16px",
-                              background: "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2))",
-                              borderRadius: "8px 8px 4px 4px",
-                              filter: "blur(0.5px)",
-                              pointerEvents: "none",
-                              zIndex: 1,
-                            }}
-                          />
-                        )}
-                        <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div 
-                                className="font-medium truncate"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
-                              >
-                                {dj.name} ({dj.artistName})
-                              </div>
-                              <div 
-                                className="text-sm text-muted-foreground truncate"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                              >
-                                {dj.location} • {dj.creativeDisciplines}
-                              </div>
-                              {dj.genre && (
-                                <div 
-                                  className="text-xs text-muted-foreground truncate"
-                                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                                >
-                                  {dj.genre}
+                              onClick={() => onAssignDJ(project.id, dj.id)}
+                            >
+                              {isMacOSTheme && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    left: "4px",
+                                    right: "4px",
+                                    top: "2px",
+                                    height: "16px",
+                                    background: "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2))",
+                                    borderRadius: "8px 8px 4px 4px",
+                                    filter: "blur(0.5px)",
+                                    pointerEvents: "none",
+                                    zIndex: 1,
+                                  }}
+                                />
+                              )}
+                              <CardContent className={cn("relative z-10 w-full min-w-0 box-border", isMacOSTheme && "bg-transparent", isMobile ? "p-3" : "p-4")}>
+                                <div className="space-y-2 w-full min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 
+                                        className="font-semibold text-sm truncate"
+                                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                                      >
+                                        {dj.name}
+                                      </h4>
+                                      {dj.artistName && dj.artistName !== dj.name && (
+                                        <p 
+                                          className="text-xs text-muted-foreground truncate"
+                                          style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                        >
+                                          {dj.artistName}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {isAssigned && (
+                                      <Badge variant="default" className="text-xs shrink-0">
+                                        Assigned
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="space-y-1.5">
+                                    {dj.location && (
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <MapPin className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{dj.location}</span>
+                                      </div>
+                                    )}
+                                    
+                                    {dj.genre && (
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <Music className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{dj.genre}</span>
+                                      </div>
+                                    )}
+                                    
+                                    {dj.creativeDisciplines && (
+                                      <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                        <User className="h-3 w-3 shrink-0 mt-0.5" />
+                                        <span className="line-clamp-2">{dj.creativeDisciplines}</span>
+                                      </div>
+                                    )}
+                                    
+                                    {dj.timesBooked > 0 && (
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-black/5">
+                                        <span>Booked {dj.timesBooked} {dj.timesBooked === 1 ? "time" : "times"}</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
-                              {dj.linksToWork && (
-                                <a
-                                  href={
-                                    dj.linksToWork.startsWith("http")
-                                      ? dj.linksToWork
-                                      : `https://${dj.linksToWork}`
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline truncate block"
-                                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                                >
-                                  View Work
-                                </a>
-                              )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                      
+                      {totalDJPages > 1 && (
+                        <div className={cn("flex items-center justify-between pt-4 border-t w-full min-w-0 flex-wrap gap-2", isMobile && "flex-col items-stretch")}>
+                          <div className={cn("text-sm text-muted-foreground shrink-0", isMobile && "text-center mb-2")}>
+                            Showing {startDJIndex + 1}-{Math.min(endDJIndex, djs.length)} of {djs.length}
+                          </div>
+                          <div className="flex items-center justify-center gap-2 shrink-0 w-full">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onDJSearchPageChange(Math.max(1, djSearchPage - 1))}
+                              disabled={djSearchPage === 1}
+                              className={isMacOSTheme ? "aqua-button secondary" : ""}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                              Previous
+                            </Button>
+                            <div className="text-sm text-muted-foreground px-2">
+                              Page {djSearchPage} of {totalDJPages}
                             </div>
                             <Button
-                              variant={isMacOSTheme ? (isAssigned ? "aqua_select" : "aqua_select") : (isAssigned ? "default" : "outline")}
+                              variant="outline"
                               size="sm"
-                              onClick={() => onAssignDJ(project.id, dj.id)}
-                              data-state={isAssigned ? "on" : "off"}
-                              className="shrink-0"
+                              onClick={() => onDJSearchPageChange(Math.min(totalDJPages, djSearchPage + 1))}
+                              disabled={djSearchPage === totalDJPages}
+                              className={isMacOSTheme ? "aqua-button secondary" : ""}
                             >
-                              {isAssigned ? "Remove" : "Assign"}
+                              Next
+                              <ChevronRight className="h-4 w-4" />
                             </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  {paginatedDJs.length === 0 && (
-                    <div className="text-muted-foreground text-sm p-4">
-                      No DJs found. Try a different search or add a new DJ.
-                    </div>
+                        </div>
+                      )}
+                    </>
                   )}
-                </div>
-                {totalDJPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 pt-4">
-                    <Button
-                      variant={isMacOSTheme ? "aqua_select" : "outline"}
-                      size="sm"
-                      onClick={() => onDJSearchPageChange(Math.max(1, djSearchPage - 1))}
-                      disabled={djSearchPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Page {djSearchPage} of {totalDJPages}
-                    </span>
-                    <Button
-                      variant={isMacOSTheme ? "aqua_select" : "outline"}
-                      size="sm"
-                      onClick={() => onDJSearchPageChange(Math.min(totalDJPages, djSearchPage + 1))}
-                      disabled={djSearchPage === totalDJPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
-              </div>
-
+                </CardContent>
+              </Card>
             </div>
           </ScrollArea>
         </TabsContent>
