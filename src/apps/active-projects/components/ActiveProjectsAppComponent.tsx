@@ -1453,7 +1453,7 @@ function ProjectDetailView({
                         Add DJ
                       </Button>
                       <Button
-                        variant={isMacOSTheme ? "aqua_select" : "outline"}
+                        className={isMacOSTheme ? "aqua-button secondary" : ""}
                         onClick={() => {
                           onShowAddDJDialog(false);
                           onNewDJFormChange({});
