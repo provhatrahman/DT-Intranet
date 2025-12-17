@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import * as React from "react";
 
 type VoteOption = "accept" | "interested" | "decline" | "recommend";
 
@@ -245,20 +246,112 @@ function OfferCard({
   counts: VoteCounts;
   onVote: (option: VoteOption) => void;
 }) {
+  const currentTheme = useThemeStore((state) => state.current);
+  const isMacOSTheme = currentTheme === "macosx";
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
-    <Card className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3 bg-muted/5">
+    <Card 
+      className={cn(
+        "flex flex-col h-full overflow-hidden transition-all relative",
+        !isMacOSTheme && "hover:shadow-md"
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        ...(isMacOSTheme && {
+          borderRadius: "8px",
+          background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
+          border: "none",
+          boxShadow: isHovered
+            ? `
+              0 4px 8px rgba(0, 0, 0, 0.18),
+              0 2px 2px rgba(0, 0, 0, 0.3),
+              inset 0 1px 2px rgba(255, 255, 255, 0.7),
+              inset 0 0 4px rgba(0, 0, 0, 0.05),
+              inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+              inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+            `
+            : `
+              0 2px 4px rgba(0, 0, 0, 0.14),
+              0 1px 1px rgba(0, 0, 0, 0.25),
+              inset 0 1px 2px rgba(255, 255, 255, 0.6),
+              inset 0 0 4px rgba(0, 0, 0, 0.05),
+              inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+              inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+            `,
+          WebkitFontSmoothing: "antialiased",
+          transform: isHovered ? "translateY(-1px)" : "translateY(0)",
+        }),
+      }}
+    >
+      {/* Top shine effect for macOS */}
+      {isMacOSTheme && (
+        <div
+          style={{
+            position: "absolute",
+            left: "6px",
+            right: "6px",
+            top: "2px",
+            height: "20px",
+            background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
+            borderRadius: "8px 8px 4px 4px",
+            filter: "blur(0.5px)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+      )}
+      <CardHeader 
+        className={cn(
+          "pb-3 relative z-10",
+          !isMacOSTheme && "bg-muted/5"
+        )}
+        style={{
+          ...(isMacOSTheme && {
+            background: "transparent",
+            textShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+          }),
+        }}
+      >
         <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
-                <CardTitle className="text-lg leading-tight">{offer.name}</CardTitle>
-                <CardDescription>{offer.promoter}</CardDescription>
+                <CardTitle 
+                  className="text-lg leading-tight"
+                  style={{
+                    ...(isMacOSTheme && {
+                      textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+                    }),
+                  }}
+                >
+                  {offer.name}
+                </CardTitle>
+                <CardDescription
+                  style={{
+                    ...(isMacOSTheme && {
+                      textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                    }),
+                  }}
+                >
+                  {offer.promoter}
+                </CardDescription>
             </div>
             <Badge variant={offer.source === 'email' ? 'secondary' : 'outline'}>
                 {offer.source}
             </Badge>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 py-4 space-y-4 text-sm">
+      <CardContent 
+        className={cn(
+          "flex-1 py-4 space-y-4 text-sm relative z-10",
+          !isMacOSTheme && ""
+        )}
+        style={{
+          ...(isMacOSTheme && {
+            textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+          }),
+        }}
+      >
         <p className="text-muted-foreground line-clamp-3 min-h-[3rem]">
             {offer.description}
         </p>
@@ -282,14 +375,24 @@ function OfferCard({
             </div>
         </div>
       </CardContent>
-      <CardFooter className="flex flex-col gap-2 pt-2 border-t bg-muted/5">
-        <div className="w-full space-y-2">
-            <div className="flex items-center justify-between gap-2">
+      <CardFooter 
+        className={cn(
+          "pt-2 border-t relative z-10",
+          !isMacOSTheme && "bg-muted/5"
+        )}
+        style={{
+          ...(isMacOSTheme && {
+            background: "transparent",
+            borderTop: "1px solid rgba(0, 0, 0, 0.1)",
+          }),
+        }}
+      >
+        <div className="w-full grid grid-cols-2 gap-2">
                  <VoteButton
                     active={votes.accept}
                     count={counts?.accept || 0}
                     onClick={() => onVote("accept")}
-                    className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
+                    className="w-full bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800"
                     activeClassName="bg-green-500 text-white hover:bg-green-600 border-green-600"
                  >
                     We should do this
@@ -298,18 +401,16 @@ function OfferCard({
                      active={votes.interested}
                      count={counts?.interested || 0}
                      onClick={() => onVote("interested")}
-                     className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                     className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
                      activeClassName="bg-blue-500 text-white hover:bg-blue-600 border-blue-600"
                  >
                     I'm Interested
                  </VoteButton>
-            </div>
-             <div className="flex items-center justify-between gap-2">
                  <VoteButton
                      active={votes.decline}
                      count={counts?.decline || 0}
                      onClick={() => onVote("decline")}
-                     className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
+                     className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
                      activeClassName="bg-red-500 text-white hover:bg-red-600 border-red-600"
                  >
                     Decline
@@ -318,12 +419,11 @@ function OfferCard({
                      active={votes.recommend}
                      count={counts?.recommend || 0}
                      onClick={() => onVote("recommend")}
-                     className="flex-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800"
+                     className="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800"
                      activeClassName="bg-orange-500 text-white hover:bg-orange-600 border-orange-600"
                  >
                     Recommend Other
                  </VoteButton>
-            </div>
         </div>
       </CardFooter>
     </Card>
@@ -345,16 +445,133 @@ function VoteButton({
     className?: string;
     activeClassName?: string;
 }) {
+    const currentTheme = useThemeStore((state) => state.current);
+    const isMacOSTheme = currentTheme === "macosx";
+    const [isFocused, setIsFocused] = React.useState(false);
+    const [isPressed, setIsPressed] = React.useState(false);
+
+    // Determine color scheme from className
+    const isGreen = className?.includes("green");
+    const isBlue = className?.includes("blue");
+    const isRed = className?.includes("red");
+    const isOrange = className?.includes("orange");
+
+    // Get color-specific gradients for bubbly style
+    const getBubblyGradient = () => {
+        if (active) {
+            if (isGreen) {
+                return isPressed
+                    ? "linear-gradient(rgba(34, 197, 94, 0.8), rgba(22, 163, 74, 0.8))"
+                    : "linear-gradient(rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))";
+            }
+            if (isBlue) {
+                return isPressed
+                    ? "linear-gradient(rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.8))"
+                    : "linear-gradient(rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9))";
+            }
+            if (isRed) {
+                return isPressed
+                    ? "linear-gradient(rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.8))"
+                    : "linear-gradient(rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))";
+            }
+            if (isOrange) {
+                return isPressed
+                    ? "linear-gradient(rgba(249, 115, 22, 0.8), rgba(234, 88, 12, 0.8))"
+                    : "linear-gradient(rgba(249, 115, 22, 0.9), rgba(234, 88, 12, 0.9))";
+            }
+        }
+        // Default bubbly gradient for inactive state with subtle color tint
+        if (isGreen) {
+            return isPressed
+                ? "linear-gradient(rgba(140, 180, 140, 0.625), rgba(235, 255, 235, 0.625))"
+                : "linear-gradient(rgba(160, 200, 160, 0.625), rgba(255, 255, 255, 0.625))";
+        }
+        if (isBlue) {
+            return isPressed
+                ? "linear-gradient(rgba(140, 160, 180, 0.625), rgba(235, 245, 255, 0.625))"
+                : "linear-gradient(rgba(160, 180, 200, 0.625), rgba(255, 255, 255, 0.625))";
+        }
+        if (isRed) {
+            return isPressed
+                ? "linear-gradient(rgba(180, 140, 140, 0.625), rgba(255, 235, 235, 0.625))"
+                : "linear-gradient(rgba(200, 160, 160, 0.625), rgba(255, 255, 255, 0.625))";
+        }
+        if (isOrange) {
+            return isPressed
+                ? "linear-gradient(rgba(180, 160, 140, 0.625), rgba(255, 245, 235, 0.625))"
+                : "linear-gradient(rgba(200, 180, 160, 0.625), rgba(255, 255, 255, 0.625))";
+        }
+        // Default gray bubbly gradient
+        return isPressed
+            ? "linear-gradient(rgba(140, 140, 140, 0.625), rgba(235, 235, 235, 0.625))"
+            : "linear-gradient(rgba(160, 160, 160, 0.625), rgba(255, 255, 255, 0.625))";
+    };
+
+    const getBubblyShadow = () => {
+        if (isPressed) {
+            return "inset 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.2)";
+        }
+        if (isFocused || active) {
+            const glowColor = isGreen ? "rgba(34, 197, 94, 0.4)" 
+                : isBlue ? "rgba(59, 130, 246, 0.4)"
+                : isRed ? "rgba(239, 68, 68, 0.4)"
+                : isOrange ? "rgba(249, 115, 22, 0.4)"
+                : "rgba(0, 0, 0, 0.3)";
+            return `0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 3px ${glowColor}`;
+        }
+        return "0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3)";
+    };
+
+    const getTextColor = () => {
+        if (active && isMacOSTheme) {
+            return "white";
+        }
+        if (isMacOSTheme) {
+            return "black";
+        }
+        return undefined; // Use default from className
+    };
+
     return (
         <Button
             variant="outline"
             size="sm"
             onClick={onClick}
             className={cn(
-                "h-auto py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center transition-all",
-                className,
-                active && activeClassName
+                "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center transition-all w-full",
+                !isMacOSTheme && className,
+                !isMacOSTheme && active && activeClassName
             )}
+            style={{
+                ...(isMacOSTheme && {
+                    borderRadius: "6px",
+                    position: "relative",
+                    overflow: "hidden",
+                    cursor: "default",
+                    border: "none",
+                    boxSizing: "border-box",
+                    WebkitFontSmoothing: "antialiased",
+                    background: getBubblyGradient(),
+                    boxShadow: getBubblyShadow(),
+                    color: getTextColor(),
+                    textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
+                }),
+            }}
+            onFocus={(e) => {
+                setIsFocused(true);
+            }}
+            onBlur={(e) => {
+                setIsFocused(false);
+            }}
+            onMouseDown={(e) => {
+                setIsPressed(true);
+            }}
+            onMouseUp={(e) => {
+                setIsPressed(false);
+            }}
+            onMouseLeave={(e) => {
+                setIsPressed(false);
+            }}
         >
             <span className="font-semibold text-[10px] leading-tight text-center">{children}</span>
             <span className="text-[9px] opacity-80">({count})</span>
