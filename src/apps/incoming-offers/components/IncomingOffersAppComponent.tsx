@@ -513,23 +513,23 @@ function VoteButton({
     const getColorOverlay = () => {
         if (color === "green") {
             return active 
-                ? "rgba(34, 197, 94, 0.75)" 
-                : "rgba(34, 197, 94, 0.6)";
+                ? "rgba(34, 197, 94, 0.95)" 
+                : "rgba(34, 197, 94, 0.25)";
         }
         if (color === "blue") {
             return active 
-                ? "rgba(59, 130, 246, 0.75)" 
-                : "rgba(59, 130, 246, 0.6)";
+                ? "rgba(59, 130, 246, 0.95)" 
+                : "rgba(59, 130, 246, 0.25)";
         }
         if (color === "red") {
             return active 
-                ? "rgba(239, 68, 68, 0.75)" 
-                : "rgba(239, 68, 68, 0.6)";
+                ? "rgba(239, 68, 68, 0.95)" 
+                : "rgba(239, 68, 68, 0.25)";
         }
         if (color === "orange") {
             return active 
-                ? "rgba(249, 115, 22, 0.75)" 
-                : "rgba(249, 115, 22, 0.6)";
+                ? "rgba(249, 115, 22, 0.95)" 
+                : "rgba(249, 115, 22, 0.25)";
         }
         return "transparent";
     };
