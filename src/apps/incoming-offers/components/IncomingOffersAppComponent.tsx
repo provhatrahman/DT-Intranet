@@ -50,7 +50,7 @@ export function IncomingOffersAppComponent({
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [offers] = useState<Offer[]>(dummyOffers);
   const [filter, setFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"date" | "fee">("date");
+  const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee">("date-asc");
   
   // Local state to track user's votes: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
@@ -143,7 +143,8 @@ export function IncomingOffersAppComponent({
       offer.venue.toLowerCase().includes(filter.toLowerCase())
     )
     .sort((a, b) => {
-      if (sortBy === "date") return a.date.localeCompare(b.date);
+      if (sortBy === "date-asc") return a.date.localeCompare(b.date);
+      if (sortBy === "date-desc") return b.date.localeCompare(a.date);
       // Simple fee sort (string comparison is not ideal but sufficient for dummy data)
       return a.fee.localeCompare(b.fee);
     });
@@ -192,7 +193,8 @@ export function IncomingOffersAppComponent({
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="date">Sort by Date</SelectItem>
+                <SelectItem value="date-asc">Date (Ascending)</SelectItem>
+                <SelectItem value="date-desc">Date (Descending)</SelectItem>
                 <SelectItem value="fee">Sort by Fee</SelectItem>
               </SelectContent>
             </Select>
