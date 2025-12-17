@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   define: {
     // Expose VERCEL_ENV to the client for environment detection
@@ -258,7 +258,7 @@ export default defineConfig({
         // Service worker uses skipWaiting + clientsClaim to update immediately,
         // minimizing risk of stale HTML referencing old scripts
         // Disable precaching in dev mode (files don't exist in dev-dist)
-        globPatterns: process.env.NODE_ENV === 'production' ? [
+        globPatterns: mode === 'production' ? [
           "index.html",
           "**/*.css",
           "fonts/*.{woff,woff2,otf,ttf}",
@@ -364,4 +364,4 @@ export default defineConfig({
     sourcemap: false,
     minify: true,
   },
-});
+}));
