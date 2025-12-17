@@ -1114,10 +1114,10 @@ export const useFilesStore = create<FilesStoreState>()(
             get().removeItem(shortcut.path, true); // Permanently delete
           }
 
-          // Process all apps in registry except Finder, Control Panels, Chats, Internet Explorer, and Applet Viewer
+          // Process all apps in registry except Finder, Control Panels, and hidden apps
           // @ts-ignore - iterating over values of appRegistry
           const apps = Object.values(appRegistry).filter(
-            (app: any) => app.id !== "finder" && app.id !== "control-panels" && app.id !== "chats" && app.id !== "internet-explorer" && app.id !== "applet-viewer"
+            (app: any) => app.id !== "finder" && app.id !== "control-panels" && !app.hidden
           );
 
           // Collect all shortcuts to create in a single batch update

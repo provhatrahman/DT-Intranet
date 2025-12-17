@@ -226,6 +226,7 @@ export const appRegistry = {
     component: LazySoundboardApp,
     helpItems: soundboardHelpItems,
     metadata: soundboardMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 650, height: 475 },
       minSize: { width: 550, height: 375 },
@@ -239,6 +240,7 @@ export const appRegistry = {
     component: LazyInternetExplorerApp,
     helpItems: internetExplorerHelpItems,
     metadata: internetExplorerMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 730, height: 600 },
       minSize: { width: 400, height: 300 },
@@ -252,6 +254,7 @@ export const appRegistry = {
     component: LazyChatsApp,
     helpItems: chatsHelpItems,
     metadata: chatsMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 560, height: 360 },
       minSize: { width: 300, height: 320 },
@@ -320,6 +323,7 @@ export const appRegistry = {
     component: LazyVideosApp,
     helpItems: videosHelpItems,
     metadata: videosMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 400, height: 420 },
       minSize: { width: 400, height: 340 },
@@ -346,6 +350,7 @@ export const appRegistry = {
     component: LazySynthApp,
     helpItems: synthHelpItems,
     metadata: synthMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 720, height: 400 },
       minSize: { width: 720, height: 290 },
@@ -359,6 +364,7 @@ export const appRegistry = {
     component: LazyPcApp,
     helpItems: pcHelpItems,
     metadata: pcMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 645, height: 511 },
       minSize: { width: 645, height: 511 },
@@ -373,6 +379,7 @@ export const appRegistry = {
     component: LazyTerminalApp,
     helpItems: terminalHelpItems,
     metadata: terminalMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 600, height: 400 },
       minSize: { width: 400, height: 300 },
@@ -386,6 +393,7 @@ export const appRegistry = {
     component: LazyAppletViewerApp,
     helpItems: appletViewerHelpItems,
     metadata: appletViewerMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 320, height: 450 },
       minSize: { width: 300, height: 200 },
@@ -444,6 +452,8 @@ export const getNonFinderApps = (isAdmin: boolean = false): Array<{
   return Object.entries(appRegistry)
     .filter(([id, app]) => {
       if (id === "finder") return false;
+      // Filter out hidden apps
+      if ((app as { hidden?: boolean }).hidden) return false;
       // Filter out admin-only apps for non-admin users
       if ((app as { adminOnly?: boolean }).adminOnly && !isAdmin) return false;
       return true;
