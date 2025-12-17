@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import vercel from "vite-plugin-vercel";
 import { VitePWA } from "vite-plugin-pwa";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,7 @@ export default defineConfig({
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV || ''),
   },
   server: {
+    host: true, // Allow access from network devices
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     cors: { origin: ["*"] },
     watch: {
@@ -50,6 +52,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Enable HTTPS with auto-generated certificates for PWA testing (iOS requires HTTPS)
+    ...(process.env.VITE_HTTPS === 'true' ? [basicSsl()] : []),
     // Only include Vercel and PWA plugins when not building for Tauri
     ...(process.env.TAURI_ENV ? [] : [
       vercel(),
@@ -273,7 +277,7 @@ export default defineConfig({
         clientsClaim: true,
       },
       devOptions: {
-        enabled: false, // Disable in dev to avoid confusion
+        enabled: true, // Enable in dev for PWA testing on mobile devices
       },
     }),
     ]),

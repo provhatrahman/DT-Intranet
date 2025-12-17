@@ -121,6 +121,7 @@
     "@types/node-fetch": "^2.6.12",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@vitejs/plugin-react-swc": "^4.2.2",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.29.0",
