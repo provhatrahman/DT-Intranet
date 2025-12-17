@@ -1002,58 +1002,20 @@ function ProjectDetailView({
 
         <TabsContent
           value="curation"
-          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0 p-4")}
+          className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
-              <Card
-                className={cn(
-                  "relative overflow-hidden transition-all",
-                  isMacOSTheme && "border-none"
-                )}
-                style={
-                  isMacOSTheme
-                    ? {
-                        borderRadius: "8px",
-                        background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-                        boxShadow: `
-                          0 2px 4px rgba(0, 0, 0, 0.14),
-                          0 1px 1px rgba(0, 0, 0, 0.25),
-                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                          inset 0 0 4px rgba(0, 0, 0, 0.05),
-                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                        `,
-                        WebkitFontSmoothing: "antialiased",
-                      }
-                    : {}
-                }
-              >
-                {isMacOSTheme && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "6px",
-                      right: "6px",
-                      top: "2px",
-                      height: "20px",
-                      background: "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
-                      borderRadius: "8px 8px 4px 4px",
-                      filter: "blur(0.5px)",
-                      pointerEvents: "none",
-                      zIndex: 1,
-                    }}
-                  />
-                )}
-                <CardHeader className={cn("relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <CardTitle
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    Add Curation Suggestion
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className={cn("space-y-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                  <div>
+            <div className="space-y-6 p-4 pr-6">
+              {/* Add Curation Suggestion Section */}
+              <div className="space-y-4">
+                <h2
+                  className="text-lg font-semibold"
+                  style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                >
+                  Add Curation Suggestion
+                </h2>
+                <div className="space-y-4">
+                  <div className="min-w-0">
                     <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
                       Name
                     </Label>
@@ -1061,9 +1023,10 @@ function ProjectDetailView({
                       value={curationName}
                       onChange={(e) => setCurationName(e.target.value)}
                       placeholder="Artist name"
+                      className="w-full mt-2"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
                       Work Link (Optional)
                     </Label>
@@ -1072,6 +1035,7 @@ function ProjectDetailView({
                       value={curationLink}
                       onChange={(e) => setCurationLink(e.target.value)}
                       placeholder="https://..."
+                      className="w-full mt-2"
                     />
                   </div>
                   <Button
@@ -1088,106 +1052,111 @@ function ProjectDetailView({
                   >
                     Add Suggestion
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <div className="space-y-2">
+              {/* Separator */}
+              <div className="border-t" />
+
+              {/* Suggestions Section */}
+              <div className="space-y-4">
                 <h3 
-                  className="font-semibold"
+                  className="font-semibold text-lg"
                   style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                 >
                   Suggestions
                 </h3>
-                {project.curationSuggestions.map((suggestion) => {
-                  const voteCount = Object.values(suggestion.votes).filter(
-                    (v) => v
-                  ).length;
-                  const hasVoted = suggestion.votes[CURRENT_USER_ID] || false;
-                  return (
-                    <Card
-                      key={suggestion.id}
-                      className={cn(
-                        "relative overflow-hidden transition-all",
-                        isMacOSTheme && "border-none"
-                      )}
-                      style={
-                        isMacOSTheme
-                          ? {
-                              borderRadius: "8px",
-                              background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-                              boxShadow: `
-                                0 2px 4px rgba(0, 0, 0, 0.14),
-                                0 1px 1px rgba(0, 0, 0, 0.25),
-                                inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                                inset 0 0 4px rgba(0, 0, 0, 0.05),
-                                inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                                inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                              `,
-                              WebkitFontSmoothing: "antialiased",
-                            }
-                          : {}
-                      }
-                    >
-                      {isMacOSTheme && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: "6px",
-                            right: "6px",
-                            top: "2px",
-                            height: "16px",
-                            background: "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2))",
-                            borderRadius: "8px 8px 4px 4px",
-                            filter: "blur(0.5px)",
-                            pointerEvents: "none",
-                            zIndex: 1,
-                          }}
-                        />
-                      )}
-                      <CardContent className={cn("p-4 relative z-10", isMacOSTheme && "bg-transparent")}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div 
-                              className="font-medium"
-                              style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
-                            >
-                              {suggestion.name}
-                            </div>
-                            {suggestion.workLink && (
-                              <a
-                                href={suggestion.workLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:underline"
-                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                              >
-                                View Work
-                              </a>
-                            )}
-                          </div>
-                          <Button
-                            variant={isMacOSTheme ? "aqua_select" : "outline"}
-                            size="sm"
-                            onClick={() =>
-                              onVoteCuration(
-                                project.id,
-                                suggestion.id,
-                                CURRENT_USER_ID
-                              )
-                            }
-                            className={hasVoted && !isMacOSTheme ? "bg-blue-100" : ""}
-                            data-state={hasVoted ? "on" : "off"}
-                          >
-                            👍 {voteCount}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {project.curationSuggestions.length === 0 && (
-                  <div className="text-muted-foreground text-sm p-4">
+                {project.curationSuggestions.length === 0 ? (
+                  <div className="text-muted-foreground text-sm py-8">
                     No suggestions yet. Add one above.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {project.curationSuggestions.map((suggestion) => {
+                      const voteCount = Object.values(suggestion.votes).filter(
+                        (v) => v
+                      ).length;
+                      const hasVoted = suggestion.votes[CURRENT_USER_ID] || false;
+                      return (
+                        <div
+                          key={suggestion.id}
+                          className={cn(
+                            "p-4 rounded-lg relative overflow-hidden transition-all min-w-0",
+                            isMacOSTheme ? "" : "bg-muted/50"
+                          )}
+                          style={
+                            isMacOSTheme
+                              ? {
+                                  borderRadius: "8px",
+                                  background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                  border: "1px solid rgba(0, 0, 0, 0.08)",
+                                  boxShadow: `
+                                    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                    inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                  `,
+                                  textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
+                                }
+                              : {}
+                          }
+                        >
+                          {isMacOSTheme && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: "4px",
+                                right: "4px",
+                                top: "2px",
+                                height: "12px",
+                                background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                                borderRadius: "6px 6px 2px 2px",
+                                filter: "blur(0.5px)",
+                                pointerEvents: "none",
+                                zIndex: 1,
+                              }}
+                            />
+                          )}
+                          <div className="flex items-center justify-between gap-4 relative z-10 min-w-0">
+                            <div className="flex-1 min-w-0">
+                              <div 
+                                className="font-medium"
+                                style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                              >
+                                {suggestion.name}
+                              </div>
+                              {suggestion.workLink && (
+                                <a
+                                  href={suggestion.workLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:underline block mt-1"
+                                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                                >
+                                  View Work
+                                </a>
+                              )}
+                            </div>
+                            <Button
+                              variant={isMacOSTheme ? "aqua_select" : "outline"}
+                              size="sm"
+                              onClick={() =>
+                                onVoteCuration(
+                                  project.id,
+                                  suggestion.id,
+                                  CURRENT_USER_ID
+                                )
+                              }
+                              className={cn(
+                                "shrink-0",
+                                hasVoted && !isMacOSTheme ? "bg-blue-100" : ""
+                              )}
+                              data-state={hasVoted ? "on" : "off"}
+                            >
+                              👍 {voteCount}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
