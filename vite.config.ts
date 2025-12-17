@@ -257,12 +257,13 @@ export default defineConfig({
         // index.html is precached to serve as navigation fallback when offline
         // Service worker uses skipWaiting + clientsClaim to update immediately,
         // minimizing risk of stale HTML referencing old scripts
-        globPatterns: [
+        // Disable precaching in dev mode (files don't exist in dev-dist)
+        globPatterns: process.env.NODE_ENV === 'production' ? [
           "index.html",
           "**/*.css",
           "fonts/*.{woff,woff2,otf,ttf}",
           "icons/manifest.json",
-        ],
+        ] : [],
         // Exclude large data files from precaching (they'll be cached at runtime)
         globIgnores: [
           "**/data/all-sounds.json", // 4.7MB - too large
