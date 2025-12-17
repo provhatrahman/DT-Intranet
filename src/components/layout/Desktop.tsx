@@ -23,6 +23,7 @@ interface DesktopStyles {
   backgroundRepeat?: string;
   backgroundPosition?: string;
   transition?: string;
+  backgroundColor?: string;
 }
 
 interface DesktopProps {
@@ -389,6 +390,20 @@ export function Desktop({
     if (!path || isVideoWallpaper) return {};
 
     const isTiled = path.includes("/wallpapers/tiles/");
+    const isDaytimersLogo = path.includes("daytimers-logo");
+    
+    // Special handling for DAYTIMERS logo: scale it down and match background color
+    if (isDaytimersLogo) {
+      return {
+        backgroundImage: `url(${path})`,
+        backgroundSize: "auto 35%", // Scale logo to 25% of screen height for smaller size
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        backgroundColor: "#fffbf2", // Exact cream color to match the logo background
+        transition: "background-image 0.3s ease-in-out",
+      };
+    }
+    
     return {
       backgroundImage: `url(${path})`,
       backgroundSize: isTiled ? "64px 64px" : "cover",
