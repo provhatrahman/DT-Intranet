@@ -12,17 +12,6 @@ export interface DJ {
   mostRecentEventDate: string;
 }
 
-function cleanValue(value: string): string {
-  if (!value || value.trim() === "#ERROR!") return "";
-  return value.trim();
-}
-
-function parseTimesBooked(value: string): number {
-  const cleaned = cleanValue(value);
-  const parsed = parseInt(cleaned, 10);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
 export const dummyDJs: DJ[] = [
   {
     id: "1",
