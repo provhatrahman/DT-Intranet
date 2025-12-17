@@ -1091,10 +1091,22 @@ export const useFilesStore = create<FilesStoreState>()(
             (item) => item.status === "trashed"
           );
 
-          // Process all apps in registry except Finder and Control Panels
+          // Apps that should NOT have desktop shortcuts by default
+          const excludedAppIds = ["chats", "internet-explorer", "applet-viewer"];
+          
+          // Remove existing shortcuts for excluded apps (permanently delete them)
+          const shortcutsToRemove = desktopItems.filter(
+            (item) => item.aliasType === "app" && excludedAppIds.includes(item.aliasTarget || "")
+          );
+          
+          for (const shortcut of shortcutsToRemove) {
+            get().removeItem(shortcut.path, true); // Permanently delete
+          }
+
+          // Process all apps in registry except Finder, Control Panels, Chats, Internet Explorer, and Applet Viewer
           // @ts-ignore - iterating over values of appRegistry
           const apps = Object.values(appRegistry).filter(
-            (app: any) => app.id !== "finder" && app.id !== "control-panels"
+            (app: any) => app.id !== "finder" && app.id !== "control-panels" && app.id !== "chats" && app.id !== "internet-explorer" && app.id !== "applet-viewer"
           );
 
           // Collect all shortcuts to create in a single batch update

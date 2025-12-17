@@ -16,8 +16,6 @@ export const PROTECTED_DOCK_ITEMS = new Set(["finder", "__applications__", "__tr
 // Default pinned items
 const DEFAULT_PINNED_ITEMS: DockItem[] = [
   { type: "app", id: "finder" },
-  { type: "app", id: "chats" },
-  { type: "app", id: "internet-explorer" },
 ];
 
 interface DockStoreState {

@@ -85,6 +85,27 @@ bun run preview      # Preview production build
 vercel dev           # Run with Vercel dev server (recommended)
 ```
 
+## Resetting Browser Data
+
+To reset all ryOS data (files, folders, settings) via browser console:
+
+```javascript
+// Clear all localStorage keys related to ryOS
+Object.keys(localStorage).forEach(key => {
+  if (key.startsWith('ryos:') || key.startsWith('dock-') || key.startsWith('app_') || key.startsWith('_usr_') || key.startsWith('_auth_')) {
+    localStorage.removeItem(key);
+    console.log('Removed:', key);
+  }
+});
+
+// Clear IndexedDB
+indexedDB.deleteDatabase('ryOS').onsuccess = () => {
+  console.log('IndexedDB cleared!');
+};
+```
+
+After running this, refresh the page to reinitialize with default folders.
+
 ## License
 
 AGPL-3.0 — See [LICENSE](LICENSE) for details.
