@@ -3722,9 +3722,8 @@ define(['exports'], (function (exports) { 'use strict';
           } catch (error) {
             supportStatus = false;
           }
-        } else {
-          supportStatus = false;
         }
+        supportStatus = false;
       }
       return supportStatus;
     }
