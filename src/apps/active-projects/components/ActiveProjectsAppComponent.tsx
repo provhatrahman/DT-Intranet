@@ -49,11 +49,9 @@ export function ActiveProjectsAppComponent({
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const isMobile = useIsMobile();
-  const [projects, setProjects] = useState<ActiveProject[]>(dummyProjects);
+  const [projects, setProjects] = useState<ActiveProject[]>([]);
   // Start with no selection on mobile to show list first
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    window.innerWidth < 768 ? null : dummyProjects[0]?.id || null
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [djs, setDJs] = useState<DJ[]>(dummyDJs);
   const [djSearchQuery, setDJSearchQuery] = useState("");
   const [showAddDJDialog, setShowAddDJDialog] = useState(false);
@@ -66,6 +64,50 @@ export function ActiveProjectsAppComponent({
   const isMacOSTheme = currentTheme === "macosx";
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
   const tabStyles = getTabStyles(currentTheme);
+
+  // Load projects from localStorage on mount
+  useEffect(() => {
+    const loadProjects = () => {
+      try {
+        const savedProjectsJson = localStorage.getItem("active_projects_list");
+        if (savedProjectsJson) {
+          const parsed = JSON.parse(savedProjectsJson);
+          if (Array.isArray(parsed)) {
+            setProjects(parsed);
+            // Set initial selection on desktop
+            if (!isMobile && parsed.length > 0 && !selectedProjectId) {
+              setSelectedProjectId(parsed[0].id);
+            }
+          } else {
+            console.warn("Invalid active projects data in localStorage, resetting");
+            localStorage.removeItem("active_projects_list");
+          }
+        }
+      } catch (parseError) {
+        console.error("Failed to parse active projects from localStorage:", parseError);
+        localStorage.removeItem("active_projects_list");
+      }
+    };
+
+    loadProjects();
+
+    // Listen for updates from inbox when projects are approved
+    const handleProjectsUpdate = () => {
+      loadProjects();
+    };
+
+    window.addEventListener("active-projects-updated", handleProjectsUpdate);
+    return () => {
+      window.removeEventListener("active-projects-updated", handleProjectsUpdate);
+    };
+  }, []);
+
+  // Save projects to localStorage whenever they change
+  useEffect(() => {
+    if (projects.length > 0 || localStorage.getItem("active_projects_list")) {
+      localStorage.setItem("active_projects_list", JSON.stringify(projects));
+    }
+  }, [projects]);
 
   // Ensure selectedProjectId is set when projects load (only on desktop)
   useEffect(() => {
@@ -86,8 +128,8 @@ export function ActiveProjectsAppComponent({
 
   const handleAddStatusUpdate = (projectId: string, text: string) => {
     if (!text.trim()) return;
-    setProjects((prev) =>
-      prev.map((p) => {
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
         if (p.id === projectId) {
           const newUpdate: StatusUpdate = {
             id: `status-${Date.now()}`,
@@ -101,8 +143,9 @@ export function ActiveProjectsAppComponent({
           };
         }
         return p;
-      })
-    );
+      });
+      return updated;
+    });
   };
 
   const handleAddCurationSuggestion = (
@@ -111,8 +154,8 @@ export function ActiveProjectsAppComponent({
     workLink?: string
   ) => {
     if (!name.trim()) return;
-    setProjects((prev) =>
-      prev.map((p) => {
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
         if (p.id === projectId) {
           return {
             ...p,
@@ -128,8 +171,9 @@ export function ActiveProjectsAppComponent({
           };
         }
         return p;
-      })
-    );
+      });
+      return updated;
+    });
   };
 
   const handleVoteCuration = (
@@ -137,8 +181,8 @@ export function ActiveProjectsAppComponent({
     suggestionId: string,
     userId: string
   ) => {
-    setProjects((prev) =>
-      prev.map((p) => {
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
         if (p.id === projectId) {
           return {
             ...p,
@@ -158,13 +202,14 @@ export function ActiveProjectsAppComponent({
           };
         }
         return p;
-      })
-    );
+      });
+      return updated;
+    });
   };
 
   const handleAssignDJ = (projectId: string, djId: string) => {
-    setProjects((prev) =>
-      prev.map((p) => {
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
         if (p.id === projectId) {
           if (p.finalLineup.includes(djId)) {
             return {
@@ -179,8 +224,9 @@ export function ActiveProjectsAppComponent({
           }
         }
         return p;
-      })
-    );
+      });
+      return updated;
+    });
   };
 
   const handleAddNewDJ = () => {
@@ -440,13 +486,14 @@ export function ActiveProjectsAppComponent({
                 onAddCurationSuggestion={handleAddCurationSuggestion}
                 onVoteCuration={handleVoteCuration}
                 onAssignDJ={handleAssignDJ}
-                onUpdateProject={(updates) =>
-                  setProjects((prev) =>
-                    prev.map((p) =>
+                onUpdateProject={(updates) => {
+                  setProjects((prev) => {
+                    const updated = prev.map((p) =>
                       p.id === selectedProject.id ? { ...p, ...updates } : p
-                    )
-                  )
-                }
+                    );
+                    return updated;
+                  });
+                }}
                 showAddDJDialog={showAddDJDialog}
                 onShowAddDJDialog={setShowAddDJDialog}
                 newDJForm={newDJForm}

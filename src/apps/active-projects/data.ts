@@ -1,4 +1,4 @@
-import { dummyOffers } from "../incoming-offers/data";
+import { Offer } from "../incoming-offers/data";
 import { DJ } from "./djDatabase";
 
 export type ProjectSize = "Small" | "Med" | "Large";
@@ -38,29 +38,19 @@ export interface ActiveProject {
   finalLineup: string[]; // Array of DJ IDs
 }
 
-// Convert inbox offers to active projects with additional fields
-export const dummyProjects: ActiveProject[] = dummyOffers.map((offer, index) => {
-  const sizes: ProjectSize[] = ["Small", "Med", "Large"];
-  const leads = ["Dhillon", "Roop", "Kiran", "Izzi"];
-  const teams = [
-    ["Dhillon", "Roop"],
-    ["Kiran", "Izzi", "Dhillon"],
-    ["Roop"],
-    ["Kiran", "Dhillon", "Izzi"],
-    ["Roop", "Kiran"],
-    ["Izzi", "Dhillon"],
-  ];
-  const deadlines = [
-    "2024-06-15",
-    "2024-08-20",
-    "2024-04-25",
-    "2024-06-30",
-    "2024-05-15",
-    "2024-07-25",
-  ];
-
+// Convert an Offer from inbox to an ActiveProject with default values
+export function convertOfferToActiveProject(offer: Offer): ActiveProject {
+  // Generate a unique project ID based on timestamp and offer ID
+  const projectId = `project-${offer.id}-${Date.now()}`;
+  
+  // Calculate deadline as 30 days from now (or use offer date if it's in the future)
+  const offerDate = new Date(offer.date);
+  const now = new Date();
+  const deadlineDate = offerDate > now ? offerDate : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const deadline = deadlineDate.toISOString().split('T')[0];
+  
   return {
-    id: `project-${offer.id}`,
+    id: projectId,
     name: offer.name,
     description: offer.description,
     promoter: offer.promoter,
@@ -68,20 +58,23 @@ export const dummyProjects: ActiveProject[] = dummyOffers.map((offer, index) => 
     date: offer.date,
     fee: offer.fee,
     timings: offer.timings,
-    projectSize: sizes[index % sizes.length],
-    projectLead: leads[index % leads.length],
-    team: teams[index % teams.length],
-    deadline: deadlines[index % deadlines.length],
+    projectSize: "Med", // Default to medium
+    projectLead: "", // Empty, to be filled in Active Projects
+    team: [],
+    deadline: deadline,
     googleDriveLink: "",
     statusUpdates: [
       {
-        id: `status-${offer.id}-1`,
-        timestamp: new Date(Date.now() - 86400000 * (index + 1)).toISOString(),
-        text: `Project initialized from offer ${offer.name}`,
+        id: `status-${projectId}-1`,
+        timestamp: new Date().toISOString(),
+        text: `Project approved and moved from inbox: ${offer.name}`,
         userId: "system",
       },
     ],
     curationSuggestions: [],
     finalLineup: [],
   };
-});
+}
+
+// Empty array - projects will be loaded from localStorage
+export const dummyProjects: ActiveProject[] = [];

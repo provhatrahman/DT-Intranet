@@ -5,9 +5,11 @@ import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
+import { convertOfferToActiveProject } from "../../active-projects/data";
 import {
   Card,
   CardContent,
@@ -60,6 +62,10 @@ export function IncomingOffersAppComponent({
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [pendingDeclineOfferId, setPendingDeclineOfferId] = useState<string | null>(null);
+  
+  // Approve dialog state
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [pendingApproveOfferId, setPendingApproveOfferId] = useState<string | null>(null);
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
@@ -73,7 +79,7 @@ export function IncomingOffersAppComponent({
     }
   }, []);
 
-  // Load offers from localStorage and merge with dummy data
+  // Load offers from localStorage and merge with dummy data, filtering out approved offers
   useEffect(() => {
     const loadOffers = () => {
       let savedOffers: Offer[] = [];
@@ -97,13 +103,41 @@ export function IncomingOffersAppComponent({
         savedOffers = [];
       }
       
+      // Get active projects to filter out approved offers
+      let activeProjects: any[] = [];
+      try {
+        const activeProjectsJson = localStorage.getItem("active_projects_list");
+        if (activeProjectsJson) {
+          const parsed = JSON.parse(activeProjectsJson);
+          if (Array.isArray(parsed)) {
+            activeProjects = parsed;
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+      
+      // Create a set of offer IDs that have been approved (mapped from active project IDs)
+      // Active project IDs are in format: project-{offerId}-{timestamp}
+      const approvedOfferIds = new Set<string>();
+      activeProjects.forEach((project) => {
+        // Extract original offer ID from project ID
+        const match = project.id.match(/^project-(.+?)-/);
+        if (match) {
+          approvedOfferIds.add(match[1]);
+        }
+      });
+      
       // Merge saved offers with dummy offers, avoiding duplicates by ID
       const dummyIds = new Set(dummyOffers.map(o => o.id));
       const newOffers = savedOffers.filter(o => !dummyIds.has(o.id));
       // Sort by date (newest first) for better UX - pitches will appear at top if they have recent dates
       const mergedOffers = [...dummyOffers, ...newOffers];
       
-      setOffers(mergedOffers);
+      // Filter out offers that have been approved and moved to active projects
+      const filteredOffers = mergedOffers.filter(o => !approvedOfferIds.has(o.id));
+      
+      setOffers(filteredOffers);
     };
 
     loadOffers();
@@ -113,9 +147,16 @@ export function IncomingOffersAppComponent({
       loadOffers();
     };
 
+    // Listen for updates from active projects
+    const handleActiveProjectsUpdate = () => {
+      loadOffers();
+    };
+
     window.addEventListener("offers-updated", handleOffersUpdate);
+    window.addEventListener("active-projects-updated", handleActiveProjectsUpdate);
     return () => {
       window.removeEventListener("offers-updated", handleOffersUpdate);
+      window.removeEventListener("active-projects-updated", handleActiveProjectsUpdate);
     };
   }, []);
 
@@ -279,6 +320,79 @@ export function IncomingOffersAppComponent({
     setPendingDeclineOfferId(null);
   };
 
+  const handleApproveClick = (offerId: string) => {
+    setPendingApproveOfferId(offerId);
+    setIsApproveDialogOpen(true);
+  };
+
+  const handleApproveConfirm = () => {
+    if (!pendingApproveOfferId) return;
+
+    const offer = offers.find(o => o.id === pendingApproveOfferId);
+    if (!offer) {
+      setIsApproveDialogOpen(false);
+      setPendingApproveOfferId(null);
+      return;
+    }
+
+    // Convert offer to active project
+    const activeProject = convertOfferToActiveProject(offer);
+
+    // Load existing active projects
+    let activeProjects: any[] = [];
+    try {
+      const activeProjectsJson = localStorage.getItem("active_projects_list");
+      if (activeProjectsJson) {
+        const parsed = JSON.parse(activeProjectsJson);
+        if (Array.isArray(parsed)) {
+          activeProjects = parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load active projects:", e);
+    }
+
+    // Add the new project
+    activeProjects.push(activeProject);
+    localStorage.setItem("active_projects_list", JSON.stringify(activeProjects));
+
+    // Remove offer from inbox
+    const updatedOffers = offers.filter(o => o.id !== pendingApproveOfferId);
+    
+    // Update localStorage for inbox
+    try {
+      const savedOffersJson = localStorage.getItem("incoming_offers_list");
+      let savedOffers: Offer[] = [];
+      
+      if (savedOffersJson) {
+        const parsed = JSON.parse(savedOffersJson);
+        if (Array.isArray(parsed)) {
+          savedOffers = parsed;
+        }
+      }
+
+      // Remove the approved offer from saved offers
+      const updatedSavedOffers = savedOffers.filter(o => o.id !== pendingApproveOfferId);
+      localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
+    } catch (error) {
+      console.error("Failed to update inbox localStorage:", error);
+    }
+
+    setOffers(updatedOffers);
+
+    // Trigger update event for Active Projects app
+    window.dispatchEvent(new CustomEvent("active-projects-updated"));
+
+    // Close dialog and reset state
+    setIsApproveDialogOpen(false);
+    setPendingApproveOfferId(null);
+  };
+
+  const handleApproveDialogClose = () => {
+    setIsApproveDialogOpen(false);
+    setPendingApproveOfferId(null);
+  };
+
   const filteredOffers = offers
     .filter((offer) =>
       offer.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -378,6 +492,7 @@ export function IncomingOffersAppComponent({
                   votes={userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false }}
                   counts={aggregatedCounts[offer.id]}
                   onVote={(option) => handleVote(offer.id, option)}
+                  onApprove={() => handleApproveClick(offer.id)}
                 />
               ))}
               {filteredOffers.length === 0 && (
@@ -420,6 +535,19 @@ export function IncomingOffersAppComponent({
           onChange={setFeedbackText}
           submitLabel="Submit Feedback"
         />
+        <ConfirmDialog
+          isOpen={isApproveDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              handleApproveDialogClose();
+            } else {
+              setIsApproveDialogOpen(true);
+            }
+          }}
+          onConfirm={handleApproveConfirm}
+          title="Approve Project"
+          description={`Are you sure you want to approve "${offers.find(o => o.id === pendingApproveOfferId)?.name || 'this project'}"? It will be moved to Active Projects where you can fill in additional details.`}
+        />
       </WindowFrame>
     </>
   );
@@ -430,11 +558,13 @@ function OfferCard({
   votes,
   counts,
   onVote,
+  onApprove,
 }: {
   offer: Offer;
   votes: UserVote;
   counts: VoteCounts;
   onVote: (option: VoteOption) => void;
+  onApprove: () => void;
 }) {
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOSTheme = currentTheme === "macosx";
@@ -596,7 +726,7 @@ function OfferCard({
       </CardContent>
       <CardFooter 
         className={cn(
-          "pt-2 border-t relative z-10",
+          "pt-2 border-t relative z-10 flex flex-col gap-2",
           !isMacOSTheme && "bg-muted/5"
         )}
         style={{
@@ -606,6 +736,56 @@ function OfferCard({
           }),
         }}
       >
+        <Button
+          onClick={onApprove}
+          className={cn(
+            "w-full relative",
+            isMacOSTheme ? "aqua-button secondary" : ""
+          )}
+          style={
+            isMacOSTheme
+              ? {
+                  borderRadius: "6px",
+                  background: "linear-gradient(to bottom, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))",
+                  border: "none",
+                  boxShadow: `
+                    0 2px 4px rgba(0, 0, 0, 0.18),
+                    0 1px 1px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+                    inset 0 0 4px rgba(0, 0, 0, 0.1),
+                    inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
+                    inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                  `,
+                  WebkitFontSmoothing: "antialiased",
+                  color: "white",
+                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+                  position: "relative",
+                }
+              : {}
+          }
+        >
+          {isMacOSTheme ? (
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  left: "3px",
+                  right: "3px",
+                  top: "2px",
+                  height: "12px",
+                  background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                  borderRadius: "4px 4px 2px 2px",
+                  filter: "blur(0.5px)",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              />
+              <span className="relative z-10 font-semibold">Approve & Move to Active Projects</span>
+            </>
+          ) : (
+            "Approve & Move to Active Projects"
+          )}
+        </Button>
         <div className="w-full grid grid-cols-2 gap-2">
                  <VoteButton
                     active={votes.accept}
