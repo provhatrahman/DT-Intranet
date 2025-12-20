@@ -43,11 +43,12 @@ export const useWindowManager = ({
     size: WindowSize;
   } => {
     const isMobile = window.innerWidth < 768;
-    // Only use full height for inbox, pitch, and active projects in mobile view
+    // Only use full height for inbox, pitch, active projects, and archive in mobile view
     const shouldUseFullHeight = isMobile && (
       appId === "incoming-offers" ||
       appId === "pitch" ||
-      appId === "active-projects"
+      appId === "active-projects" ||
+      appId === "archive"
     );
 
     const appIndex = appIds.indexOf(appId);

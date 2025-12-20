@@ -529,11 +529,12 @@ export const useAppStore = create<AppStoreState>()(
           const offsetStep = 32;
           const isMobile =
             typeof window !== "undefined" && window.innerWidth < 768;
-          // Only use full height for inbox, pitch, and active projects in mobile view
+          // Only use full height for inbox, pitch, active projects, and archive in mobile view
           const shouldUseFullHeight = isMobile && (
             appId === "incoming-offers" ||
             appId === "pitch" ||
-            appId === "active-projects"
+            appId === "active-projects" ||
+            appId === "archive"
           );
           const position = {
             x: isMobile ? 0 : baseOffset + openInstances * offsetStep,

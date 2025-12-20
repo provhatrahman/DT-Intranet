@@ -4,7 +4,7 @@ import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
-import { helpItems, appMetadata } from "..";
+import { helpItems, appMetadata } from "../index.tsx";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { ArchivedProject, ProjectPaymentStatus, LineupPaymentStatus } from "../data";
 import { DJ, dummyDJs } from "../../active-projects/djDatabase";
@@ -533,190 +533,200 @@ function ProjectDetailView({
           className={cn(tabStyles.tabContentClasses, "flex-1 flex flex-col min-w-0 min-h-0")}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-4 pr-6">
-              {/* Project Overview */}
-              <div className="space-y-4">
-                <div>
-                  <h1
-                    className={cn("text-2xl mb-2 font-semibold", isMacOSTheme ? "" : "")}
-                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                  >
-                    {project.name}
-                  </h1>
-                  <p
-                    className="text-base text-muted-foreground"
-                    style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                  >
-                    {project.description}
-                  </p>
-                </div>
+            <div className="flex justify-center w-full py-4">
+              <div className="w-full max-w-4xl px-4 md:px-6">
+                <div className="space-y-6">
+                  {/* Project Overview */}
+                  <div className="space-y-4">
+                    <div>
+                      <h1
+                        className={cn("text-2xl mb-2 font-semibold", isMacOSTheme ? "" : "")}
+                        style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                      >
+                        {project.name}
+                      </h1>
+                      <p
+                        className="text-base text-muted-foreground"
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                      >
+                        {project.description}
+                      </p>
+                    </div>
 
-                {/* Project Payment Status */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <h3
-                      className="text-sm font-semibold"
-                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                    >
-                      Project Payment Status
-                    </h3>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="min-w-0">
-                      <Label className="text-xs mb-2 flex items-center gap-2">
-                        Status
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={project.projectPaymentStatus}
-                          onValueChange={(value: ProjectPaymentStatus) =>
-                            onUpdateProject({ projectPaymentStatus: value })
-                          }
+                    {/* Project Payment Status */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2 mb-3">
+                        <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <h3
+                          className="text-sm font-semibold"
+                          style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                         >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Invoice Sent">Invoice Sent</SelectItem>
-                            <SelectItem value="Payment Received">Payment Received</SelectItem>
-                            <SelectItem value="Invoice Paid">Invoice Paid</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          className={isMacOSTheme ? "aqua-button secondary shrink-0" : "shrink-0"}
-                          onClick={() => onCheckIncomingPayment(project)}
-                          disabled={checkingPayment === `project-${project.id}`}
-                        >
-                          {checkingPayment === `project-${project.id}` ? (
-                            <>
-                              <Clock className="h-4 w-4 mr-2 animate-spin" />
-                              Checking...
-                            </>
-                          ) : (
-                            "Check Payment"
-                          )}
-                        </Button>
+                          Project Payment Status
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="min-w-0">
+                          <Label className="text-xs mb-2 block">
+                            Status
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={project.projectPaymentStatus}
+                              onValueChange={(value: ProjectPaymentStatus) =>
+                                onUpdateProject({ projectPaymentStatus: value })
+                              }
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Invoice Sent">Invoice Sent</SelectItem>
+                                <SelectItem value="Payment Received">Payment Received</SelectItem>
+                                <SelectItem value="Invoice Paid">Invoice Paid</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              className={cn(
+                                isMacOSTheme ? "aqua-button secondary" : "",
+                                "shrink-0"
+                              )}
+                              onClick={() => onCheckIncomingPayment(project)}
+                              disabled={checkingPayment === `project-${project.id}`}
+                            >
+                              {checkingPayment === `project-${project.id}` ? (
+                                <>
+                                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                  Checking...
+                                </>
+                              ) : (
+                                "Check Payment"
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <DollarSign className="h-4 w-4 shrink-0" />
+                          <span>Fee: {project.fee}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <DollarSign className="h-4 w-4" />
-                      <span>Fee: {project.fee}</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Lineup Payment Status */}
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <h3
-                      className="text-sm font-semibold"
-                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                    >
-                      Lineup Payment Status
-                    </h3>
-                  </div>
-                  {project.lineupPayments.length === 0 ? (
-                    <div className="text-sm text-muted-foreground py-4">
-                      No lineup members assigned
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {project.lineupPayments.map((lineupPayment) => {
-                        const dj = djs.find((d) => d.id === lineupPayment.djId);
-                        const isChecking = checkingPayment === `outgoing-${project.id}-${lineupPayment.djId}`;
-                        return (
-                          <Card
-                            key={lineupPayment.djId}
-                            className={cn(
-                              "relative overflow-hidden",
-                              isMacOSTheme && "border-none"
-                            )}
-                            style={
-                              isMacOSTheme
-                                ? {
-                                    borderRadius: "8px",
-                                    background:
-                                      "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
-                                    border: "1px solid rgba(0, 0, 0, 0.08)",
-                                    boxShadow: `
-                                      inset 0 1px 1px rgba(255, 255, 255, 0.6),
-                                      inset 0 0 2px rgba(0, 0, 0, 0.03)
-                                    `,
-                                  }
-                                : {}
-                            }
-                          >
-                            <CardContent className={cn("p-4", isMacOSTheme && "bg-transparent")}>
-                              <div className="space-y-3">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div
-                                      className="font-medium"
-                                      style={
-                                        isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}
+                    {/* Lineup Payment Status */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <h3
+                          className="text-sm font-semibold"
+                          style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                        >
+                          Lineup Payment Status
+                        </h3>
+                      </div>
+                      {project.lineupPayments.length === 0 ? (
+                        <div className="text-sm text-muted-foreground py-4">
+                          No lineup members assigned
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {project.lineupPayments.map((lineupPayment) => {
+                            const dj = djs.find((d) => d.id === lineupPayment.djId);
+                            const isChecking = checkingPayment === `outgoing-${project.id}-${lineupPayment.djId}`;
+                            return (
+                              <Card
+                                key={lineupPayment.djId}
+                                className={cn(
+                                  "relative overflow-hidden",
+                                  isMacOSTheme && "border-none"
+                                )}
+                                style={
+                                  isMacOSTheme
+                                    ? {
+                                        borderRadius: "8px",
+                                        background:
+                                          "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
+                                        border: "1px solid rgba(0, 0, 0, 0.08)",
+                                        boxShadow: `
+                                          inset 0 1px 1px rgba(255, 255, 255, 0.6),
+                                          inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                        `,
                                       }
-                                    >
-                                      {dj?.name || `DJ ${lineupPayment.djId}`}
+                                    : {}
+                                }
+                              >
+                                <CardContent className={cn("p-4", isMacOSTheme && "bg-transparent")}>
+                                  <div className="space-y-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div
+                                          className="font-medium"
+                                          style={
+                                            isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}
+                                          }
+                                        >
+                                          {dj?.name || `DJ ${lineupPayment.djId}`}
+                                        </div>
+                                        {dj?.artistName && dj.artistName !== dj.name && (
+                                          <div
+                                            className="text-sm text-muted-foreground"
+                                            style={
+                                              isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}
+                                            }
+                                          >
+                                            {dj.artistName}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <Badge
+                                        variant={
+                                          lineupPayment.status === "Invoice Paid" ? "default" : "secondary"
+                                        }
+                                        className="text-xs shrink-0"
+                                      >
+                                        {lineupPayment.status}
+                                      </Badge>
                                     </div>
-                                    {dj?.artistName && dj.artistName !== dj.name && (
-                                      <div
-                                        className="text-sm text-muted-foreground"
-                                        style={
-                                          isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}
+                                    <div className="flex items-center gap-2">
+                                      <Select
+                                        value={lineupPayment.status}
+                                        onValueChange={(value: LineupPaymentStatus) =>
+                                          onUpdateLineupPayment(project.id, lineupPayment.djId, {
+                                            status: value,
+                                          })
                                         }
                                       >
-                                        {dj.artistName}
-                                      </div>
-                                    )}
+                                        <SelectTrigger className="flex-1">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Invoice Received">Invoice Received</SelectItem>
+                                          <SelectItem value="Invoice Paid">Invoice Paid</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        className={cn(
+                                          isMacOSTheme ? "aqua-button secondary" : "",
+                                          "shrink-0"
+                                        )}
+                                        onClick={() => onCheckOutgoingPayment(project, lineupPayment.djId)}
+                                        disabled={isChecking}
+                                        size="sm"
+                                      >
+                                        {isChecking ? (
+                                          <Clock className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          "Check"
+                                        )}
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <Badge
-                                    variant={
-                                      lineupPayment.status === "Invoice Paid" ? "default" : "secondary"
-                                    }
-                                    className="text-xs shrink-0"
-                                  >
-                                    {lineupPayment.status}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Select
-                                    value={lineupPayment.status}
-                                    onValueChange={(value: LineupPaymentStatus) =>
-                                      onUpdateLineupPayment(project.id, lineupPayment.djId, {
-                                        status: value,
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger className="flex-1">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Invoice Received">Invoice Received</SelectItem>
-                                      <SelectItem value="Invoice Paid">Invoice Paid</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    className={isMacOSTheme ? "aqua-button secondary shrink-0" : "shrink-0"}
-                                    onClick={() => onCheckOutgoingPayment(project, lineupPayment.djId)}
-                                    disabled={isChecking}
-                                    size="sm"
-                                  >
-                                    {isChecking ? (
-                                      <Clock className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      "Check"
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
