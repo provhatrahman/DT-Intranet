@@ -1447,7 +1447,7 @@ function ProjectDetailView({
       {/* Generate Invoice Dialog */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         <DialogContent className={cn(
-          isMobile ? "max-w-[calc(100vw-1rem)] mx-2" : "max-w-[600px]",
+          isMobile ? "max-w-[calc(100vw-2rem)]" : "max-w-[600px]",
           isMacOSTheme && "max-h-[90vh]"
         )}>
           {isMacOSTheme ? (
