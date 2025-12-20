@@ -78,3 +78,36 @@ export function convertOfferToActiveProject(offer: Offer): ActiveProject {
 
 // Empty array - projects will be loaded from localStorage
 export const dummyProjects: ActiveProject[] = [];
+
+// Type definitions for archive (to avoid circular dependency)
+export type ProjectPaymentStatus = "Invoice Sent" | "Payment Received" | "Invoice Paid";
+export type LineupPaymentStatus = "Invoice Received" | "Invoice Paid";
+
+export interface LineupPaymentInfo {
+  djId: string;
+  status: LineupPaymentStatus;
+  invoiceGeneratedAt?: string;
+  invoiceSentAt?: string;
+  paidAt?: string;
+}
+
+// Convert an ActiveProject to an archived project structure
+// This is used when moving projects to archive
+export function prepareProjectForArchive(project: ActiveProject) {
+  return {
+    ...project,
+    archivedAt: new Date().toISOString(),
+    projectPaymentStatus: "Invoice Sent" as ProjectPaymentStatus,
+    lineupPayments: project.finalLineup.map((djId) => ({
+      djId,
+      status: "Invoice Received" as LineupPaymentStatus,
+    })),
+    photosAndVideos: project.googleDriveLink || "",
+    wrapUpFeedback: [] as Array<{
+      id: string;
+      userId: string;
+      timestamp: string;
+      text: string;
+    }>,
+  };
+}

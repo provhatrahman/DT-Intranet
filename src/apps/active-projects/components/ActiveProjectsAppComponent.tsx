@@ -4,9 +4,10 @@ import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { ActiveProject, dummyProjects, StatusUpdate } from "../data";
+import { ActiveProject, dummyProjects, StatusUpdate, prepareProjectForArchive } from "../data";
 import { DJ, dummyDJs, searchDJs, addDJ } from "../djDatabase";
 import {
   Card,
@@ -48,6 +49,8 @@ export function ActiveProjectsAppComponent({
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [pendingCompleteProjectId, setPendingCompleteProjectId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [projects, setProjects] = useState<ActiveProject[]>([]);
   // Start with no selection on mobile to show list first
@@ -287,6 +290,70 @@ export function ActiveProjectsAppComponent({
     setDJs((prev) => [...prev, newDJ]);
     setNewDJForm({});
     setShowAddDJDialog(false);
+  };
+
+  const handleMarkCompleteClick = (projectId: string) => {
+    setPendingCompleteProjectId(projectId);
+    setIsCompleteDialogOpen(true);
+  };
+
+  const handleCompleteConfirm = () => {
+    if (!pendingCompleteProjectId) return;
+
+    const project = projects.find((p) => p.id === pendingCompleteProjectId);
+    if (!project) {
+      setIsCompleteDialogOpen(false);
+      setPendingCompleteProjectId(null);
+      return;
+    }
+
+    try {
+      // Convert to archived project
+      const archivedProject = prepareProjectForArchive(project);
+      console.log("Prepared archived project:", archivedProject);
+
+      // Load existing archived projects
+      const existingArchivedJson = localStorage.getItem("archived_projects_list");
+      let archivedProjects: any[] = [];
+      if (existingArchivedJson) {
+        try {
+          archivedProjects = JSON.parse(existingArchivedJson);
+        } catch (e) {
+          console.error("Failed to parse archived projects:", e);
+        }
+      }
+
+      // Add to archived projects
+      archivedProjects.push(archivedProject);
+      localStorage.setItem("archived_projects_list", JSON.stringify(archivedProjects));
+      console.log("Saved to archive, total archived projects:", archivedProjects.length);
+
+      // Remove from active projects
+      const updatedProjects = projects.filter((p) => p.id !== pendingCompleteProjectId);
+      setProjects(updatedProjects);
+      console.log("Removed from active projects, remaining:", updatedProjects.length);
+      
+      // Clear selection if the completed project was selected
+      if (selectedProjectId === pendingCompleteProjectId) {
+        setSelectedProjectId(null);
+      }
+
+      // Dispatch event for archive app to listen to
+      window.dispatchEvent(new CustomEvent("archived-projects-updated"));
+      console.log("Dispatched archived-projects-updated event");
+    } catch (error) {
+      console.error("Error archiving project:", error);
+      alert("Failed to archive project. Please try again.");
+    }
+
+    // Close dialog and reset state
+    setIsCompleteDialogOpen(false);
+    setPendingCompleteProjectId(null);
+  };
+
+  const handleCompleteDialogClose = () => {
+    setIsCompleteDialogOpen(false);
+    setPendingCompleteProjectId(null);
   };
 
   const filteredDJs = searchDJs(djSearchQuery, djs);
@@ -541,6 +608,7 @@ export function ActiveProjectsAppComponent({
                 lineupPage={lineupPage}
                 onLineupPageChange={setLineupPage}
                 itemsPerPage={ITEMS_PER_PAGE}
+                onMarkComplete={handleMarkCompleteClick}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -562,6 +630,19 @@ export function ActiveProjectsAppComponent({
           onOpenChange={setIsAboutDialogOpen}
           metadata={appMetadata}
           appId="active-projects"
+        />
+        <ConfirmDialog
+          isOpen={isCompleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              handleCompleteDialogClose();
+            } else {
+              setIsCompleteDialogOpen(true);
+            }
+          }}
+          onConfirm={handleCompleteConfirm}
+          title="Mark Project as Complete"
+          description={`Are you sure you want to mark "${projects.find(p => p.id === pendingCompleteProjectId)?.name || 'this project'}" as complete? It will be moved to the Archive.`}
         />
       </WindowFrame>
     </>
@@ -592,6 +673,7 @@ function ProjectDetailView({
   lineupPage,
   onLineupPageChange,
   itemsPerPage,
+  onMarkComplete,
 }: {
   project: ActiveProject;
   djs: DJ[];
@@ -624,6 +706,7 @@ function ProjectDetailView({
   lineupPage: number;
   onLineupPageChange: (page: number) => void;
   itemsPerPage: number;
+  onMarkComplete: (projectId: string) => void;
 }) {
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOSTheme = currentTheme === "macosx";
@@ -680,32 +763,34 @@ function ProjectDetailView({
             <div className="space-y-6 p-4 pr-6">
               {/* Hero Section */}
               <div className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h1 
-                      className={cn("text-2xl mb-2 font-semibold", isMacOSTheme ? "" : "")}
-                      style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h1 
+                        className={cn("text-2xl mb-2 font-semibold", isMacOSTheme ? "" : "")}
+                        style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
+                      >
+                        {project.name}
+                      </h1>
+                      <p
+                        className="text-base text-muted-foreground"
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                      >
+                        {project.description}
+                      </p>
+                    </div>
+                    <Badge 
+                      variant="outline"
+                      className={cn(
+                        "shrink-0 text-sm px-3 py-1",
+                        project.projectSize === "Large" && "bg-blue-50 text-blue-700 border-blue-200",
+                        project.projectSize === "Med" && "bg-purple-50 text-purple-700 border-purple-200",
+                        project.projectSize === "Small" && "bg-green-50 text-green-700 border-green-200"
+                      )}
                     >
-                      {project.name}
-                    </h1>
-                    <p
-                      className="text-base text-muted-foreground"
-                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                    >
-                      {project.description}
-                    </p>
+                      {project.projectSize}
+                    </Badge>
                   </div>
-                  <Badge 
-                    variant="outline"
-                    className={cn(
-                      "shrink-0 text-sm px-3 py-1",
-                      project.projectSize === "Large" && "bg-blue-50 text-blue-700 border-blue-200",
-                      project.projectSize === "Med" && "bg-purple-50 text-purple-700 border-purple-200",
-                      project.projectSize === "Small" && "bg-green-50 text-green-700 border-green-200"
-                    )}
-                  >
-                    {project.projectSize}
-                  </Badge>
                 </div>
 
                 {/* Key Metrics - Mobile Optimized */}
@@ -1118,6 +1203,19 @@ function ProjectDetailView({
                     </div>
                   </ScrollArea>
                 )}
+              </div>
+
+              {/* Mark Complete Button */}
+              <div className="flex justify-end pt-4 border-t">
+                <Button
+                  className={isMacOSTheme ? "aqua-button secondary" : ""}
+                  onClick={() => onMarkComplete(project.id)}
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                >
+                  Mark Complete
+                </Button>
               </div>
             </div>
           </ScrollArea>
