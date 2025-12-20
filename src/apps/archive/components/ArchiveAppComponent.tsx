@@ -1125,8 +1125,12 @@ function ProjectDetailView({
                                           "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
                                         border: "1px solid rgba(0, 0, 0, 0.08)",
                                         boxShadow: `
-                                          inset 0 1px 1px rgba(255, 255, 255, 0.6),
-                                          inset 0 0 2px rgba(0, 0, 0, 0.03)
+                                          0 2px 4px rgba(0, 0, 0, 0.14),
+                                          0 1px 1px rgba(0, 0, 0, 0.25),
+                                          inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                                          inset 0 0 4px rgba(0, 0, 0, 0.05),
+                                          inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                                          inset 0 0 0 1px rgba(0, 0, 0, 0.08)
                                         `,
                                       }
                                     : {}
@@ -1186,7 +1190,7 @@ function ProjectDetailView({
                                           isMacOSTheme ? "aqua-button secondary" : "",
                                           "shrink-0 w-full sm:w-auto"
                                         )}
-                                        onClick={() => onCheckOutgoingPayment(project, lineupPayment.djId)}
+                                        onClick={() => setIsTransactionsDialogOpen(true)}
                                         disabled={isChecking}
                                         size="sm"
                                       >
