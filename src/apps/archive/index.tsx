@@ -24,13 +24,13 @@ export const helpItems = [
   },
   {
     icon: "📸",
-    title: "Photos & Videos",
+    title: "Pics & Vids",
     description:
       "Store the Google Drive link containing photos and videos from completed projects. This helps keep all project media organized in one place.",
   },
   {
     icon: "💬",
-    title: "Wrap Up Feedback",
+    title: "Feedback",
     description:
       "Add feedback, learnings, and notes about completed projects. This helps capture insights and improve future project management.",
   },

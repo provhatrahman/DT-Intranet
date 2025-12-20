@@ -521,10 +521,10 @@ function ProjectDetailView({
             Payments
           </TabsTrigger>
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="media">
-            Photos & Videos
+            Pics & Vids
           </TabsTrigger>
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="feedback">
-            Wrap Up Feedback
+            Feedback
           </TabsTrigger>
         </TabsList>
 
@@ -736,7 +736,7 @@ function ProjectDetailView({
                     className="text-lg font-semibold"
                     style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                   >
-                    Photos & Videos
+                    Pics & Vids
                   </h2>
                 </div>
                 <div className="space-y-3">
@@ -776,7 +776,7 @@ function ProjectDetailView({
                       className="text-lg font-semibold"
                       style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
                     >
-                      Wrap Up Feedback
+                      Feedback
                     </h2>
                   </div>
                   {project.wrapUpFeedback.length > 0 && (

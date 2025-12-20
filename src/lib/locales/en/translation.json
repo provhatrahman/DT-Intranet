@@ -2074,6 +2074,10 @@
           "description": "After submitting, your pitch will appear in the Inbox app with a 'pitch' source flag for easy identification."
         }
       }
+    },
+    "archive": {
+      "name": "Archive",
+      "description": "View and manage archived projects"
     }
   },
   "settings": {

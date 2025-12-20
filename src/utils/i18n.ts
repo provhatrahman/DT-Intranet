@@ -19,7 +19,8 @@ export type AppId =
   | "admin"
   | "incoming-offers"
   | "active-projects"
-  | "pitch";
+  | "pitch"
+  | "archive";
 
 /**
  * Get translated app name

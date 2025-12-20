@@ -17,6 +17,7 @@ const APP_NAMES: Record<string, string> = {
   "control-panels": "Control Panels",
   "active-projects": "Active Projects",
   "pitch": "Pitch",
+  "archive": "Archive",
 };
 
 // App descriptions
@@ -60,6 +61,7 @@ const APP_ICONS: Record<string, string> = {
   "active-projects": "pc.png",
   "pitch": "pitch.png",
 };
+  "archive": "vault.png",
 
 function generateOgHtml(options: {
   title: string;
@@ -124,6 +126,7 @@ export const config = {
     "/control-panels",
     "/pitch",
   ],
+    "/archive",
 };
 
 // Simple title parser - extracts artist and title from common YouTube formats
