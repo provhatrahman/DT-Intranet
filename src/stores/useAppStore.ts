@@ -529,15 +529,25 @@ export const useAppStore = create<AppStoreState>()(
           const offsetStep = 32;
           const isMobile =
             typeof window !== "undefined" && window.innerWidth < 768;
+          // Only use full height for inbox, pitch, and active projects in mobile view
+          const shouldUseFullHeight = isMobile && (
+            appId === "incoming-offers" ||
+            appId === "pitch" ||
+            appId === "active-projects"
+          );
           const position = {
             x: isMobile ? 0 : baseOffset + openInstances * offsetStep,
-            y: isMobile
+            y: shouldUseFullHeight
               ? getMobileTopInset()
+              : isMobile
+              ? 28 + openInstances * offsetStep
               : 40 + openInstances * 20,
           };
           const cfg = getWindowConfig(appId);
-          let size = isMobile
+          let size = shouldUseFullHeight
             ? { width: window.innerWidth, height: getMobileFullHeight() }
+            : isMobile
+            ? { width: window.innerWidth, height: cfg.defaultSize.height }
             : cfg.defaultSize;
 
           // If creating an Applet Viewer window and we have a path, prefer saved size

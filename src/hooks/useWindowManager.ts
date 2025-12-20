@@ -43,6 +43,12 @@ export const useWindowManager = ({
     size: WindowSize;
   } => {
     const isMobile = window.innerWidth < 768;
+    // Only use full height for inbox, pitch, and active projects in mobile view
+    const shouldUseFullHeight = isMobile && (
+      appId === "incoming-offers" ||
+      appId === "pitch" ||
+      appId === "active-projects"
+    );
 
     const appIndex = appIds.indexOf(appId);
     const offsetIndex = appIndex >= 0 ? appIndex : 0;
@@ -50,12 +56,21 @@ export const useWindowManager = ({
     return {
       position: {
         x: isMobile ? 0 : 16 + offsetIndex * 32,
-        y: isMobile ? getMobileTopInset() : 40 + offsetIndex * 20,
+        y: shouldUseFullHeight
+          ? getMobileTopInset()
+          : isMobile
+          ? 28
+          : 40 + offsetIndex * 20,
       },
-      size: isMobile
+      size: shouldUseFullHeight
         ? {
             width: window.innerWidth,
             height: getMobileFullHeight(),
+          }
+        : isMobile
+        ? {
+            width: window.innerWidth,
+            height: config.defaultSize.height,
           }
         : config.defaultSize,
     };
