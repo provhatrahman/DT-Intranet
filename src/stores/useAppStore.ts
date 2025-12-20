@@ -11,6 +11,7 @@ import { AIModel } from "@/types/aiModels";
 import { ensureIndexedDBInitialized } from "@/utils/indexedDB";
 import { track } from "@vercel/analytics";
 import { APP_ANALYTICS } from "@/utils/analytics";
+import { getMobileFullHeight, getMobileTopInset } from "@/utils/windowUtils";
 export type { AIModel } from "@/types/aiModels";
 
 // ---------------- Types ---------------------------------------------------------
@@ -531,12 +532,12 @@ export const useAppStore = create<AppStoreState>()(
           const position = {
             x: isMobile ? 0 : baseOffset + openInstances * offsetStep,
             y: isMobile
-              ? 28 + openInstances * offsetStep
+              ? getMobileTopInset()
               : 40 + openInstances * 20,
           };
           const cfg = getWindowConfig(appId);
           let size = isMobile
-            ? { width: window.innerWidth, height: cfg.defaultSize.height }
+            ? { width: window.innerWidth, height: getMobileFullHeight() }
             : cfg.defaultSize;
 
           // If creating an Applet Viewer window and we have a path, prefer saved size
