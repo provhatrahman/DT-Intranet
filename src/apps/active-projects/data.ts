@@ -81,7 +81,7 @@ export const dummyProjects: ActiveProject[] = [];
 
 // Type definitions for archive (to avoid circular dependency)
 export type ProjectPaymentStatus = "Invoice Not Sent" | "Invoice Sent" | "Payment Received" | "Invoice Paid";
-export type LineupPaymentStatus = "Invoice Received" | "Invoice Paid";
+export type LineupPaymentStatus = "Not Sent" | "Link Sent" | "Invoice Received" | "Invoice Paid";
 
 export interface LineupPaymentInfo {
   djId: string;
@@ -100,7 +100,7 @@ export function prepareProjectForArchive(project: ActiveProject) {
     projectPaymentStatus: "Invoice Not Sent" as ProjectPaymentStatus,
     lineupPayments: project.finalLineup.map((djId) => ({
       djId,
-      status: "Invoice Received" as LineupPaymentStatus,
+      status: "Not Sent" as LineupPaymentStatus,
     })),
     photosAndVideos: project.googleDriveLink || "",
     wrapUpFeedback: [] as Array<{

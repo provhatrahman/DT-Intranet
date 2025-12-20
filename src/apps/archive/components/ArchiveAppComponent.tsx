@@ -54,6 +54,7 @@ import {
   Music,
   User,
   TrendingUp,
+  Copy,
 } from "lucide-react";
 import { checkIncomingPayment, checkOutgoingPayment } from "../utils/bankTransactions";
 
@@ -132,7 +133,12 @@ export function ArchiveAppComponent({
             const parsed = JSON.parse(savedProjectsJson);
             if (Array.isArray(parsed)) {
               console.log("Reloading archived projects on window open, count:", parsed.length);
-              setProjects(parsed);
+              // Ensure all projects have a default payment status
+              const normalizedProjects = parsed.map((p: ArchivedProject) => ({
+                ...p,
+                projectPaymentStatus: p.projectPaymentStatus || "Invoice Not Sent",
+              }));
+              setProjects(normalizedProjects);
             }
           }
         } catch (e) {
@@ -255,6 +261,25 @@ export function ArchiveAppComponent({
       console.error("Failed to check outgoing payment:", error);
     } finally {
       setCheckingPayment(null);
+    }
+  };
+
+  const handleCopyInvoiceLink = async (
+    project: ArchivedProject,
+    djId: string
+  ) => {
+    // Dummy link for now - will be replaced with actual Google Form link in the future
+    const invoiceLink = `https://forms.google.com/invoice/${project.id}/${djId}`;
+    
+    try {
+      await navigator.clipboard.writeText(invoiceLink);
+      // Update status to "Link Sent" after copying
+      handleUpdateLineupPayment(project.id, djId, {
+        status: "Link Sent",
+        invoiceSentAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to copy invoice link:", error);
     }
   };
 
@@ -450,6 +475,7 @@ export function ArchiveAppComponent({
                   onAddFeedback={handleAddFeedback}
                   onCheckIncomingPayment={handleCheckIncomingPayment}
                   onCheckOutgoingPayment={handleCheckOutgoingPayment}
+                  onCopyInvoiceLink={handleCopyInvoiceLink}
                   checkingPayment={checkingPayment}
                   tabStyles={tabStyles}
                   isMobile={isMobile}
@@ -489,6 +515,7 @@ function ProjectDetailView({
   onAddFeedback,
   onCheckIncomingPayment,
   onCheckOutgoingPayment,
+  onCopyInvoiceLink,
   checkingPayment,
   tabStyles,
   isMobile,
@@ -505,6 +532,7 @@ function ProjectDetailView({
   onAddFeedback: (projectId: string, text: string) => void;
   onCheckIncomingPayment: (project: ArchivedProject) => Promise<void>;
   onCheckOutgoingPayment: (project: ArchivedProject, djId: string) => Promise<void>;
+  onCopyInvoiceLink: (project: ArchivedProject, djId: string) => Promise<void>;
   checkingPayment: string | null;
   tabStyles: ReturnType<typeof getTabStyles>;
   isMobile: boolean;
@@ -1013,25 +1041,8 @@ function ProjectDetailView({
         >
           <ScrollArea className="flex-1">
             <div className="space-y-6 p-4 pr-6">
-                  {/* Project Overview */}
-                  <div className="space-y-4">
-                    <div>
-                      <h1
-                        className={cn("text-2xl mb-2 font-semibold", isMacOSTheme ? "" : "")}
-                        style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)" } : {}}
-                      >
-                        {project.name}
-                      </h1>
-                      <p
-                        className="text-base text-muted-foreground"
-                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                      >
-                        {project.description}
-                      </p>
-                    </div>
-
                     {/* Daytimers Payment Status */}
-                    <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-4">
                       <div className="flex items-center gap-2 mb-3">
                         <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
                         <h3
@@ -1065,18 +1076,32 @@ function ProjectDetailView({
                             </Select>
                             <Button
                               className={cn(
-                                isMacOSTheme ? "aqua-button secondary" : "",
+                                isMacOSTheme 
+                                  ? "aqua-button secondary" 
+                                  : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600",
                                 "shrink-0 w-full sm:w-auto"
                               )}
+                              style={isMacOSTheme ? {
+                                background: "linear-gradient(to bottom, rgba(48, 123, 201, 0.4), rgba(48, 123, 201, 0.3))",
+                                borderColor: "rgba(48, 123, 201, 0.5)",
+                                color: "rgba(0, 0, 0, 0.85)",
+                              } : undefined}
                               onClick={() => setIsInvoiceDialogOpen(true)}
                             >
                               Generate Invoice
                             </Button>
                             <Button
                               className={cn(
-                                isMacOSTheme ? "aqua-button secondary" : "",
+                                isMacOSTheme 
+                                  ? "aqua-button secondary" 
+                                  : "bg-green-500 hover:bg-green-600 text-white border-green-600",
                                 "shrink-0 w-full sm:w-auto"
                               )}
+                              style={isMacOSTheme ? {
+                                background: "linear-gradient(to bottom, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.3))",
+                                borderColor: "rgba(34, 197, 94, 0.5)",
+                                color: "rgba(0, 0, 0, 0.85)",
+                              } : undefined}
                               onClick={() => setIsTransactionsDialogOpen(true)}
                             >
                               Check Payments
@@ -1181,15 +1206,42 @@ function ProjectDetailView({
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
+                                          <SelectItem value="Not Sent">Not Sent</SelectItem>
+                                          <SelectItem value="Link Sent">Link Sent</SelectItem>
                                           <SelectItem value="Invoice Received">Invoice Received</SelectItem>
                                           <SelectItem value="Invoice Paid">Invoice Paid</SelectItem>
                                         </SelectContent>
                                       </Select>
                                       <Button
                                         className={cn(
-                                          isMacOSTheme ? "aqua-button secondary" : "",
+                                          isMacOSTheme 
+                                            ? "aqua-button secondary" 
+                                            : "bg-blue-500 hover:bg-blue-600 text-white border-blue-600",
                                           "shrink-0 w-full sm:w-auto"
                                         )}
+                                        style={isMacOSTheme ? {
+                                          background: "linear-gradient(to bottom, rgba(48, 123, 201, 0.4), rgba(48, 123, 201, 0.3))",
+                                          borderColor: "rgba(48, 123, 201, 0.5)",
+                                          color: "rgba(0, 0, 0, 0.85)",
+                                        } : undefined}
+                                        onClick={() => onCopyInvoiceLink(project, lineupPayment.djId)}
+                                        size="sm"
+                                      >
+                                        <Copy className="h-4 w-4 mr-1.5" />
+                                        Copy Link
+                                      </Button>
+                                      <Button
+                                        className={cn(
+                                          isMacOSTheme 
+                                            ? "aqua-button secondary" 
+                                            : "bg-green-500 hover:bg-green-600 text-white border-green-600",
+                                          "shrink-0 w-full sm:w-auto"
+                                        )}
+                                        style={isMacOSTheme ? {
+                                          background: "linear-gradient(to bottom, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.3))",
+                                          borderColor: "rgba(34, 197, 94, 0.5)",
+                                          color: "rgba(0, 0, 0, 0.85)",
+                                        } : undefined}
                                         onClick={() => setIsTransactionsDialogOpen(true)}
                                         disabled={isChecking}
                                         size="sm"
@@ -1209,7 +1261,6 @@ function ProjectDetailView({
                         </div>
                       )}
                     </div>
-              </div>
             </div>
           </ScrollArea>
         </TabsContent>
@@ -1403,7 +1454,10 @@ function ProjectDetailView({
             <>
               <DialogHeader>Generate Invoice</DialogHeader>
               <div className="px-4 sm:px-6 pt-3 pb-2">
-                <p className="text-sm text-muted-foreground">
+                <p 
+                  className="text-sm text-muted-foreground"
+                  style={{ textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" }}
+                >
                   Fill out the invoice details to send to the client for DAYTIMERS account payment.
                 </p>
               </div>
@@ -1419,7 +1473,13 @@ function ProjectDetailView({
           <ScrollArea className="max-h-[calc(90vh-180px)] px-4 sm:px-6">
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="invoice-number" className="text-sm">Invoice Number</Label>
+                <Label 
+                  htmlFor="invoice-number" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Invoice Number
+                </Label>
                 <Input
                   id="invoice-number"
                   value={invoiceForm.invoiceNumber}
@@ -1429,7 +1489,13 @@ function ProjectDetailView({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="amount" className="text-sm">Amount</Label>
+                <Label 
+                  htmlFor="amount" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Amount
+                </Label>
                 <Input
                   id="amount"
                   type="text"
@@ -1440,7 +1506,13 @@ function ProjectDetailView({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="due-date" className="text-sm">Due Date</Label>
+                <Label 
+                  htmlFor="due-date" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Due Date
+                </Label>
                 <Input
                   id="due-date"
                   type="date"
@@ -1450,7 +1522,13 @@ function ProjectDetailView({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="client-name" className="text-sm">Client Name</Label>
+                <Label 
+                  htmlFor="client-name" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Client Name
+                </Label>
                 <Input
                   id="client-name"
                   value={invoiceForm.clientName}
@@ -1460,7 +1538,13 @@ function ProjectDetailView({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="client-email" className="text-sm">Client Email</Label>
+                <Label 
+                  htmlFor="client-email" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Client Email
+                </Label>
                 <Input
                   id="client-email"
                   type="email"
@@ -1471,7 +1555,13 @@ function ProjectDetailView({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm">Description</Label>
+                <Label 
+                  htmlFor="description" 
+                  className="text-sm"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                >
+                  Description
+                </Label>
                 <Textarea
                   id="description"
                   value={invoiceForm.description}
@@ -1487,7 +1577,10 @@ function ProjectDetailView({
             <Button
               variant="outline"
               onClick={() => setIsInvoiceDialogOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+              className={cn(
+                isMacOSTheme ? "aqua-button secondary" : "",
+                "w-full sm:w-auto order-2 sm:order-1"
+              )}
             >
               Cancel
             </Button>
@@ -1533,7 +1626,10 @@ function ProjectDetailView({
             <>
               <DialogHeader>Revolut Bank Transactions</DialogHeader>
               <div className="px-4 sm:px-6 pt-3 pb-2">
-                <p className="text-sm text-muted-foreground">
+                <p 
+                  className="text-sm text-muted-foreground"
+                  style={{ textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" }}
+                >
                   Recent transactions for this project payment.
                 </p>
               </div>
@@ -1552,7 +1648,7 @@ function ProjectDetailView({
                 <div
                   key={index}
                   className={cn(
-                    "p-3 sm:p-4 rounded-lg border w-full min-w-0",
+                    "p-3 sm:p-4 rounded-lg border w-full min-w-0 relative overflow-hidden",
                     isMacOSTheme ? "" : "bg-muted/30"
                   )}
                   style={
@@ -1561,15 +1657,44 @@ function ProjectDetailView({
                           borderRadius: "8px",
                           background: "linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(250, 250, 250, 0.7))",
                           border: "1px solid rgba(0, 0, 0, 0.08)",
-                          boxShadow: "inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 0 2px rgba(0, 0, 0, 0.03)",
+                          boxShadow: `
+                            0 2px 4px rgba(0, 0, 0, 0.14),
+                            0 1px 1px rgba(0, 0, 0, 0.25),
+                            inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                            inset 0 0 4px rgba(0, 0, 0, 0.05),
+                            inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
+                            inset 0 0 0 1px rgba(0, 0, 0, 0.08)
+                          `,
+                          WebkitFontSmoothing: "antialiased",
                         }
                       : {}
                   }
                 >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-4 min-w-0">
+                  {isMacOSTheme && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "4px",
+                        right: "4px",
+                        top: "2px",
+                        height: "12px",
+                        background: "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
+                        borderRadius: "6px 6px 2px 2px",
+                        filter: "blur(0.5px)",
+                        pointerEvents: "none",
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-4 min-w-0 relative z-10">
                     <div className="flex-1 min-w-0 w-full sm:w-auto">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                        <span className="font-medium text-sm break-words">{transaction.description}</span>
+                        <span 
+                          className="font-medium text-sm break-words"
+                          style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                        >
+                          {transaction.description}
+                        </span>
                         <Badge
                           variant={transaction.status === "completed" ? "default" : "secondary"}
                           className="text-xs shrink-0 w-fit"
@@ -1577,19 +1702,30 @@ function ProjectDetailView({
                           {transaction.status}
                         </Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                      <div 
+                        className="text-xs text-muted-foreground space-y-1 mt-2"
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                      >
                         <div className="break-words">Date: {transaction.date}</div>
                         <div className="break-words">Reference: {transaction.reference}</div>
                       </div>
                     </div>
                     <div className="text-left sm:text-right shrink-0 w-full sm:w-auto">
-                      <div className={cn(
-                        "font-semibold text-sm",
-                        transaction.amount.startsWith("-") ? "text-red-600" : "text-green-600"
-                      )}>
+                      <div 
+                        className={cn(
+                          "font-semibold text-sm",
+                          transaction.amount.startsWith("-") ? "text-red-600" : "text-green-600"
+                        )}
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
+                      >
                         {transaction.amount}
                       </div>
-                      <div className="text-xs text-muted-foreground">{transaction.currency}</div>
+                      <div 
+                        className="text-xs text-muted-foreground"
+                        style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                      >
+                        {transaction.currency}
+                      </div>
                     </div>
                   </div>
                 </div>
