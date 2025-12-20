@@ -80,7 +80,7 @@ export function convertOfferToActiveProject(offer: Offer): ActiveProject {
 export const dummyProjects: ActiveProject[] = [];
 
 // Type definitions for archive (to avoid circular dependency)
-export type ProjectPaymentStatus = "Invoice Sent" | "Payment Received" | "Invoice Paid";
+export type ProjectPaymentStatus = "Invoice Not Sent" | "Invoice Sent" | "Payment Received" | "Invoice Paid";
 export type LineupPaymentStatus = "Invoice Received" | "Invoice Paid";
 
 export interface LineupPaymentInfo {
@@ -97,7 +97,7 @@ export function prepareProjectForArchive(project: ActiveProject) {
   return {
     ...project,
     archivedAt: new Date().toISOString(),
-    projectPaymentStatus: "Invoice Sent" as ProjectPaymentStatus,
+    projectPaymentStatus: "Invoice Not Sent" as ProjectPaymentStatus,
     lineupPayments: project.finalLineup.map((djId) => ({
       djId,
       status: "Invoice Received" as LineupPaymentStatus,
