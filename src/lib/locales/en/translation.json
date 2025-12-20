@@ -2028,11 +2028,11 @@
       }
     },
     "incoming-offers": {
-      "name": "Incoming Offers",
+      "name": "Inbox",
       "description": "Browse incoming gig and brand offers",
       "menu": {
-        "incomingOffersHelp": "Incoming Offers Help",
-        "aboutIncomingOffers": "About Incoming Offers"
+        "incomingOffersHelp": "Inbox Help",
+        "aboutIncomingOffers": "About Inbox"
       },
       "help": {
         "viewingOffers": {
@@ -2056,6 +2056,24 @@
     "active-projects": {
       "name": "Active Projects",
       "description": "Manage active projects and curations"
+    },
+    "pitch": {
+      "name": "Pitch",
+      "description": "Pitch a new project",
+      "help": {
+        "pitchProject": {
+          "title": "Pitch a Project",
+          "description": "Fill out the form with project details including name, description, key dates, venue, budget, and timelines. Submit to add it to Inbox."
+        },
+        "formFields": {
+          "title": "Form Fields",
+          "description": "Name and Description are required. Other fields are optional but recommended to provide as much detail as possible."
+        },
+        "submission": {
+          "title": "Submission",
+          "description": "After submitting, your pitch will appear in the Inbox app with a 'pitch' source flag for easy identification."
+        }
+      }
     }
   },
   "settings": {

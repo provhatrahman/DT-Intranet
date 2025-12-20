@@ -16,6 +16,7 @@ const APP_NAMES: Record<string, string> = {
   "applet-viewer": "Applet Store",
   "control-panels": "Control Panels",
   "active-projects": "Active Projects",
+  "pitch": "Pitch",
 };
 
 // App descriptions
@@ -36,6 +37,7 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   "applet-viewer": "Explore and install community applets",
   "control-panels": "Set themes, sounds, and system preferences",
   "active-projects": "Manage active projects and curations",
+  "pitch": "Pitch a new project",
 };
 
 // App ID to macOS icon mapping
@@ -56,6 +58,7 @@ const APP_ICONS: Record<string, string> = {
   "applet-viewer": "app.png",
   "control-panels": "control-panels/appearance-manager/app.png",
   "active-projects": "pc.png",
+  "pitch": "pitch.png",
 };
 
 function generateOgHtml(options: {
@@ -119,6 +122,7 @@ export const config = {
     "/applet-viewer",
     "/applet-viewer/:path*",
     "/control-panels",
+    "/pitch",
   ],
 };
 

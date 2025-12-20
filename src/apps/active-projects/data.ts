@@ -19,7 +19,7 @@ export interface CurationSuggestion {
 
 export interface ActiveProject {
   id: string;
-  // From incoming offers
+  // From inbox
   name: string;
   description: string;
   promoter: string;
@@ -38,7 +38,7 @@ export interface ActiveProject {
   finalLineup: string[]; // Array of DJ IDs
 }
 
-// Convert incoming offers to active projects with additional fields
+// Convert inbox offers to active projects with additional fields
 export const dummyProjects: ActiveProject[] = dummyOffers.map((offer, index) => {
   const sizes: ProjectSize[] = ["Small", "Med", "Large"];
   const leads = ["Dhillon", "Roop", "Kiran", "Izzi"];

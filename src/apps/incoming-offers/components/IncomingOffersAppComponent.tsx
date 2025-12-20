@@ -48,7 +48,7 @@ export function IncomingOffersAppComponent({
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const [offers] = useState<Offer[]>(dummyOffers);
+  const [offers, setOffers] = useState<Offer[]>(dummyOffers);
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee">("date-asc");
   
@@ -65,6 +65,52 @@ export function IncomingOffersAppComponent({
     if (savedVotes) {
       setUserVotes(JSON.parse(savedVotes));
     }
+  }, []);
+
+  // Load offers from localStorage and merge with dummy data
+  useEffect(() => {
+    const loadOffers = () => {
+      let savedOffers: Offer[] = [];
+      
+      try {
+        const savedOffersJson = localStorage.getItem("incoming_offers_list");
+        if (savedOffersJson) {
+          const parsed = JSON.parse(savedOffersJson);
+          // Validate it's an array
+          if (Array.isArray(parsed)) {
+            savedOffers = parsed;
+          } else {
+            console.warn("Invalid offers data in localStorage, resetting");
+            localStorage.removeItem("incoming_offers_list");
+          }
+        }
+      } catch (parseError) {
+        console.error("Failed to parse offers from localStorage:", parseError);
+        // Clear corrupted data
+        localStorage.removeItem("incoming_offers_list");
+        savedOffers = [];
+      }
+      
+      // Merge saved offers with dummy offers, avoiding duplicates by ID
+      const dummyIds = new Set(dummyOffers.map(o => o.id));
+      const newOffers = savedOffers.filter(o => !dummyIds.has(o.id));
+      // Sort by date (newest first) for better UX - pitches will appear at top if they have recent dates
+      const mergedOffers = [...dummyOffers, ...newOffers];
+      
+      setOffers(mergedOffers);
+    };
+
+    loadOffers();
+
+    // Listen for updates from pitch app
+    const handleOffersUpdate = () => {
+      loadOffers();
+    };
+
+    window.addEventListener("offers-updated", handleOffersUpdate);
+    return () => {
+      window.removeEventListener("offers-updated", handleOffersUpdate);
+    };
   }, []);
 
   // Calculate aggregated counts: base counts + user's vote (1 if voted, 0 if not)
@@ -164,7 +210,7 @@ export function IncomingOffersAppComponent({
     <>
       {!isXpTheme && isForeground && menuBar}
       <WindowFrame
-        title="Incoming Offers"
+        title="Inbox"
         onClose={onClose}
         isForeground={isForeground}
         appId="incoming-offers" // This will need to be added to types
@@ -487,15 +533,16 @@ function OfferCard({
   );
 }
 
-function SourceBadge({ source }: { source: "email" | "form" }) {
+function SourceBadge({ source }: { source: "email" | "form" | "pitch" }) {
     const currentTheme = useThemeStore((state) => state.current);
     const isMacOSTheme = currentTheme === "macosx";
     
     const isEmail = source === "email";
+    const isPitch = source === "pitch";
     
     if (!isMacOSTheme) {
         return (
-            <Badge variant={isEmail ? 'secondary' : 'outline'}>
+            <Badge variant={isEmail ? 'secondary' : isPitch ? 'secondary' : 'outline'}>
                 {source}
             </Badge>
         );
@@ -506,6 +553,11 @@ function SourceBadge({ source }: { source: "email" | "form" }) {
         if (isEmail) {
             return {
                 gradient: "linear-gradient(to bottom, rgba(200, 220, 255, 0.9), rgba(180, 200, 240, 0.9))",
+                textShadow: "0 1px 2px rgba(0, 0, 0, 0.15)",
+            };
+        } else if (isPitch) {
+            return {
+                gradient: "linear-gradient(to bottom, rgba(220, 200, 255, 0.9), rgba(200, 180, 240, 0.9))",
                 textShadow: "0 1px 2px rgba(0, 0, 0, 0.15)",
             };
         } else {

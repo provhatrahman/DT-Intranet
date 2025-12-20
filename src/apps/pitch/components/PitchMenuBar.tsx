@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { MenuBar } from "@/components/layout/MenuBar";
 import {
   MenubarMenu,
@@ -8,21 +7,20 @@ import {
   MenubarSeparator,
 } from "@/components/ui/menubar";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { appRegistry } from "@/config/appRegistry";
 
-interface IncomingOffersMenuBarProps {
+interface PitchMenuBarProps {
   onClose: () => void;
   onShowHelp: () => void;
   onShowAbout: () => void;
 }
 
-export function IncomingOffersMenuBar({
+export function PitchMenuBar({
   onClose,
   onShowHelp,
   onShowAbout,
-}: IncomingOffersMenuBarProps) {
-  const appId = "incoming-offers";
-  const appName = "Inbox";
+}: PitchMenuBarProps) {
+  const appId = "pitch";
+  const appName = "Pitch";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
 

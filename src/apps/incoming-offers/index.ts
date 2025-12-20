@@ -1,5 +1,5 @@
 export const appMetadata = {
-  name: "Incoming Offers",
+  name: "Inbox",
   version: "1.0.0",
   creator: {
     name: "Ryo Lu",

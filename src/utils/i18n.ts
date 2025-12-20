@@ -18,7 +18,8 @@ export type AppId =
   | "control-panels"
   | "admin"
   | "incoming-offers"
-  | "active-projects";
+  | "active-projects"
+  | "pitch";
 
 /**
  * Get translated app name
@@ -123,6 +124,7 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
     "applet-viewer": ["appletStore", "createWithRyosChat", "viewApplets", "shareApplets", "openFromFinder", "keepUpdated"],
     "control-panels": ["appearance", "sounds", "aiModel", "shaderEffects", "backupRestore", "system"],
     admin: ["adminAccess", "userManagement", "roomManagement", "statistics"],
+    pitch: ["pitchProject", "formFields", "submission"],
   };
 
   const keys = helpKeys[appId] || [];

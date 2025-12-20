@@ -427,7 +427,7 @@ export function ActiveProjectsAppComponent({
             )}>
             {projects.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                No projects available. Projects are created from incoming offers.
+                No projects available. Projects are created from inbox.
               </div>
             ) : selectedProject ? (
               <ProjectDetailView

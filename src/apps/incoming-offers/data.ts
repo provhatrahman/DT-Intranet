@@ -7,7 +7,7 @@ export interface Offer {
   date: string;
   fee: string;
   timings: string;
-  source: "email" | "form";
+  source: "email" | "form" | "pitch";
   status: "new" | "reviewed" | "archived";
 }
 

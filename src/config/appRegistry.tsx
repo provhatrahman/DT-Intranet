@@ -188,6 +188,11 @@ const LazyActiveProjectsApp = createLazyComponent<unknown>(
   "active-projects"
 );
 
+const LazyPitchApp = createLazyComponent<unknown>(
+  () => import("@/apps/pitch/components/PitchAppComponent").then(m => ({ default: m.PitchAppComponent })),
+  "pitch"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -210,6 +215,7 @@ import { appMetadata as controlPanelsMetadata, helpItems as controlPanelsHelpIte
 import { appMetadata as adminMetadata, helpItems as adminHelpItems } from "@/apps/admin";
 import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
 import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
+import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
 
 // ============================================================================
 // APP REGISTRY
@@ -441,7 +447,7 @@ export const appRegistry = {
   },
   ["incoming-offers"]: {
     id: "incoming-offers",
-    name: "Incoming Offers",
+    name: "Inbox",
     icon: { type: "image", src: incomingOffersMetadata.icon },
     description: "Incoming gig and brand offers",
     component: LazyIncomingOffersApp,
@@ -463,6 +469,19 @@ export const appRegistry = {
     windowConfig: {
       defaultSize: { width: 1000, height: 700 },
       minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
+  ["pitch"]: {
+    id: "pitch",
+    name: "Pitch",
+    icon: { type: "image", src: pitchMetadata.icon },
+    description: "Pitch a new project",
+    component: LazyPitchApp,
+    helpItems: pitchHelpItems,
+    metadata: pitchMetadata,
+    windowConfig: {
+      defaultSize: { width: 600, height: 700 },
+      minSize: { width: 500, height: 600 },
     } as WindowConstraints,
   },
 } as const;
