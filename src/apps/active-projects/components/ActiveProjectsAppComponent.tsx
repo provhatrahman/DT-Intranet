@@ -1208,9 +1208,8 @@ function ProjectDetailView({
               {/* Mark Complete Button */}
               <div className="flex justify-end pt-4 border-t">
                 <Button
-                  className={isMacOSTheme ? "aqua-button secondary" : ""}
+                  className={isMacOSTheme ? "aqua-button emerald" : "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 dark:bg-emerald-900 dark:hover:bg-emerald-800 dark:text-emerald-200 dark:border-emerald-700"}
                   onClick={() => onMarkComplete(project.id)}
-                  variant="outline"
                   size="sm"
                   type="button"
                 >
