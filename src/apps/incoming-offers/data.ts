@@ -10,6 +10,7 @@ export interface Offer {
   source: "email" | "form" | "pitch";
   status: "new" | "reviewed" | "archived";
   feedback?: string[]; // Anonymous feedback for rejected pitches
+  submittedAt?: string; // ISO timestamp when the offer was submitted/received
 }
 
 export const dummyOffers: Offer[] = [
@@ -24,6 +25,7 @@ export const dummyOffers: Offer[] = [
     timings: "16:00 - 17:00",
     source: "email",
     status: "new",
+    submittedAt: "2024-01-15T10:30:00Z",
   },
   {
     id: "2",
@@ -36,6 +38,7 @@ export const dummyOffers: Offer[] = [
     timings: "22:00 - 23:30",
     source: "form",
     status: "new",
+    submittedAt: "2024-02-20T14:15:00Z",
   },
   {
     id: "3",
@@ -48,6 +51,7 @@ export const dummyOffers: Offer[] = [
     timings: "19:00 - 21:00",
     source: "email",
     status: "reviewed",
+    submittedAt: "2024-03-05T09:00:00Z",
   },
   {
     id: "4",
@@ -60,6 +64,7 @@ export const dummyOffers: Offer[] = [
     timings: "02:00 - 04:00",
     source: "email",
     status: "new",
+    submittedAt: "2024-01-28T16:45:00Z",
   },
   {
     id: "5",
@@ -72,6 +77,7 @@ export const dummyOffers: Offer[] = [
     timings: "03:00 - 05:00",
     source: "form",
     status: "new",
+    submittedAt: "2024-02-10T11:20:00Z",
   },
   {
     id: "6",
@@ -84,6 +90,7 @@ export const dummyOffers: Offer[] = [
     timings: "21:00 - 00:00",
     source: "email",
     status: "new",
+    submittedAt: "2024-02-15T13:30:00Z",
   },
 ];
 

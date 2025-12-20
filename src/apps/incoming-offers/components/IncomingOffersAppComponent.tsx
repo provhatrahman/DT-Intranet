@@ -53,7 +53,7 @@ export function IncomingOffersAppComponent({
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [offers, setOffers] = useState<Offer[]>(dummyOffers);
   const [filter, setFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee">("date-asc");
+  const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc">("date-asc");
   
   // Local state to track user's votes: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
@@ -423,6 +423,16 @@ export function IncomingOffersAppComponent({
     .sort((a, b) => {
       if (sortBy === "date-asc") return a.date.localeCompare(b.date);
       if (sortBy === "date-desc") return b.date.localeCompare(a.date);
+      if (sortBy === "submitted-asc") {
+        const aDate = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const bDate = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return aDate - bDate;
+      }
+      if (sortBy === "submitted-desc") {
+        const aDate = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const bDate = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return bDate - aDate;
+      }
       // Simple fee sort (string comparison is not ideal but sufficient for dummy data)
       return a.fee.localeCompare(b.fee);
     });
@@ -490,8 +500,10 @@ export function IncomingOffersAppComponent({
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="date-asc">Date (Ascending)</SelectItem>
-                <SelectItem value="date-desc">Date (Descending)</SelectItem>
+                <SelectItem value="date-asc">Event Date (Ascending)</SelectItem>
+                <SelectItem value="date-desc">Event Date (Descending)</SelectItem>
+                <SelectItem value="submitted-asc">Submitted (Oldest First)</SelectItem>
+                <SelectItem value="submitted-desc">Submitted (Newest First)</SelectItem>
                 <SelectItem value="fee">Sort by Fee</SelectItem>
               </SelectContent>
             </Select>
@@ -743,6 +755,23 @@ function OfferCard({
                   {offer.timings}
                 </span>
             </div>
+            {offer.submittedAt && (
+              <div className="flex flex-col col-span-2">
+                <span 
+                  className="text-muted-foreground font-medium"
+                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                >
+                  Submitted
+                </span>
+                <span style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}>
+                  {new Date(offer.submittedAt).toLocaleDateString(undefined, { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </div>
+            )}
         </div>
       </CardContent>
       <CardFooter 
@@ -991,15 +1020,15 @@ function VoteButton({
 
     if (isMacOSTheme) {
         return (
-            <button
+            <Button
                 onClick={onClick}
                 className={cn(
-                    "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none relative overflow-hidden rounded-md transition-all",
-                    active && "transform translate-y-0"
+                    "w-full relative h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center",
+                    isMacOSTheme ? "aqua-button secondary" : ""
                 )}
                 style={{
-                    background: getColorGradient(),
                     borderRadius: "6px",
+                    background: getColorGradient(),
                     border: "none",
                     boxShadow: active
                         ? `
@@ -1016,8 +1045,9 @@ function VoteButton({
                             inset 0 0 2px rgba(0, 0, 0, 0.05)
                           `,
                     WebkitFontSmoothing: "antialiased",
-                    cursor: "default",
-                    transform: active ? "translateY(-1px)" : "translateY(0)",
+                    color: active ? "white" : "black",
+                    textShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.3)" : "0 1px 1px rgba(0, 0, 0, 0.2)",
+                    position: "relative",
                 }}
             >
                 {active && (
@@ -1036,25 +1066,13 @@ function VoteButton({
                         }}
                     />
                 )}
-                <span 
-                    className="font-semibold text-[10px] leading-tight text-center relative z-10"
-                    style={{ 
-                        textShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.3)" : "0 1px 1px rgba(0, 0, 0, 0.2)",
-                        color: active ? "white" : "black"
-                    }}
-                >
+                <span className="relative z-10 font-semibold text-[10px] leading-tight text-center">
                     {children}
                 </span>
-                <span 
-                    className="text-[9px] opacity-90 relative z-10"
-                    style={{ 
-                        textShadow: active ? "0 1px 1px rgba(0, 0, 0, 0.3)" : "0 1px 1px rgba(0, 0, 0, 0.15)",
-                        color: active ? "white" : "black"
-                    }}
-                >
+                <span className="relative z-10 text-[9px] opacity-90">
                     ({count})
                 </span>
-            </button>
+            </Button>
         );
     }
 

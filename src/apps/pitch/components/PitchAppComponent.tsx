@@ -137,6 +137,7 @@ export function PitchAppComponent({
         timings: timelines.trim() || "TBD",
         source: "pitch",
         status: "new",
+        submittedAt: new Date().toISOString(),
       };
 
       // Get existing offers from localStorage with error handling
