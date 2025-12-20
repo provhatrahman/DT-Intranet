@@ -4,6 +4,7 @@ import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
+import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
@@ -54,6 +55,11 @@ export function IncomingOffersAppComponent({
   
   // Local state to track user's votes: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
+  
+  // Feedback dialog state
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [pendingDeclineOfferId, setPendingDeclineOfferId] = useState<string | null>(null);
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
@@ -131,6 +137,24 @@ export function IncomingOffersAppComponent({
   }, [userVotes, offers]);
 
   const handleVote = (offerId: string, option: VoteOption) => {
+    const offer = offers.find(o => o.id === offerId);
+    const isPitchCard = offer?.source === "pitch";
+    const currentVote = userVotes[offerId] || {
+      accept: false,
+      interested: false,
+      decline: false,
+      recommend: false,
+    };
+
+    // If declining a pitch card and it's not already declined, show feedback dialog
+    if (option === "decline" && isPitchCard && !currentVote.decline) {
+      setPendingDeclineOfferId(offerId);
+      setFeedbackText("");
+      setIsFeedbackDialogOpen(true);
+      return;
+    }
+
+    // For non-pitch cards or un-declining, proceed with normal vote logic
     setUserVotes((prev) => {
       const currentVote = prev[offerId] || {
         accept: false,
@@ -181,6 +205,78 @@ export function IncomingOffersAppComponent({
       
       return newVotes;
     });
+  };
+
+  const handleFeedbackSubmit = (feedback: string) => {
+    if (!pendingDeclineOfferId) return;
+
+    // Update the offer with feedback
+    const updatedOffers = offers.map(offer => {
+      if (offer.id === pendingDeclineOfferId) {
+        return {
+          ...offer,
+          feedback: [...(offer.feedback || []), feedback],
+        };
+      }
+      return offer;
+    });
+
+    // Save to localStorage
+    try {
+      const savedOffersJson = localStorage.getItem("incoming_offers_list");
+      let savedOffers: Offer[] = [];
+      
+      if (savedOffersJson) {
+        const parsed = JSON.parse(savedOffersJson);
+        if (Array.isArray(parsed)) {
+          savedOffers = parsed;
+        }
+      }
+
+      // Update the offer in saved offers
+      const updatedSavedOffers = savedOffers.map(offer => {
+        if (offer.id === pendingDeclineOfferId) {
+          return {
+            ...offer,
+            feedback: [...(offer.feedback || []), feedback],
+          };
+        }
+        return offer;
+      });
+
+      localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
+    } catch (error) {
+      console.error("Failed to save feedback:", error);
+    }
+
+    setOffers(updatedOffers);
+
+    // Now proceed with the decline vote
+    setUserVotes((prev) => {
+      const newVote = {
+        accept: false,
+        interested: false,
+        decline: true,
+        recommend: false,
+      };
+      const newVotes = { ...prev, [pendingDeclineOfferId]: newVote };
+      localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
+      return newVotes;
+    });
+
+    // Close dialog and reset state
+    setIsFeedbackDialogOpen(false);
+    setFeedbackText("");
+    setPendingDeclineOfferId(null);
+
+    // Trigger update event for Pitch app
+    window.dispatchEvent(new CustomEvent("offers-updated"));
+  };
+
+  const handleFeedbackDialogClose = () => {
+    setIsFeedbackDialogOpen(false);
+    setFeedbackText("");
+    setPendingDeclineOfferId(null);
   };
 
   const filteredOffers = offers
@@ -307,6 +403,22 @@ export function IncomingOffersAppComponent({
           onOpenChange={setIsAboutDialogOpen}
           metadata={appMetadata}
           appId="incoming-offers"
+        />
+        <FeedbackDialog
+          isOpen={isFeedbackDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              handleFeedbackDialogClose();
+            } else {
+              setIsFeedbackDialogOpen(true);
+            }
+          }}
+          onSubmit={handleFeedbackSubmit}
+          title="Provide Feedback"
+          description="Please provide feedback for why this pitch was declined. This feedback will be sent anonymously to the person who submitted the pitch."
+          value={feedbackText}
+          onChange={setFeedbackText}
+          submitLabel="Submit Feedback"
         />
       </WindowFrame>
     </>

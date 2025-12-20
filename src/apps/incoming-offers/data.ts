@@ -9,6 +9,7 @@ export interface Offer {
   timings: string;
   source: "email" | "form" | "pitch";
   status: "new" | "reviewed" | "archived";
+  feedback?: string[]; // Anonymous feedback for rejected pitches
 }
 
 export const dummyOffers: Offer[] = [

@@ -28,6 +28,12 @@ export const helpItems = [
     description:
       "After submitting, your pitch will appear in the Inbox app with a 'pitch' source flag for easy identification.",
   },
+  {
+    icon: "📊",
+    title: "My Pitches",
+    description:
+      "View all your submitted pitches and their status. Pitches marked as 'Pending' are awaiting review, while 'Approved' pitches have been reviewed.",
+  },
 ];
 
 export { PitchAppComponent } from "./components/PitchAppComponent";
