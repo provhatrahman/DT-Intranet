@@ -80,66 +80,73 @@ export function IncomingOffersAppComponent({
   }, []);
 
   // Load offers from localStorage and merge with dummy data, filtering out approved offers
-  useEffect(() => {
-    const loadOffers = () => {
-      let savedOffers: Offer[] = [];
-      
-      try {
-        const savedOffersJson = localStorage.getItem("incoming_offers_list");
-        if (savedOffersJson) {
-          const parsed = JSON.parse(savedOffersJson);
-          // Validate it's an array
-          if (Array.isArray(parsed)) {
-            savedOffers = parsed;
-          } else {
-            console.warn("Invalid offers data in localStorage, resetting");
-            localStorage.removeItem("incoming_offers_list");
-          }
+  const loadOffers = React.useCallback(() => {
+    let savedOffers: Offer[] = [];
+    
+    try {
+      const savedOffersJson = localStorage.getItem("incoming_offers_list");
+      if (savedOffersJson) {
+        const parsed = JSON.parse(savedOffersJson);
+        // Validate it's an array
+        if (Array.isArray(parsed)) {
+          savedOffers = parsed;
+        } else {
+          console.warn("Invalid offers data in localStorage, resetting");
+          localStorage.removeItem("incoming_offers_list");
         }
-      } catch (parseError) {
-        console.error("Failed to parse offers from localStorage:", parseError);
-        // Clear corrupted data
-        localStorage.removeItem("incoming_offers_list");
-        savedOffers = [];
       }
-      
-      // Get active projects to filter out approved offers
-      let activeProjects: any[] = [];
-      try {
-        const activeProjectsJson = localStorage.getItem("active_projects_list");
-        if (activeProjectsJson) {
-          const parsed = JSON.parse(activeProjectsJson);
-          if (Array.isArray(parsed)) {
-            activeProjects = parsed;
-          }
+    } catch (parseError) {
+      console.error("Failed to parse offers from localStorage:", parseError);
+      // Clear corrupted data
+      localStorage.removeItem("incoming_offers_list");
+      savedOffers = [];
+    }
+    
+    // Get active projects to filter out approved offers
+    let activeProjects: any[] = [];
+    try {
+      const activeProjectsJson = localStorage.getItem("active_projects_list");
+      if (activeProjectsJson) {
+        const parsed = JSON.parse(activeProjectsJson);
+        if (Array.isArray(parsed)) {
+          activeProjects = parsed;
         }
-      } catch (e) {
-        // Ignore errors
       }
-      
+    } catch (e) {
+      console.error("Failed to parse active projects:", e);
+    }
+    
       // Create a set of offer IDs that have been approved (mapped from active project IDs)
       // Active project IDs are in format: project-{offerId}-{timestamp}
       const approvedOfferIds = new Set<string>();
       activeProjects.forEach((project) => {
-        // Extract original offer ID from project ID
-        const match = project.id.match(/^project-(.+?)-/);
-        if (match) {
-          approvedOfferIds.add(match[1]);
+        if (project.id) {
+          // Extract original offer ID from project ID
+          // Match pattern: project-{offerId}-{timestamp}
+          const match = project.id.match(/^project-(.+?)-/);
+          if (match && match[1]) {
+            approvedOfferIds.add(match[1]);
+          } else {
+            // Fallback: if the pattern doesn't match, log for debugging
+            console.warn("Could not extract offer ID from project ID:", project.id);
+          }
         }
       });
-      
-      // Merge saved offers with dummy offers, avoiding duplicates by ID
-      const dummyIds = new Set(dummyOffers.map(o => o.id));
-      const newOffers = savedOffers.filter(o => !dummyIds.has(o.id));
-      // Sort by date (newest first) for better UX - pitches will appear at top if they have recent dates
-      const mergedOffers = [...dummyOffers, ...newOffers];
-      
-      // Filter out offers that have been approved and moved to active projects
-      const filteredOffers = mergedOffers.filter(o => !approvedOfferIds.has(o.id));
-      
-      setOffers(filteredOffers);
-    };
+      console.log("Approved offer IDs to filter:", Array.from(approvedOfferIds));
+    
+    // Merge saved offers with dummy offers, avoiding duplicates by ID
+    const dummyIds = new Set(dummyOffers.map(o => o.id));
+    const newOffers = savedOffers.filter(o => !dummyIds.has(o.id));
+    // Sort by date (newest first) for better UX - pitches will appear at top if they have recent dates
+    const mergedOffers = [...dummyOffers, ...newOffers];
+    
+    // Filter out offers that have been approved and moved to active projects
+    const filteredOffers = mergedOffers.filter(o => !approvedOfferIds.has(o.id));
+    
+    setOffers(filteredOffers);
+  }, []);
 
+  useEffect(() => {
     loadOffers();
 
     // Listen for updates from pitch app
@@ -158,7 +165,7 @@ export function IncomingOffersAppComponent({
       window.removeEventListener("offers-updated", handleOffersUpdate);
       window.removeEventListener("active-projects-updated", handleActiveProjectsUpdate);
     };
-  }, []);
+  }, [loadOffers]);
 
   // Calculate aggregated counts: base counts + user's vote (1 if voted, 0 if not)
   const aggregatedCounts = React.useMemo(() => {
@@ -337,6 +344,7 @@ export function IncomingOffersAppComponent({
 
     // Convert offer to active project
     const activeProject = convertOfferToActiveProject(offer);
+    console.log("Approving offer:", offer.name, "Converting to project:", activeProject.id);
 
     // Load existing active projects
     let activeProjects: any[] = [];
@@ -352,14 +360,21 @@ export function IncomingOffersAppComponent({
       console.error("Failed to load active projects:", e);
     }
 
+    console.log("Existing active projects count:", activeProjects.length);
+
     // Add the new project
     activeProjects.push(activeProject);
+    console.log("Saving active projects, new count:", activeProjects.length);
     localStorage.setItem("active_projects_list", JSON.stringify(activeProjects));
 
-    // Remove offer from inbox
-    const updatedOffers = offers.filter(o => o.id !== pendingApproveOfferId);
-    
-    // Update localStorage for inbox
+    // Verify it was saved
+    const verify = localStorage.getItem("active_projects_list");
+    if (verify) {
+      const verifyParsed = JSON.parse(verify);
+      console.log("Verified saved active projects count:", verifyParsed.length);
+    }
+
+    // Update localStorage for inbox - remove the approved offer
     try {
       const savedOffersJson = localStorage.getItem("incoming_offers_list");
       let savedOffers: Offer[] = [];
@@ -374,14 +389,20 @@ export function IncomingOffersAppComponent({
       // Remove the approved offer from saved offers
       const updatedSavedOffers = savedOffers.filter(o => o.id !== pendingApproveOfferId);
       localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
+      console.log("Removed offer from inbox, remaining:", updatedSavedOffers.length);
     } catch (error) {
       console.error("Failed to update inbox localStorage:", error);
     }
 
-    setOffers(updatedOffers);
+    // Trigger update events - this will cause both apps to reload
+    const activeProjectsEvent = new CustomEvent("active-projects-updated", { bubbles: true });
+    const offersEvent = new CustomEvent("offers-updated", { bubbles: true });
+    window.dispatchEvent(activeProjectsEvent);
+    window.dispatchEvent(offersEvent);
+    console.log("Dispatched active-projects-updated and offers-updated events");
 
-    // Trigger update event for Active Projects app
-    window.dispatchEvent(new CustomEvent("active-projects-updated"));
+    // Reload offers to ensure filtering is applied
+    loadOffers();
 
     // Close dialog and reset state
     setIsApproveDialogOpen(false);

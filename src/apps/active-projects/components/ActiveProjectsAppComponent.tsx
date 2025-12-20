@@ -70,9 +70,11 @@ export function ActiveProjectsAppComponent({
     const loadProjects = () => {
       try {
         const savedProjectsJson = localStorage.getItem("active_projects_list");
+        console.log("Loading active projects from localStorage");
         if (savedProjectsJson) {
           const parsed = JSON.parse(savedProjectsJson);
           if (Array.isArray(parsed)) {
+            console.log("Loaded active projects count:", parsed.length, "Projects:", parsed.map(p => ({ id: p.id, name: p.name })));
             setProjects(parsed);
             // Set initial selection on desktop
             if (!isMobile && parsed.length > 0 && !selectedProjectId) {
@@ -82,6 +84,8 @@ export function ActiveProjectsAppComponent({
             console.warn("Invalid active projects data in localStorage, resetting");
             localStorage.removeItem("active_projects_list");
           }
+        } else {
+          console.log("No active projects found in localStorage");
         }
       } catch (parseError) {
         console.error("Failed to parse active projects from localStorage:", parseError);
@@ -93,6 +97,7 @@ export function ActiveProjectsAppComponent({
 
     // Listen for updates from inbox when projects are approved
     const handleProjectsUpdate = () => {
+      console.log("Received active-projects-updated event, reloading...");
       loadProjects();
     };
 
@@ -102,9 +107,38 @@ export function ActiveProjectsAppComponent({
     };
   }, []);
 
-  // Save projects to localStorage whenever they change
+  // Reload projects when window becomes visible/open
   useEffect(() => {
+    if (isWindowOpen) {
+      const loadProjects = () => {
+        try {
+          const savedProjectsJson = localStorage.getItem("active_projects_list");
+          if (savedProjectsJson) {
+            const parsed = JSON.parse(savedProjectsJson);
+            if (Array.isArray(parsed)) {
+              console.log("Reloading active projects on window open, count:", parsed.length);
+              setProjects(parsed);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to reload active projects:", e);
+        }
+      };
+      loadProjects();
+    }
+  }, [isWindowOpen]);
+
+  // Save projects to localStorage whenever they change (but not when loading)
+  const isInitialLoad = React.useRef(true);
+  useEffect(() => {
+    // Skip saving on initial load to avoid overwriting data loaded from localStorage
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    
     if (projects.length > 0 || localStorage.getItem("active_projects_list")) {
+      console.log("Saving active projects to localStorage, count:", projects.length);
       localStorage.setItem("active_projects_list", JSON.stringify(projects));
     }
   }, [projects]);
