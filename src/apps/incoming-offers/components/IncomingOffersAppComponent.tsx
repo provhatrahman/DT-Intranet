@@ -53,7 +53,7 @@ export function IncomingOffersAppComponent({
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [offers, setOffers] = useState<Offer[]>(dummyOffers);
   const [filter, setFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc">("date-asc");
+  const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc">("submitted-desc");
   
   // Local state to track user's votes: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
