@@ -23,7 +23,7 @@ if ($LASTEXITCODE -ne 0) {
     }
 } else {
     $account = ($identity | ConvertFrom-Json).Account
-    Write-Host "✓ Logged in to AWS account: $account" -ForegroundColor Green
+    Write-Host "Logged in to AWS account: $account" -ForegroundColor Green
 }
 
 Write-Host ""

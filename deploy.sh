@@ -1,9 +1,9 @@
 #!/bin/bash
-# deploy.sh - Deploy ryOS frontend to AWS S3 and CloudFront
+# deploy.sh - Deploy Greenroom frontend to AWS S3 and CloudFront
 
 set -e  # Exit on error
 
-echo "Building ryOS frontend..."
+echo "Building Greenroom frontend..."
 bun run build
 
 # Check if dist directory exists

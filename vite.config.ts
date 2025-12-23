@@ -70,8 +70,8 @@ export default defineConfig(({ mode }) => ({
         "fonts/*.ttf",
       ],
       manifest: {
-        name: "ryOS",
-        short_name: "ryOS",
+        name: "Greenroom",
+        short_name: "Greenroom",
         description: "An AI OS experience, made with Cursor",
         theme_color: "#000000",
         background_color: "#000000",

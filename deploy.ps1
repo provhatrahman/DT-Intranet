@@ -1,8 +1,8 @@
-# deploy.ps1 - Deploy ryOS frontend to AWS S3 and CloudFront
+# deploy.ps1 - Deploy Greenroom frontend to AWS S3 and CloudFront
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building ryOS frontend..." -ForegroundColor Cyan
+Write-Host "Building Greenroom frontend..." -ForegroundColor Cyan
 bun run build
 
 # Check if dist directory exists
