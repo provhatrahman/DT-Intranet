@@ -12,20 +12,19 @@ if [ ! -d "dist" ]; then
   exit 1
 fi
 
-# These values need to be set - replace with your actual values
-S3_BUCKET="${S3_BUCKET:-your-s3-bucket-name}"
-CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-your-cloudfront-distribution-id}"
+# Default values (can be overridden with environment variables)
+S3_BUCKET="${S3_BUCKET:-daytimers-intranet-prod-471028617262}"
+CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-E3OF10QS7S5YPV}"
 AWS_PROFILE="${AWS_PROFILE:-AdministratorAccess-471028617262}"
 
-# Check if variables are set
-if [ "$S3_BUCKET" = "your-s3-bucket-name" ] || [ "$CLOUDFRONT_DISTRIBUTION_ID" = "your-cloudfront-distribution-id" ]; then
-  echo "Error: Please set S3_BUCKET and CLOUDFRONT_DISTRIBUTION_ID environment variables"
-  echo "Example:"
-  echo "  export S3_BUCKET=your-bucket-name"
-  echo "  export CLOUDFRONT_DISTRIBUTION_ID=your-distribution-id"
-  echo "  ./deploy.sh"
-  exit 1
-fi
+# Note: Script now uses default values, but you can still override with environment variables
+# if needed for different environments
+
+echo "Deployment Configuration:"
+echo "  S3 Bucket: $S3_BUCKET"
+echo "  CloudFront Distribution: $CLOUDFRONT_DISTRIBUTION_ID"
+echo "  AWS Profile: $AWS_PROFILE"
+echo ""
 
 echo "Uploading to S3..."
 aws s3 sync dist/ s3://$S3_BUCKET/ --delete --profile $AWS_PROFILE
