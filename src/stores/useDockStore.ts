@@ -11,7 +11,7 @@ export interface DockItem {
 }
 
 // Protected items that cannot be removed from dock
-export const PROTECTED_DOCK_ITEMS = new Set(["finder", "__applications__", "__trash__"]);
+export const PROTECTED_DOCK_ITEMS = new Set(["finder", "__applications__"]);
 
 // Default pinned items
 const DEFAULT_PINNED_ITEMS: DockItem[] = [

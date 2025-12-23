@@ -827,38 +827,6 @@ export function Desktop({
               data-desktop-icon="true"
             />
           ))}
-          {/* Display Trash icon at the end for non-macOS X themes */}
-          {currentTheme !== "macosx" && (
-            <FileIcon
-              name={t("common.menu.trash")}
-              isDirectory={true}
-              icon={trashIcon}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedAppId("trash");
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                localStorage.setItem("app_finder_initialPath", "/Trash");
-                const finderApp = apps.find((app) => app.id === "finder");
-                if (finderApp) {
-                  toggleApp(finderApp.id);
-                }
-                setSelectedAppId(null);
-              }}
-              onContextMenu={(e: React.MouseEvent<HTMLDivElement>) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setContextMenuPos({ x: e.clientX, y: e.clientY });
-                setContextMenuAppId("trash");
-                setContextMenuShortcutPath(null);
-                setSelectedAppId("trash");
-              }}
-              isSelected={selectedAppId === "trash"}
-              size="large"
-              data-desktop-icon="true"
-            />
-          )}
         </div>
       </div>
       <RightClickMenu
