@@ -1,5 +1,4 @@
 import { Offer } from "../incoming-offers/data";
-import { DJ } from "./djDatabase";
 
 export type ProjectSize = "Small" | "Med" | "Large";
 

@@ -19,7 +19,6 @@ export function PitchMenuBar({
   onShowHelp,
   onShowAbout,
 }: PitchMenuBarProps) {
-  const appId = "pitch";
   const appName = "Pitch";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";

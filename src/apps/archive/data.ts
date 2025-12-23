@@ -1,5 +1,4 @@
-import { ActiveProject, ProjectPaymentStatus, LineupPaymentStatus } from "../active-projects/data";
-import { DJ } from "../active-projects/djDatabase";
+import type { ProjectPaymentStatus, LineupPaymentStatus } from "../active-projects/data";
 
 export type { ProjectPaymentStatus, LineupPaymentStatus };
 

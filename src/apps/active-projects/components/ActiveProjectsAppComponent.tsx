@@ -7,15 +7,11 @@ import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { ActiveProject, dummyProjects, StatusUpdate, prepareProjectForArchive } from "../data";
-import { DJ, dummyDJs, searchDJs, addDJ } from "../djDatabase";
+import { ActiveProject, StatusUpdate, prepareProjectForArchive } from "../data";
+import { dummyDJs, searchDJs, addDJ, type DJ } from "../djDatabase";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -670,8 +666,8 @@ function ProjectDetailView({
   onBack,
   djSearchPage,
   onDJSearchPageChange,
-  lineupPage,
-  onLineupPageChange,
+  lineupPage: _lineupPage,
+  onLineupPageChange: _onLineupPageChange,
   itemsPerPage,
   onMarkComplete,
 }: {
@@ -720,11 +716,11 @@ function ProjectDetailView({
   const endDJIndex = startDJIndex + itemsPerPage;
   const paginatedDJs = djs.slice(startDJIndex, endDJIndex);
 
-  // Pagination logic for final lineup
-  const totalLineupPages = Math.ceil(project.finalLineup.length / itemsPerPage);
-  const startLineupIndex = (lineupPage - 1) * itemsPerPage;
-  const endLineupIndex = startLineupIndex + itemsPerPage;
-  const paginatedLineup = project.finalLineup.slice(startLineupIndex, endLineupIndex);
+  // Pagination logic for final lineup (calculated but not yet used in UI)
+  // const startLineupIndex = (lineupPage - 1) * itemsPerPage;
+  // const endLineupIndex = startLineupIndex + itemsPerPage;
+  // const totalLineupPages = Math.ceil(project.finalLineup.length / itemsPerPage);
+  // const paginatedLineup = project.finalLineup.slice(startLineupIndex, endLineupIndex);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">

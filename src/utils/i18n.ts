@@ -126,6 +126,9 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
     "control-panels": ["appearance", "sounds", "aiModel", "shaderEffects", "backupRestore", "system"],
     admin: ["adminAccess", "userManagement", "roomManagement", "statistics"],
     pitch: ["pitchProject", "formFields", "submission"],
+    "incoming-offers": [],
+    "active-projects": [],
+    archive: [],
   };
 
   const keys = helpKeys[appId] || [];

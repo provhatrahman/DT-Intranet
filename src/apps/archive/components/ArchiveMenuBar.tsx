@@ -19,7 +19,6 @@ export function ArchiveMenuBar({
   onShowHelp,
   onShowAbout,
 }: ArchiveMenuBarProps) {
-  const appId = "archive";
   const appName = "Archive";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";

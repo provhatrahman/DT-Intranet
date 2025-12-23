@@ -19,7 +19,6 @@ export function ActiveProjectsMenuBar({
   onShowHelp,
   onShowAbout,
 }: ActiveProjectsMenuBarProps) {
-  const appId = "active-projects";
   const appName = "Active Projects";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
