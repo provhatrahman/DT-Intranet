@@ -118,9 +118,11 @@ Before deploying, ensure you have:
 2. ✅ **AWS SSO logged in** (sessions last 8-12 hours)
 3. ✅ **Environment variables set** (see below)
 
-### Step 1: Verify AWS SSO Session
+### Step 1: Verify AWS SSO Session (Optional)
 
-Check if you're still logged in:
+**Note**: If using `deploy-quick.ps1`, this step is handled automatically. You can skip it.
+
+If deploying manually, check if you're still logged in:
 ```powershell
 aws sts get-caller-identity --profile AdministratorAccess-471028617262
 ```
@@ -130,28 +132,62 @@ If you get an error, log in again:
 aws sso login --profile AdministratorAccess-471028617262
 ```
 
-### Step 2: Set Deployment Variables
+### Step 2: Choose Deployment Method
 
-Set your deployment configuration (PowerShell):
+**Recommended**: Use `deploy-quick.ps1` which automatically handles environment variables and AWS SSO login. Skip to Step 3.
+
+**Alternative**: If you prefer manual control, set deployment variables:
 ```powershell
 $env:S3_BUCKET = "daytimers-intranet-prod-471028617262"
 $env:CLOUDFRONT_DISTRIBUTION_ID = "E3OF10QS7S5YPV"
+$env:AWS_PROFILE = "AdministratorAccess-471028617262"
 ```
-
-**Note**: These are your actual values. You can create a PowerShell profile or script to set these automatically.
 
 ### Step 3: Deploy
 
-Run the deployment script:
+You have two options for deployment:
+
+#### Option A: Quick Deploy (Recommended)
+
+Use the quick deploy script which handles AWS SSO login and environment variables automatically:
+
 ```powershell
+.\deploy-quick.ps1
+```
+
+Or with version bump (increments version number for new releases):
+```powershell
+.\deploy-quick.ps1 --bump
+```
+
+**What happens:**
+1. 🔢 Optionally bumps version (if `--bump` flag used)
+2. 🔐 Checks AWS SSO session, logs in if needed
+3. 🔨 Builds the app (`bun run build`)
+4. 📤 Uploads to S3 (`aws s3 sync`)
+5. 🔄 Invalidates CloudFront cache
+6. ✅ Shows deployment summary with version info
+
+#### Option B: Manual Deploy
+
+If you prefer to set environment variables manually:
+
+```powershell
+# Set deployment variables
+$env:S3_BUCKET = "daytimers-intranet-prod-471028617262"
+$env:CLOUDFRONT_DISTRIBUTION_ID = "E3OF10QS7S5YPV"
+$env:AWS_PROFILE = "AdministratorAccess-471028617262"
+
+# Deploy
 .\deploy.ps1
 ```
 
 **What happens:**
 1. 🔨 Builds the app (`bun run build`)
-2. 📤 Uploads to S3 (`aws s3 sync`)
-3. 🔄 Invalidates CloudFront cache
-4. ✅ Deployment complete!
+2. ✅ Verifies build succeeded and shows version info
+3. 📤 Uploads to S3 (`aws s3 sync`)
+4. 🔄 Invalidates CloudFront cache (shows invalidation ID)
+5. ✅ Deployment complete!
 
 ### Step 4: Verify Deployment
 
@@ -186,12 +222,11 @@ Run the deployment script:
 
 5. **After testing locally and building successfully, deploy:**
    ```powershell
-   # Set deployment variables
-   $env:S3_BUCKET = "daytimers-intranet-prod-471028617262"
-   $env:CLOUDFRONT_DISTRIBUTION_ID = "E3OF10QS7S5YPV"
+   # Quick deploy (recommended - handles everything automatically)
+   .\deploy-quick.ps1 --bump
    
-   # Deploy
-   .\deploy.ps1
+   # Or without version bump (for redeployments)
+   .\deploy-quick.ps1
    ```
 
 ### Pre-Deployment Checklist
@@ -206,11 +241,20 @@ Before deploying, make sure:
 - [ ] Environment variables are set
 - [ ] You've tested the changes locally
 
+### Version Bumping
+
+The `--bump` flag increments the minor version number (e.g., `10.4` → `10.5`):
+
+- **Use `--bump`**: When deploying new features, bug fixes, or any changes you want users to see as a new version
+- **Skip `--bump`**: When redeploying the same code (e.g., fixing a deployment issue, no code changes)
+
+**Note**: Update detection works based on the build number (commit SHA), not the version number. Users will still get update prompts even without `--bump`, but they won't see a new version number in the UI.
+
 ### Deployment Frequency
 
-- **Small fixes**: Deploy immediately after testing
-- **New features**: Test thoroughly, then deploy
-- **Breaking changes**: Coordinate with team, test extensively
+- **Small fixes**: Deploy immediately after testing (use `--bump` for user-visible changes)
+- **New features**: Test thoroughly, then deploy with `--bump`
+- **Breaking changes**: Coordinate with team, test extensively, deploy with `--bump`
 
 ### Rollback Strategy
 
@@ -249,6 +293,16 @@ bun run preview
 
 ### Deploying Changes
 
+**Quick method (recommended):**
+```powershell
+# Deploy with version bump (for new releases)
+.\deploy-quick.ps1 --bump
+
+# Or without version bump (for redeployments)
+.\deploy-quick.ps1
+```
+
+**Manual method:**
 ```powershell
 # 1. Ensure AWS SSO is logged in
 aws sso login --profile AdministratorAccess-471028617262
@@ -256,37 +310,35 @@ aws sso login --profile AdministratorAccess-471028617262
 # 2. Set deployment variables
 $env:S3_BUCKET = "daytimers-intranet-prod-471028617262"
 $env:CLOUDFRONT_DISTRIBUTION_ID = "E3OF10QS7S5YPV"
+$env:AWS_PROFILE = "AdministratorAccess-471028617262"
 
 # 3. Deploy
 .\deploy.ps1
 ```
 
-### Creating a Deployment Script (Optional)
+### Using the Quick Deploy Script
 
-You can create a PowerShell script to automate the setup:
+The `deploy-quick.ps1` script is already included and automates:
+- ✅ AWS SSO login check and automatic login if needed
+- ✅ Environment variable setup
+- ✅ Optional version bumping with `--bump` flag
+- ✅ Calling the main deployment script
 
-**`deploy-quick.ps1`**:
+**Usage:**
 ```powershell
-# Quick deployment script
-$env:S3_BUCKET = "daytimers-intranet-prod-471028617262"
-$env:CLOUDFRONT_DISTRIBUTION_ID = "E3OF10QS7S5YPV"
+# Deploy with version bump (recommended for releases)
+.\deploy-quick.ps1 --bump
 
-# Check AWS login
-Write-Host "Checking AWS SSO..." -ForegroundColor Cyan
-$identity = aws sts get-caller-identity --profile AdministratorAccess-471028617262 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Not logged in. Logging in..." -ForegroundColor Yellow
-    aws sso login --profile AdministratorAccess-471028617262
-}
-
-# Deploy
-.\deploy.ps1
-```
-
-Then just run:
-```powershell
+# Deploy without version bump (for redeployments)
 .\deploy-quick.ps1
 ```
+
+The script will show you:
+- Current version before bump (if using `--bump`)
+- New version after bump
+- AWS account you're logged into
+- Build version info
+- CloudFront invalidation ID
 
 ---
 
@@ -343,11 +395,12 @@ $env:PORT=3000; bun dev
 
 **Deployment Flow:**
 1. Ensure code is tested and committed
-2. `aws sso login` (if needed)
-3. Set environment variables
-4. `.\deploy.ps1`
-5. Wait for CloudFront invalidation
-6. Verify on live site
+2. Run `.\deploy-quick.ps1 --bump` (or without `--bump` for redeployments)
+   - Script handles AWS SSO login automatically
+   - Script sets environment variables automatically
+   - Script builds, uploads, and invalidates cache
+3. Wait for CloudFront invalidation (1-5 minutes)
+4. Verify on live site
 
 **Remember**: Always test locally before deploying to production!
 
