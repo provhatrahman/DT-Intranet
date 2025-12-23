@@ -858,10 +858,6 @@ function MacDock() {
   // Use long press hook for divider
   const dividerLongPress = useLongPress(handleDividerLongPress);
 
-  // Get trash items to check if trash is empty
-  // Use a selector that directly filters items to avoid infinite loops
-  const allItems = useFilesStore((s) => s.items);
-
   // Helper to get applet info (icon and name) from instance
   const getAppletInfo = useCallback(
     (instance: AppInstance) => {
@@ -1664,7 +1660,7 @@ function MacDock() {
 
   // Generate context menu items for a folder shortcut
   const getFolderContextMenuItems = useCallback(
-    (folderPath: string, isTrash: boolean = false): MenuItem[] => {
+    (folderPath: string): MenuItem[] => {
       const items: MenuItem[] = [];
       
       // Handle virtual directories
@@ -2316,7 +2312,7 @@ function MacDock() {
       )}
       
       <RightClickMenu
-        items={getFolderContextMenuItems("/Applications", false)}
+        items={getFolderContextMenuItems("/Applications")}
         position={applicationsContextMenuPos}
         onClose={() => {
           setApplicationsContextMenuPos(null);
