@@ -65,9 +65,8 @@ export function Desktop({
   const fileStore = useFilesStore();
   const launchApp = useLaunchApp();
   
-  // Get trash icon (updates automatically when trash state changes)
+  // Get all items for desktop shortcuts
   const allItems = useFilesStore((state) => state.items);
-  const trashIcon = fileStore.getItem("/Trash")?.icon || "/icons/trash-empty.png";
 
   // Define the default order for desktop shortcuts
   const defaultShortcutOrder: AppId[] = [

@@ -23,7 +23,6 @@ import { useSound, Sounds } from "@/hooks/useSound";
 import type { AppInstance } from "@/stores/useAppStore";
 import type { AppletViewerInitialData } from "@/apps/applet-viewer";
 import { RightClickMenu, MenuItem } from "@/components/ui/right-click-menu";
-import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { requestCloseWindow } from "@/utils/windowUtils";
 import {
   AnimatePresence,
@@ -862,11 +861,6 @@ function MacDock() {
   // Get trash items to check if trash is empty
   // Use a selector that directly filters items to avoid infinite loops
   const allItems = useFilesStore((s) => s.items);
-  const trashItems = useMemo(
-    () => Object.values(allItems).filter((item) => item.status === "trashed"),
-    [allItems]
-  );
-  const isTrashEmpty = trashItems.length === 0;
 
   // Helper to get applet info (icon and name) from instance
   const getAppletInfo = useCallback(
@@ -1743,11 +1737,7 @@ function MacDock() {
         label: t("common.dock.open"),
         onSelect: () => {
           focusFinderAtPathOrLaunch(folderPath);
-          if (isTrash) {
-            setTrashContextMenuPos(null);
-          } else {
-            setApplicationsContextMenuPos(null);
-          }
+          setApplicationsContextMenuPos(null);
         },
       });
       
@@ -1815,11 +1805,7 @@ function MacDock() {
                 focusFinderAtPathOrLaunch(parentPath || "/");
               }
               // Close the context menu
-              if (isTrash) {
-                setTrashContextMenuPos(null);
-              } else {
-                setApplicationsContextMenuPos(null);
-              }
+              setApplicationsContextMenuPos(null);
             },
           };
         });
@@ -1832,23 +1818,11 @@ function MacDock() {
         });
       }
       
-      // For Trash, add separator and Empty Trash option
-      if (isTrash) {
-        items.push({ type: "separator" });
-        items.push({
-          type: "item",
-          label: t("apps.finder.contextMenu.emptyTrash"),
-          onSelect: () => {
-            setIsEmptyTrashDialogOpen(true);
-            setTrashContextMenuPos(null);
-          },
-          disabled: isTrashEmpty,
-        });
-      }
+      // Trash is no longer in the dock, so no trash-specific menu items needed
       
       return items;
     },
-    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, isTrashEmpty, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin]
+    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin]
   );
 
   // Handle app context menu

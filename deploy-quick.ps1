@@ -11,6 +11,18 @@ $env:AWS_PROFILE = "AdministratorAccess-471028617262"
 Write-Host "=== Quick Deployment Script ===" -ForegroundColor Cyan
 Write-Host ""
 
+# Check if version bump is requested
+$bumpVersion = $args -contains "--bump" -or $args -contains "-b"
+
+if ($bumpVersion) {
+    Write-Host "Bumping version before deployment..." -ForegroundColor Cyan
+    bun run version:bump
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Warning: Version bump failed, continuing with current version" -ForegroundColor Yellow
+    }
+    Write-Host ""
+}
+
 # Check AWS SSO login
 Write-Host "Checking AWS SSO session..." -ForegroundColor Cyan
 $identity = aws sts get-caller-identity --profile $env:AWS_PROFILE 2>&1
