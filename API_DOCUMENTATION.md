@@ -22,6 +22,7 @@ All endpoints are prefixed with `/api/` and are deployed as separate AWS Lambda 
 - [Pitches](#pitches)
 - [Payments](#payments)
 - [Analytics](#analytics)
+- [Development Testing](#development-testing)
 
 ---
 
@@ -1499,4 +1500,15 @@ The API is deployed as separate AWS Lambda functions:
 - `prod-users-service`
 
 All services are accessible through the same API Gateway endpoint.
+
+---
+
+## Development Testing
+
+For local development of Pitch-related features, you can use a shared dummy Greenroom user account instead of creating your own account. This allows testing pitch submission, voting, and other features without manual account setup.
+
+See [Dev Greenroom Test User Setup](../docs/dev-greenroom-test-user.md) for detailed instructions on:
+- Creating and configuring a dev test user
+- Enabling dev mode in the Pitch app
+- Troubleshooting common issues
 

@@ -162,3 +162,69 @@ aws cloudfront create-invalidation \
 - **S3 Bucket**: Check your AWS S3 console or ask your AWS administrator
 - **CloudFront Distribution ID**: Check your CloudFront console or ask your AWS administrator
 
+## Development Testing with Pitch App
+
+When developing Pitch-related features locally, you can use a shared dummy Greenroom user account for testing instead of creating your own account.
+
+### Quick Start
+
+1. **Set up the dev test user** (one-time setup):
+   ```bash
+   bun run scripts/ensure-greenroom-dev-user.ts <user_id>
+   ```
+   Replace `<user_id>` with a valid Greenroom system user ID. See [Dev Greenroom Test User Setup](docs/dev-greenroom-test-user.md) for detailed instructions.
+
+2. **Start the dev server**:
+   ```bash
+   bun run dev:vercel
+   ```
+
+3. **Enable dev mode in the Pitch app**:
+   - Open the Pitch app in your browser
+   - Look for the "Developer Testing" section (only visible in dev builds)
+   - Toggle "Use Dev Testing Account" to ON
+
+4. **Test pitch features**:
+   - Submit pitches - they'll be created as the dev user
+   - Vote on pitches - votes will be cast as the dev user
+   - View "My Pitches" - shows pitches submitted by the dev user
+   - Test Incoming Offers - offer interactions use the dev user ID
+
+### Verifying Dev Account Usage
+
+To verify the dev account is being used:
+
+1. **Check network requests**: Open browser DevTools → Network tab
+   - Submit a pitch and check the request payload
+   - The `submitter_user_id` should match your dev user ID
+   - Vote on a pitch and check the `user_id` in the vote request
+
+2. **Check UI indicators**: The "Developer Testing" section shows:
+   - Current account status (dev vs linked)
+   - Dev user display name and ID when enabled
+
+### Testing Checklist
+
+Before deploying Pitch-related changes, test both modes:
+
+- [ ] **With dev account enabled**:
+  - [ ] Can submit pitches
+  - [ ] Can vote on pitches (accept, interested, decline, recommend)
+  - [ ] Can view "My Pitches" tab
+  - [ ] Incoming Offers shows correct vote status for pitch cards
+  - [ ] API calls use dev user ID (check network tab)
+
+- [ ] **With dev account disabled** (if you have a linked account):
+  - [ ] Can submit pitches with linked account
+  - [ ] Can vote with linked account
+  - [ ] "My Pitches" shows pitches from linked account
+  - [ ] API calls use linked account user ID
+
+### Troubleshooting
+
+- **Dev toggle not appearing**: Ensure `VITE_DEV_GREENROOM_USER_ID` is set in `.env.local` and restart the dev server
+- **Wrong user ID in API calls**: Check that the toggle is enabled and verify `.env.local` has the correct user ID
+- **API errors**: Verify the dev user ID exists in the Greenroom database
+
+For more details, see [Dev Greenroom Test User Setup](docs/dev-greenroom-test-user.md).
+

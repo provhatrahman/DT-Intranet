@@ -10,6 +10,7 @@ import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
+import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
@@ -73,8 +74,8 @@ export function IncomingOffersAppComponent({
 
   const { username } = useAuth();
   const { getAccount } = useGreenroomAccountStore();
-  const currentAccount = getAccount(username);
-  const greenroomUserId = currentAccount?.greenroomUserId ?? null;
+  const effectiveAccount = useEffectiveGreenroomAccount();
+  const greenroomUserId = effectiveAccount.userId;
 
   const {
     pitches,

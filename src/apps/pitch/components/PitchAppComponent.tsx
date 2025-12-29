@@ -17,6 +17,8 @@ import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useAuth } from "@/hooks/useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
+import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
+import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
 import { serializePitchDescription, parsePitchDescription } from "@/lib/api/pitches";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { getTabStyles } from "@/utils/tabStyles";
@@ -60,8 +63,14 @@ export function PitchAppComponent({
 
   const { username } = useAuth();
   const { getAccount, setAccount } = useGreenroomAccountStore();
-  const currentAccount = getAccount(username);
-  const greenroomUserId = currentAccount?.greenroomUserId ?? null;
+  const { getUseDevGreenroomAccount, setUseDevGreenroomAccount } = useDevOverridesStore();
+  const effectiveAccount = useEffectiveGreenroomAccount();
+  const greenroomUserId = effectiveAccount.userId;
+  const isUsingDevAccount = effectiveAccount.source === "dev";
+
+  const isDevMode = import.meta.env.DEV;
+  const devUserIdEnv = import.meta.env.VITE_DEV_GREENROOM_USER_ID;
+  const shouldShowDevToggle = isDevMode && devUserIdEnv && String(devUserIdEnv).trim() !== "";
 
   const {
     pitches,
@@ -227,6 +236,81 @@ export function PitchAppComponent({
             )}
             style={isMacOSTheme ? { background: "transparent" } : undefined}
           >
+            {isDevMode && (
+              <div 
+                className={cn(
+                  "mb-4 p-4 rounded-md border",
+                  shouldShowDevToggle
+                    ? (isMacOSTheme 
+                        ? "bg-gradient-to-b from-blue-50/90 to-blue-100/90 border-blue-300"
+                        : "bg-blue-50 border-blue-200")
+                    : (isMacOSTheme
+                        ? "bg-gradient-to-b from-gray-50/90 to-gray-100/90 border-gray-300"
+                        : "bg-gray-50 border-gray-200")
+                )}
+                style={isMacOSTheme ? {
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.6)",
+                } : {}}
+              >
+                <div className="flex items-start gap-3">
+                  <Settings className={cn(
+                    "mt-0.5 shrink-0",
+                    shouldShowDevToggle
+                      ? (isMacOSTheme ? "text-blue-800" : "text-blue-600")
+                      : (isMacOSTheme ? "text-gray-600" : "text-gray-500")
+                  )} />
+                  <div className="flex-1">
+                    <p className={cn(
+                      "font-medium mb-1",
+                      shouldShowDevToggle
+                        ? (isMacOSTheme ? "text-blue-900" : "text-blue-800")
+                        : (isMacOSTheme ? "text-gray-700" : "text-gray-600")
+                    )}>
+                      Developer Testing
+                    </p>
+                    {shouldShowDevToggle ? (
+                      <>
+                        <p className={cn(
+                          "text-sm mb-3",
+                          isMacOSTheme ? "text-blue-800" : "text-blue-700"
+                        )}>
+                          {isUsingDevAccount ? (
+                            <>Using dev testing account: <strong>{effectiveAccount.displayName}</strong> (ID: {greenroomUserId})</>
+                          ) : (
+                            <>Dev account available: <strong>{import.meta.env.VITE_DEV_GREENROOM_USER_DISPLAY || "Dev Tester"}</strong> (ID: {import.meta.env.VITE_DEV_GREENROOM_USER_ID})</>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                        <Switch
+                          checked={isUsingDevAccount}
+                          onCheckedChange={(checked) => {
+                            setUseDevGreenroomAccount(username, checked);
+                          }}
+                        />
+                        <Label className="text-sm cursor-pointer" onClick={() => {
+                          setUseDevGreenroomAccount(username, !isUsingDevAccount);
+                        }}>
+                          Use Dev Testing Account
+                        </Label>
+                        </div>
+                      </>
+                    ) : (
+                      <p className={cn(
+                        "text-sm",
+                        isMacOSTheme ? "text-gray-600" : "text-gray-500"
+                      )}>
+                        Dev user ID not configured. Set <code className="text-xs bg-gray-200 px-1 rounded">VITE_DEV_GREENROOM_USER_ID</code> in <code className="text-xs bg-gray-200 px-1 rounded">.env.local</code> and restart the dev server.
+                        {devUserIdEnv && (
+                          <span className="block mt-1 text-xs">
+                            Current value: <code className="bg-gray-200 px-1 rounded">{String(devUserIdEnv)}</code>
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             {!greenroomUserId && (
               <div 
                 className={cn(
