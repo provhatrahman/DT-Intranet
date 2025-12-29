@@ -5,9 +5,20 @@ import { PitchMenuBar } from "./PitchMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { Offer } from "@/apps/incoming-offers/data";
+import { useAuth } from "@/hooks/useAuth";
+import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
+import { usePitchesStore } from "@/stores/usePitchesStore";
+import { serializePitchDescription, parsePitchDescription } from "@/lib/api/pitches";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +29,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { getTabStyles } from "@/utils/tabStyles";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertCircle, Settings } from "lucide-react";
+import { toast } from "sonner";
 
 export function PitchAppComponent({
   isWindowOpen,
@@ -32,9 +44,10 @@ export function PitchAppComponent({
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("new");
-  const [pitchedProjects, setPitchedProjects] = useState<Offer[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [pitchToDelete, setPitchToDelete] = useState<string | null>(null);
+  const [pitchToDelete, setPitchToDelete] = useState<number | null>(null);
+  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [greenroomUserIdInput, setGreenroomUserIdInput] = useState("");
   
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -43,7 +56,24 @@ export function PitchAppComponent({
   const [budget, setBudget] = useState("");
   const [timelines, setTimelines] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const { username } = useAuth();
+  const { getAccount, setAccount } = useGreenroomAccountStore();
+  const currentAccount = getAccount(username);
+  const greenroomUserId = currentAccount?.greenroomUserId ?? null;
+
+  const {
+    pitches,
+    pitchDetails,
+    isLoading,
+    error,
+    fetchPitches,
+    createPitch,
+    deletePitch,
+    getCurrentUserPitches,
+    clearError,
+  } = usePitchesStore();
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
@@ -51,64 +81,54 @@ export function PitchAppComponent({
   const isMobile = useIsMobile();
   const tabStyles = getTabStyles(currentTheme);
 
-  // Load pitched projects from localStorage
+  const userPitches = getCurrentUserPitches(greenroomUserId);
+
   useEffect(() => {
-    const loadPitchedProjects = () => {
-      try {
-        const savedOffersJson = localStorage.getItem("incoming_offers_list");
-        if (savedOffersJson) {
-          const parsed = JSON.parse(savedOffersJson);
-          if (Array.isArray(parsed)) {
-            // Filter to only show pitches (source === "pitch")
-            const pitches = parsed.filter((offer: Offer) => offer.source === "pitch");
-            setPitchedProjects(pitches);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load pitched projects:", error);
-        setPitchedProjects([]);
-      }
-    };
+    if (isWindowOpen) {
+      fetchPitches().catch((err) => {
+        console.error("Failed to fetch pitches:", err);
+      });
+    }
+  }, [isWindowOpen, fetchPitches]);
 
-    loadPitchedProjects();
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearError();
+    }
+  }, [error, clearError]);
 
-    // Listen for updates from pitch submissions
-    const handleOffersUpdate = () => {
-      loadPitchedProjects();
-    };
+  const handleAccountSetup = () => {
+    const userId = parseInt(greenroomUserIdInput.trim(), 10);
+    if (isNaN(userId) || userId <= 0) {
+      toast.error("Please enter a valid user ID");
+      return;
+    }
+    if (username) {
+      setAccount(username, {
+        greenroomUserId: userId,
+        displayName: username,
+      });
+      setAccountSetupOpen(false);
+      setGreenroomUserIdInput("");
+      toast.success("Greenroom account linked successfully");
+    }
+  };
 
-    window.addEventListener("offers-updated", handleOffersUpdate);
-    return () => {
-      window.removeEventListener("offers-updated", handleOffersUpdate);
-    };
-  }, []);
-
-  const handleDeleteClick = (pitchId: string) => {
+  const handleDeleteClick = (pitchId: number) => {
     setPitchToDelete(pitchId);
     setDeleteConfirmOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!pitchToDelete) return;
     
     try {
-      const savedOffersJson = localStorage.getItem("incoming_offers_list");
-      if (savedOffersJson) {
-        const parsed = JSON.parse(savedOffersJson);
-        if (Array.isArray(parsed)) {
-          // Remove the pitch from the list
-          const updatedOffers = parsed.filter((offer: Offer) => offer.id !== pitchToDelete);
-          localStorage.setItem("incoming_offers_list", JSON.stringify(updatedOffers));
-          
-          // Update local state
-          setPitchedProjects((prev) => prev.filter((p) => p.id !== pitchToDelete));
-          
-          // Trigger update event to notify Inbox app
-          window.dispatchEvent(new CustomEvent("offers-updated"));
-        }
-      }
+      await deletePitch(pitchToDelete);
+      toast.success("Pitch deleted successfully");
     } catch (error) {
-      console.error("Failed to delete pitch:", error);
+      const message = error instanceof Error ? error.message : "Failed to delete pitch";
+      toast.error(message);
     }
     
     setDeleteConfirmOpen(false);
@@ -122,83 +142,43 @@ export function PitchAppComponent({
       return;
     }
 
+    if (!greenroomUserId) {
+      setAccountSetupOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      // Create new offer from pitch with unique ID (timestamp + random to avoid collisions)
-      const newOffer: Offer = {
-        id: `pitch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        name: name.trim(),
-        description: description.trim(),
-        promoter: "Internal Pitch",
-        venue: venue.trim() || "TBD",
-        date: keyDates.trim() || "TBD",
-        fee: budget.trim() || "TBD",
-        timings: timelines.trim() || "TBD",
-        source: "pitch",
-        status: "new",
-        submittedAt: new Date().toISOString(),
-      };
+      const fullDescription = serializePitchDescription(description.trim(), {
+        keyDates: keyDates.trim() || undefined,
+        venue: venue.trim() || undefined,
+        budget: budget.trim() || undefined,
+        timelines: timelines.trim() || undefined,
+      });
 
-      // Get existing offers from localStorage with error handling
-      let existingOffers: Offer[] = [];
-      try {
-        const existingOffersJson = localStorage.getItem("incoming_offers_list");
-        if (existingOffersJson) {
-          const parsed = JSON.parse(existingOffersJson);
-          // Validate it's an array
-          if (Array.isArray(parsed)) {
-            existingOffers = parsed;
-          } else {
-            console.warn("Invalid offers data in localStorage, resetting");
-            localStorage.removeItem("incoming_offers_list");
-          }
-        }
-      } catch (parseError) {
-        console.error("Failed to parse existing offers from localStorage:", parseError);
-        // Clear corrupted data
-        localStorage.removeItem("incoming_offers_list");
-        existingOffers = [];
-      }
+      await createPitch({
+        submitter_user_id: greenroomUserId,
+        title: name.trim(),
+        description: fullDescription,
+        status: "submitted",
+      });
 
-      // Filter out any existing offers with the same ID (shouldn't happen, but safety check)
-      const existingIds = new Set(existingOffers.map(o => o.id));
-      if (existingIds.has(newOffer.id)) {
-        // Regenerate ID if collision (extremely unlikely)
-        newOffer.id = `pitch-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      }
-
-      // Add new offer
-      const updatedOffers = [...existingOffers, newOffer];
-      
-      try {
-        localStorage.setItem("incoming_offers_list", JSON.stringify(updatedOffers));
-      } catch (storageError) {
-        console.error("Failed to save offer to localStorage:", storageError);
-        throw new Error("Failed to save pitch. Please try again.");
-      }
-
-      // Reset form
       setName("");
       setDescription("");
       setKeyDates("");
       setVenue("");
       setBudget("");
       setTimelines("");
+      setSubmitError(null);
 
-      setSubmitSuccess(true);
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 3000);
-
-      // Trigger a custom event to notify inbox app to refresh
-      window.dispatchEvent(new CustomEvent("offers-updated"));
-      
-      // Switch to "My Pitches" tab after successful submission
+      toast.success("Pitch submitted successfully!");
       setActiveTab("pitches");
     } catch (error) {
-      console.error("Failed to submit pitch:", error);
-      // Could show error message to user here if needed
+      const message = error instanceof Error ? error.message : "Failed to submit pitch";
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -247,6 +227,51 @@ export function PitchAppComponent({
             )}
             style={isMacOSTheme ? { background: "transparent" } : undefined}
           >
+            {!greenroomUserId && (
+              <div 
+                className={cn(
+                  "mb-4 p-4 rounded-md border",
+                  isMacOSTheme 
+                    ? "bg-gradient-to-b from-yellow-50/90 to-yellow-100/90 border-yellow-300"
+                    : "bg-yellow-50 border-yellow-200"
+                )}
+                style={isMacOSTheme ? {
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.6)",
+                } : {}}
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className={cn(
+                    "mt-0.5 shrink-0",
+                    isMacOSTheme ? "text-yellow-800" : "text-yellow-600"
+                  )} />
+                  <div className="flex-1">
+                    <p className={cn(
+                      "font-medium mb-1",
+                      isMacOSTheme ? "text-yellow-900" : "text-yellow-800"
+                    )}>
+                      Greenroom Account Required
+                    </p>
+                    <p className={cn(
+                      "text-sm mb-3",
+                      isMacOSTheme ? "text-yellow-800" : "text-yellow-700"
+                    )}>
+                      You need to link your Greenroom user ID to submit pitches. This links your submissions to your account.
+                    </p>
+                    <Button
+                      onClick={() => setAccountSetupOpen(true)}
+                      size="sm"
+                      className={cn(
+                        isMacOSTheme && "aqua-button primary"
+                      )}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Set Up Account
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
               <div className="mb-1">
                 <TabsList className={tabStyles.tabListClasses}>
@@ -254,7 +279,7 @@ export function PitchAppComponent({
                     New Pitch
                   </TabsTrigger>
                   <TabsTrigger className={tabStyles.tabTriggerClasses} value="pitches">
-                    My Pitches ({pitchedProjects.length})
+                    My Pitches ({userPitches.length})
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -271,208 +296,198 @@ export function PitchAppComponent({
                   "mx-auto space-y-6",
                   isMobile ? "max-w-full" : "max-w-2xl"
                 )}>
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="name" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Name *
-                </Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Project name"
-                  required
-                  className="w-full"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="name" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Name *
+                    </Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Project name"
+                      required
+                      className="w-full"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="description" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Description/Idea *
-                </Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe your project idea..."
-                  required
-                  className="w-full min-h-[120px]"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="description" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Description/Idea *
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe your project idea..."
+                      required
+                      className="w-full min-h-[120px]"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="keyDates" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Key Date(s)
-                </Label>
-                <Input
-                  id="keyDates"
-                  value={keyDates}
-                  onChange={(e) => setKeyDates(e.target.value)}
-                  placeholder="e.g., 2024-07-15 or July 2024"
-                  className="w-full"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="keyDates" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Key Date(s)
+                    </Label>
+                    <Input
+                      id="keyDates"
+                      value={keyDates}
+                      onChange={(e) => setKeyDates(e.target.value)}
+                      placeholder="e.g., 2024-07-15 or July 2024"
+                      className="w-full"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="venue" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Venue/Location
-                </Label>
-                <Input
-                  id="venue"
-                  value={venue}
-                  onChange={(e) => setVenue(e.target.value)}
-                  placeholder="e.g., Hyde Park, London"
-                  className="w-full"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="venue" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Venue/Location
+                    </Label>
+                    <Input
+                      id="venue"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="e.g., Hyde Park, London"
+                      className="w-full"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="budget" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Budget
-                </Label>
-                <Input
-                  id="budget"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="e.g., £5,000"
-                  className="w-full"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="budget" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Budget
+                    </Label>
+                    <Input
+                      id="budget"
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      placeholder="e.g., £5,000"
+                      className="w-full"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="timelines" 
-                  className="text-sm font-medium"
-                  style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
-                >
-                  Timelines
-                </Label>
-                <Input
-                  id="timelines"
-                  value={timelines}
-                  onChange={(e) => setTimelines(e.target.value)}
-                  placeholder="e.g., 16:00 - 17:00 or Q2 2024"
-                  className="w-full"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="timelines" 
+                      className="text-sm font-medium"
+                      style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
+                    >
+                      Timelines
+                    </Label>
+                    <Input
+                      id="timelines"
+                      value={timelines}
+                      onChange={(e) => setTimelines(e.target.value)}
+                      placeholder="e.g., 16:00 - 17:00 or Q2 2024"
+                      className="w-full"
+                      disabled={!greenroomUserId}
+                    />
+                  </div>
 
-              {submitSuccess && (
-                <div 
-                  className={cn(
-                    "p-3 rounded-md text-sm",
-                    isMacOSTheme 
-                      ? "border"
-                      : "bg-green-50 text-green-900"
+                  {submitError && (
+                    <div 
+                      className={cn(
+                        "p-3 rounded-md text-sm",
+                        isMacOSTheme 
+                          ? "border border-red-300 bg-red-50/90"
+                          : "bg-red-50 text-red-900"
+                      )}
+                    >
+                      {submitError}
+                    </div>
                   )}
-                  style={isMacOSTheme ? {
-                    background: "linear-gradient(to bottom, rgba(220, 252, 231, 0.95), rgba(187, 247, 208, 0.95))",
-                    border: "1px solid rgba(34, 197, 94, 0.3)",
-                    boxShadow: `
-                      0 2px 4px rgba(0, 0, 0, 0.14),
-                      0 1px 1px rgba(0, 0, 0, 0.25),
-                      inset 0 1px 2px rgba(255, 255, 255, 0.6),
-                      inset 0 0 4px rgba(0, 0, 0, 0.05),
-                      inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-                      inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                    `,
-                    borderRadius: "6px",
-                    color: "#166534",
-                    textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-                    WebkitFontSmoothing: "antialiased",
-                  } : {}}
-                >
-                  Pitch submitted successfully! Check Inbox to see it.
-                </div>
-              )}
 
-              <div className={cn(
-                "flex gap-3 pt-4",
-                isMobile && "flex-col"
-              )}>
-                {isMacOSTheme ? (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !name.trim() || !description.trim()}
-                    className={cn(
-                      "aqua-button primary flex-1 touch-manipulation",
-                      isMobile && "min-h-[44px] w-full",
-                      (isSubmitting || !name.trim() || !description.trim()) && "opacity-50 cursor-not-allowed"
+                  <div className={cn(
+                    "flex gap-3 pt-4",
+                    isMobile && "flex-col"
+                  )}>
+                    {isMacOSTheme ? (
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !name.trim() || !description.trim() || !greenroomUserId}
+                        className={cn(
+                          "aqua-button primary flex-1 touch-manipulation",
+                          isMobile && "min-h-[44px] w-full",
+                          (isSubmitting || !name.trim() || !description.trim() || !greenroomUserId) && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <span>{isSubmitting ? "Submitting..." : "Submit Pitch"}</span>
+                      </button>
+                    ) : (
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting || !name.trim() || !description.trim() || !greenroomUserId}
+                        className={cn(
+                          "flex-1",
+                          isMobile && "min-h-[44px] w-full touch-manipulation"
+                        )}
+                      >
+                        {isSubmitting ? "Submitting..." : "Submit Pitch"}
+                      </Button>
                     )}
-                  >
-                    <span>{isSubmitting ? "Submitting..." : "Submit Pitch"}</span>
-                  </button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !name.trim() || !description.trim()}
-                    className={cn(
-                      "flex-1",
-                      isMobile && "min-h-[44px] w-full touch-manipulation"
+                    {isMacOSTheme ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setName("");
+                          setDescription("");
+                          setKeyDates("");
+                          setVenue("");
+                          setBudget("");
+                          setTimelines("");
+                          setSubmitError(null);
+                        }}
+                        className={cn(
+                          "aqua-button secondary touch-manipulation",
+                          isMobile && "min-h-[44px] w-full"
+                        )}
+                      >
+                        <span>Clear</span>
+                      </button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setName("");
+                          setDescription("");
+                          setKeyDates("");
+                          setVenue("");
+                          setBudget("");
+                          setTimelines("");
+                          setSubmitError(null);
+                        }}
+                        className={cn(
+                          isMobile && "min-h-[44px] w-full touch-manipulation"
+                        )}
+                      >
+                        Clear
+                      </Button>
                     )}
-                  >
-                    {isSubmitting ? "Submitting..." : "Submit Pitch"}
-                  </Button>
-                )}
-                {isMacOSTheme ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setName("");
-                      setDescription("");
-                      setKeyDates("");
-                      setVenue("");
-                      setBudget("");
-                      setTimelines("");
-                      setSubmitSuccess(false);
-                    }}
-                    className={cn(
-                      "aqua-button secondary touch-manipulation",
-                      isMobile && "min-h-[44px] w-full"
-                    )}
-                  >
-                    <span>Clear</span>
-                  </button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setName("");
-                      setDescription("");
-                      setKeyDates("");
-                      setVenue("");
-                      setBudget("");
-                      setTimelines("");
-                      setSubmitSuccess(false);
-                    }}
-                    className={cn(
-                      isMobile && "min-h-[44px] w-full touch-manipulation"
-                    )}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </form>
+                  </div>
+                </form>
               </TabsContent>
 
               <TabsContent 
@@ -487,7 +502,11 @@ export function PitchAppComponent({
                   "mx-auto space-y-4",
                   isMobile ? "max-w-full" : "max-w-4xl"
                 )}>
-                  {pitchedProjects.length === 0 ? (
+                  {isLoading && userPitches.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p className={cn(isMobile ? "text-base" : "text-lg")}>Loading pitches...</p>
+                    </div>
+                  ) : userPitches.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <p className={cn("mb-2", isMobile ? "text-base" : "text-lg")}>No pitches yet</p>
                       <p className={cn(isMobile ? "text-xs" : "text-sm")}>Submit your first pitch using the "New Pitch" tab</p>
@@ -497,15 +516,28 @@ export function PitchAppComponent({
                       "grid gap-4",
                       isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
                     )}>
-                      {pitchedProjects.map((project) => {
-                        const status = project.status === "reviewed" ? "approved" : "pending";
-                        const hasFeedback = project.feedback && project.feedback.length > 0;
-                        const statusColor = status === "approved" 
+                      {userPitches.map((pitch) => {
+                        const detail = pitchDetails[pitch.id];
+                        const { description: pitchDescription, metadata } = parsePitchDescription(pitch.description);
+                        const status = pitch.status;
+                        const statusDisplay = status === "approved" ? "Approved" : 
+                                            status === "rejected" ? "Rejected" :
+                                            status === "implemented" ? "Implemented" :
+                                            status === "closed" ? "Closed" : "Pending";
+                        const statusColor = status === "approved" || status === "implemented"
                           ? (isMacOSTheme ? "bg-green-100 text-green-800 border-green-300" : "bg-green-50 text-green-900")
+                          : status === "rejected" || status === "closed"
+                          ? (isMacOSTheme ? "bg-red-100 text-red-800 border-red-300" : "bg-red-50 text-red-900")
                           : (isMacOSTheme ? "bg-yellow-100 text-yellow-800 border-yellow-300" : "bg-yellow-50 text-yellow-900");
                         
+                        const voteSummary = pitch.total_votes !== undefined && pitch.yes_votes !== undefined
+                          ? `${pitch.yes_votes}/${pitch.total_votes} votes`
+                          : null;
+
+                        const comments = detail?.comments || [];
+                        
                         return (
-                          <Card key={project.id} className={cn(
+                          <Card key={pitch.id} className={cn(
                             isMacOSTheme && "border shadow-sm bg-gradient-to-b from-white/95 to-gray-50/95",
                             "group"
                           )}
@@ -535,15 +567,17 @@ export function PitchAppComponent({
                                   WebkitFontSmoothing: "antialiased",
                                 } : {}}
                                 >
-                                  {project.name}
+                                  {pitch.title}
                                 </CardTitle>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   {isMacOSTheme ? (
                                     <span
                                       className={cn(
                                         "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium relative overflow-hidden whitespace-nowrap",
-                                        status === "approved"
+                                        status === "approved" || status === "implemented"
                                           ? "bg-gradient-to-b from-green-200/90 to-green-300/90 text-green-900"
+                                          : status === "rejected" || status === "closed"
+                                          ? "bg-gradient-to-b from-red-200/90 to-red-300/90 text-red-900"
                                           : "bg-gradient-to-b from-yellow-200/90 to-yellow-300/90 text-yellow-900",
                                         isMobile && "text-xs px-1.5"
                                       )}
@@ -553,7 +587,7 @@ export function PitchAppComponent({
                                         WebkitFontSmoothing: "antialiased",
                                       }}
                                     >
-                                      <span className="relative z-10">{status === "approved" ? "Approved" : "Pending"}</span>
+                                      <span className="relative z-10">{statusDisplay}</span>
                                     </span>
                                   ) : (
                                     <Badge 
@@ -562,13 +596,13 @@ export function PitchAppComponent({
                                         isMobile && "text-xs px-2 py-0.5"
                                       )}
                                     >
-                                      {status === "approved" ? "Approved" : "Pending"}
+                                      {statusDisplay}
                                     </Badge>
                                   )}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeleteClick(project.id);
+                                      handleDeleteClick(pitch.id);
                                     }}
                                     className={cn(
                                       "transition-opacity rounded touch-manipulation flex items-center justify-center",
@@ -603,38 +637,44 @@ export function PitchAppComponent({
                                 "line-clamp-3",
                                 isMobile && "text-sm"
                               )}>
-                                {project.description}
+                                {pitchDescription}
                               </CardDescription>
                               <div className={cn(
                                 "space-y-1 text-muted-foreground",
                                 isMobile ? "text-xs" : "text-sm"
                               )}>
-                                {project.venue !== "TBD" && (
+                                {metadata.venue && (
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <span className="font-medium">Venue:</span>
-                                    <span>{project.venue}</span>
+                                    <span>{metadata.venue}</span>
                                   </div>
                                 )}
-                                {project.date !== "TBD" && (
+                                {metadata.keyDates && (
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <span className="font-medium">Date:</span>
-                                    <span>{project.date}</span>
+                                    <span>{metadata.keyDates}</span>
                                   </div>
                                 )}
-                                {project.fee !== "TBD" && (
+                                {metadata.budget && (
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <span className="font-medium">Budget:</span>
-                                    <span>{project.fee}</span>
+                                    <span>{metadata.budget}</span>
                                   </div>
                                 )}
-                                {project.timings !== "TBD" && (
+                                {metadata.timelines && (
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <span className="font-medium">Timelines:</span>
-                                    <span>{project.timings}</span>
+                                    <span>{metadata.timelines}</span>
+                                  </div>
+                                )}
+                                {voteSummary && (
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="font-medium">Votes:</span>
+                                    <span>{voteSummary}</span>
                                   </div>
                                 )}
                               </div>
-                              {hasFeedback && (
+                              {comments.length > 0 && (
                                 <div className={cn(
                                   "mt-4 pt-4 border-t",
                                   isMacOSTheme ? "border-gray-300" : "border-border"
@@ -643,12 +683,12 @@ export function PitchAppComponent({
                                     "font-semibold mb-2 text-muted-foreground",
                                     isMobile ? "text-xs" : "text-xs"
                                   )}>
-                                    Anonymous Feedback:
+                                    Comments ({comments.length}):
                                   </div>
                                   <div className="space-y-2">
-                                    {project.feedback!.map((feedback, index) => (
+                                    {comments.map((comment) => (
                                       <div
-                                        key={index}
+                                        key={comment.id}
                                         className={cn(
                                           "rounded-md",
                                           isMobile ? "text-xs p-2.5" : "text-sm p-3",
@@ -661,7 +701,8 @@ export function PitchAppComponent({
                                           textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
                                         } : {}}
                                       >
-                                        {feedback}
+                                        <div className="font-medium mb-1">{comment.username}</div>
+                                        <div>{comment.comment}</div>
                                       </div>
                                     ))}
                                   </div>
@@ -698,6 +739,38 @@ export function PitchAppComponent({
           title="Delete Pitch"
           description="Are you sure you want to delete this pitch? This action cannot be undone and it will be removed from the Inbox."
         />
+        <Dialog open={accountSetupOpen} onOpenChange={setAccountSetupOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Up Greenroom Account</DialogTitle>
+              <DialogDescription>
+                Enter your Greenroom user ID to link your account. This allows you to submit pitches and vote on others.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input
+                type="number"
+                placeholder="User ID (e.g., 9)"
+                value={greenroomUserIdInput}
+                onChange={(e) => setGreenroomUserIdInput(e.target.value)}
+                className="w-full"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleAccountSetup();
+                  }
+                }}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAccountSetupOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAccountSetup}>
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </WindowFrame>
     </>
   );

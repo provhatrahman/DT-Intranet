@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
@@ -8,8 +8,13 @@ import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
+import { useAuth } from "@/hooks/useAuth";
+import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
+import { usePitchesStore } from "@/stores/usePitchesStore";
+import { parsePitchDescription } from "@/lib/api/pitches";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
 import { convertOfferToActiveProject } from "../../active-projects/data";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -51,11 +56,10 @@ export function IncomingOffersAppComponent({
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const [offers, setOffers] = useState<Offer[]>(dummyOffers);
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc">("submitted-desc");
   
-  // Local state to track user's votes: offerId -> UserVote
+  // Local state to track user's votes for non-pitch offers: offerId -> UserVote
   const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
   
   // Feedback dialog state
@@ -67,11 +71,26 @@ export function IncomingOffersAppComponent({
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [pendingApproveOfferId, setPendingApproveOfferId] = useState<string | null>(null);
 
+  const { username } = useAuth();
+  const { getAccount } = useGreenroomAccountStore();
+  const currentAccount = getAccount(username);
+  const greenroomUserId = currentAccount?.greenroomUserId ?? null;
+
+  const {
+    pitches,
+    pitchDetails,
+    isLoading: pitchesLoading,
+    fetchPitches,
+    refreshPitch,
+    voteOnPitch,
+    addComment,
+  } = usePitchesStore();
+
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
   const isMacOSTheme = currentTheme === "macosx";
 
-  // Initialize user votes from localStorage if available (simulated persistence)
+  // Initialize user votes from localStorage if available (for non-pitch offers)
   useEffect(() => {
     const savedVotes = localStorage.getItem("incoming_offers_votes");
     if (savedVotes) {
@@ -79,29 +98,66 @@ export function IncomingOffersAppComponent({
     }
   }, []);
 
-  // Load offers from localStorage and merge with dummy data, filtering out approved offers
-  const loadOffers = React.useCallback(() => {
-    let savedOffers: Offer[] = [];
-    
-    try {
-      const savedOffersJson = localStorage.getItem("incoming_offers_list");
-      if (savedOffersJson) {
-        const parsed = JSON.parse(savedOffersJson);
-        // Validate it's an array
-        if (Array.isArray(parsed)) {
-          savedOffers = parsed;
-        } else {
-          console.warn("Invalid offers data in localStorage, resetting");
-          localStorage.removeItem("incoming_offers_list");
-        }
-      }
-    } catch (parseError) {
-      console.error("Failed to parse offers from localStorage:", parseError);
-      // Clear corrupted data
-      localStorage.removeItem("incoming_offers_list");
-      savedOffers = [];
+  // Fetch pitches when component mounts
+  useEffect(() => {
+    if (isWindowOpen) {
+      fetchPitches().catch((err) => {
+        console.error("Failed to fetch pitches:", err);
+      });
     }
-    
+  }, [isWindowOpen, fetchPitches]);
+
+  // Convert pitches to Offer format and merge with dummy offers
+  const offers = useMemo(() => {
+    const pitchOffers: Offer[] = pitches.map((pitch) => {
+      const detail = pitchDetails[pitch.id];
+      const { description: pitchDescription, metadata } = parsePitchDescription(pitch.description);
+      
+      // Calculate vote counts from pitch votes
+      const voteCounts: VoteCounts = {
+        accept: 0,
+        interested: 0,
+        decline: 0,
+        recommend: 0,
+      };
+
+      if (detail?.votes) {
+        detail.votes.forEach((vote) => {
+          if (vote.vote_value === 1) {
+            voteCounts.accept++;
+          } else if (vote.vote_value === -1) {
+            voteCounts.decline++;
+          } else if (vote.vote_value === 0) {
+            const comment = vote.comment || "";
+            if (comment.startsWith("[INTERESTED]")) {
+              voteCounts.interested++;
+            } else if (comment.startsWith("[RECOMMEND]")) {
+              voteCounts.recommend++;
+            } else {
+              voteCounts.interested++;
+            }
+          }
+        });
+      }
+
+      return {
+        id: `pitch-${pitch.id}`,
+        name: pitch.title,
+        description: pitchDescription,
+        promoter: "Internal Pitch",
+        venue: metadata.venue || "TBD",
+        date: metadata.keyDates || "TBD",
+        fee: metadata.budget || "TBD",
+        timings: metadata.timelines || "TBD",
+        source: "pitch" as const,
+        status: pitch.status === "approved" || pitch.status === "implemented" ? "reviewed" as const : "new" as const,
+        submittedAt: pitch.date_submitted,
+        pitchId: pitch.id,
+        pitchStatus: pitch.status,
+        pitchVotes: voteCounts,
+      };
+    });
+
     // Get active projects to filter out approved offers
     let activeProjects: any[] = [];
     try {
@@ -115,96 +171,116 @@ export function IncomingOffersAppComponent({
     } catch (e) {
       console.error("Failed to parse active projects:", e);
     }
-    
-      // Create a set of offer IDs that have been approved (mapped from active project IDs)
-      // Active project IDs are in format: project-{offerId}-{timestamp}
-      const approvedOfferIds = new Set<string>();
-      activeProjects.forEach((project) => {
-        if (project.id) {
-          // Extract original offer ID from project ID
-          // Match pattern: project-{offerId}-{timestamp}
-          const match = project.id.match(/^project-(.+?)-/);
-          if (match && match[1]) {
-            approvedOfferIds.add(match[1]);
-          } else {
-            // Fallback: if the pattern doesn't match, log for debugging
-            console.warn("Could not extract offer ID from project ID:", project.id);
-          }
+
+    const approvedOfferIds = new Set<string>();
+    activeProjects.forEach((project) => {
+      if (project.id) {
+        const match = project.id.match(/^project-(.+?)-/);
+        if (match && match[1]) {
+          approvedOfferIds.add(match[1]);
         }
-      });
-      console.log("Approved offer IDs to filter:", Array.from(approvedOfferIds));
-    
-    // Merge saved offers with dummy offers, avoiding duplicates by ID
-    const dummyIds = new Set(dummyOffers.map(o => o.id));
-    const newOffers = savedOffers.filter(o => !dummyIds.has(o.id));
-    // Sort by date (newest first) for better UX - pitches will appear at top if they have recent dates
-    const mergedOffers = [...dummyOffers, ...newOffers];
-    
-    // Filter out offers that have been approved and moved to active projects
-    const filteredOffers = mergedOffers.filter(o => !approvedOfferIds.has(o.id));
-    
-    setOffers(filteredOffers);
-  }, []);
+      }
+    });
 
-  useEffect(() => {
-    loadOffers();
+    // Merge dummy offers with pitch offers, filter out approved
+    const allOffers = [...dummyOffers, ...pitchOffers];
+    return allOffers.filter((o) => !approvedOfferIds.has(o.id));
+  }, [pitches, pitchDetails]);
 
-    // Listen for updates from pitch app
-    const handleOffersUpdate = () => {
-      loadOffers();
-    };
-
-    // Listen for updates from active projects
-    const handleActiveProjectsUpdate = () => {
-      loadOffers();
-    };
-
-    window.addEventListener("offers-updated", handleOffersUpdate);
-    window.addEventListener("active-projects-updated", handleActiveProjectsUpdate);
-    return () => {
-      window.removeEventListener("offers-updated", handleOffersUpdate);
-      window.removeEventListener("active-projects-updated", handleActiveProjectsUpdate);
-    };
-  }, [loadOffers]);
-
-  // Calculate aggregated counts: base counts + user's vote (1 if voted, 0 if not)
-  const aggregatedCounts = React.useMemo(() => {
+  // Calculate aggregated counts: use pitch votes for pitches, localStorage votes for others
+  const aggregatedCounts = useMemo(() => {
     const counts: Record<string, VoteCounts> = {};
     offers.forEach((offer) => {
-      const baseCounts = initialVoteCounts[offer.id] || { accept: 0, interested: 0, decline: 0, recommend: 0 };
-      const userVote = userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false };
-      
-      counts[offer.id] = {
-        accept: baseCounts.accept + (userVote.accept ? 1 : 0),
-        interested: baseCounts.interested + (userVote.interested ? 1 : 0),
-        decline: baseCounts.decline + (userVote.decline ? 1 : 0),
-        recommend: baseCounts.recommend + (userVote.recommend ? 1 : 0),
-      };
+      if (offer.source === "pitch" && offer.pitchVotes) {
+        // Use pitch votes directly from API
+        counts[offer.id] = { ...offer.pitchVotes };
+      } else {
+        // Use localStorage votes for non-pitch offers
+        const baseCounts = initialVoteCounts[offer.id] || { accept: 0, interested: 0, decline: 0, recommend: 0 };
+        const userVote = userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false };
+        
+        counts[offer.id] = {
+          accept: baseCounts.accept + (userVote.accept ? 1 : 0),
+          interested: baseCounts.interested + (userVote.interested ? 1 : 0),
+          decline: baseCounts.decline + (userVote.decline ? 1 : 0),
+          recommend: baseCounts.recommend + (userVote.recommend ? 1 : 0),
+        };
+      }
     });
     return counts;
   }, [userVotes, offers]);
 
-  const handleVote = (offerId: string, option: VoteOption) => {
+  const handleVote = async (offerId: string, option: VoteOption) => {
     const offer = offers.find(o => o.id === offerId);
-    const isPitchCard = offer?.source === "pitch";
-    const currentVote = userVotes[offerId] || {
-      accept: false,
-      interested: false,
-      decline: false,
-      recommend: false,
-    };
+    const isPitchCard = offer?.source === "pitch" && offer.pitchId;
 
-    // If declining a pitch card and it's not already declined, show feedback dialog
-    if (option === "decline" && isPitchCard && !currentVote.decline) {
-      setPendingDeclineOfferId(offerId);
-      setFeedbackText("");
-      setIsFeedbackDialogOpen(true);
-      return;
-    }
+    if (isPitchCard && greenroomUserId) {
+      // Handle pitch voting via API
+      const pitchId = offer.pitchId!;
+      const detail = pitchDetails[pitchId];
+      
+      // Check if user already voted
+      const existingVote = detail?.votes?.find((v) => v.user_id === greenroomUserId);
+      const currentVoteValue = existingVote?.vote_value;
 
-    // For non-pitch cards or un-declining, proceed with normal vote logic
-    setUserVotes((prev) => {
-      const currentVote = prev[offerId] || {
+      // If declining and not already declined, show feedback dialog
+      if (option === "decline" && currentVoteValue !== -1) {
+        setPendingDeclineOfferId(offerId);
+        setFeedbackText("");
+        setIsFeedbackDialogOpen(true);
+        return;
+      }
+
+      // Determine vote value and comment
+      let voteValue: number;
+      let comment: string | undefined;
+
+      if (option === "accept") {
+        voteValue = currentVoteValue === 1 ? 0 : 1; // Toggle: 1 if not voted, 0 to remove
+        comment = undefined;
+      } else if (option === "interested") {
+        const isCurrentlyInterested = currentVoteValue === 0 && existingVote?.comment?.startsWith("[INTERESTED]");
+        if (isCurrentlyInterested) {
+          // Remove vote by setting to accept (1) then back, or just submit 0 with empty comment
+          voteValue = 0;
+          comment = "";
+        } else {
+          voteValue = 0;
+          comment = "[INTERESTED]";
+        }
+      } else if (option === "decline") {
+        voteValue = currentVoteValue === -1 ? 0 : -1; // Toggle: -1 if not declined, 0 to remove
+        comment = feedbackText || undefined;
+      } else if (option === "recommend") {
+        const isCurrentlyRecommend = currentVoteValue === 0 && existingVote?.comment?.startsWith("[RECOMMEND]");
+        if (isCurrentlyRecommend) {
+          // Remove vote
+          voteValue = 0;
+          comment = "";
+        } else {
+          voteValue = 0;
+          comment = "[RECOMMEND]";
+        }
+      } else {
+        return;
+      }
+
+      try {
+        await voteOnPitch(pitchId, {
+          user_id: greenroomUserId,
+          vote_value: voteValue,
+          comment,
+        });
+        await refreshPitch(pitchId);
+        await fetchPitches(); // Refresh list to update counts
+        toast.success("Vote recorded");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to vote";
+        toast.error(message);
+      }
+    } else if (!isPitchCard) {
+      // Handle non-pitch voting via localStorage
+      const currentVote = userVotes[offerId] || {
         accept: false,
         interested: false,
         decline: false,
@@ -215,110 +291,108 @@ export function IncomingOffersAppComponent({
 
       if (option === "accept") {
         newVote.accept = !newVote.accept;
-        // If accepting, clear decline/recommend
         if (newVote.accept) {
-            newVote.decline = false;
-            newVote.recommend = false;
+          newVote.decline = false;
+          newVote.recommend = false;
         }
       } else if (option === "interested") {
         newVote.interested = !newVote.interested;
-        // If interested, also set accept to true (they are linked)
-        // If unclicking interested, also unclick accept
         newVote.accept = newVote.interested;
-        // If interested, clear decline/recommend
         if (newVote.interested) {
-            newVote.decline = false;
-            newVote.recommend = false;
+          newVote.decline = false;
+          newVote.recommend = false;
         }
       } else if (option === "decline") {
-        // Single select logic for decline
         newVote = {
-            accept: false,
-            interested: false,
-            decline: !currentVote.decline,
-            recommend: false,
+          accept: false,
+          interested: false,
+          decline: !currentVote.decline,
+          recommend: false,
         };
       } else if (option === "recommend") {
-        // Single select logic for recommend
         newVote = {
-            accept: false,
-            interested: false,
-            decline: false,
-            recommend: !currentVote.recommend,
+          accept: false,
+          interested: false,
+          decline: false,
+          recommend: !currentVote.recommend,
         };
       }
 
-      const newVotes = { ...prev, [offerId]: newVote };
-      localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
-      
-      return newVotes;
-    });
+      setUserVotes((prev) => {
+        const newVotes = { ...prev, [offerId]: newVote };
+        localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
+        return newVotes;
+      });
+    } else if (!greenroomUserId) {
+      toast.error("Please set up your Greenroom account to vote on pitches");
+    }
   };
 
-  const handleFeedbackSubmit = (feedback: string) => {
-    if (!pendingDeclineOfferId) return;
+  const handleFeedbackSubmit = async (feedback: string) => {
+    if (!pendingDeclineOfferId || !greenroomUserId) return;
 
-    // Update the offer with feedback
-    const updatedOffers = offers.map(offer => {
-      if (offer.id === pendingDeclineOfferId) {
-        return {
-          ...offer,
-          feedback: [...(offer.feedback || []), feedback],
-        };
+    const offer = offers.find((o) => o.id === pendingDeclineOfferId);
+    const isPitchCard = offer?.source === "pitch" && offer.pitchId;
+
+    if (isPitchCard) {
+      // Submit vote with comment via API
+      try {
+        const pitchId = offer.pitchId!;
+        await voteOnPitch(pitchId, {
+          user_id: greenroomUserId,
+          vote_value: -1,
+          comment: feedback,
+        });
+        await refreshPitch(pitchId);
+        toast.success("Feedback submitted");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to submit feedback";
+        toast.error(message);
       }
-      return offer;
-    });
-
-    // Save to localStorage
-    try {
-      const savedOffersJson = localStorage.getItem("incoming_offers_list");
-      let savedOffers: Offer[] = [];
-      
-      if (savedOffersJson) {
-        const parsed = JSON.parse(savedOffersJson);
-        if (Array.isArray(parsed)) {
-          savedOffers = parsed;
+    } else {
+      // Legacy localStorage handling for non-pitch offers
+      try {
+        const savedOffersJson = localStorage.getItem("incoming_offers_list");
+        let savedOffers: Offer[] = [];
+        
+        if (savedOffersJson) {
+          const parsed = JSON.parse(savedOffersJson);
+          if (Array.isArray(parsed)) {
+            savedOffers = parsed;
+          }
         }
-      }
 
-      // Update the offer in saved offers
-      const updatedSavedOffers = savedOffers.map(offer => {
-        if (offer.id === pendingDeclineOfferId) {
-          return {
-            ...offer,
-            feedback: [...(offer.feedback || []), feedback],
+        const updatedSavedOffers = savedOffers.map((o) => {
+          if (o.id === pendingDeclineOfferId) {
+            return {
+              ...o,
+              feedback: [...(o.feedback || []), feedback],
+            };
+          }
+          return o;
+        });
+
+        localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
+
+        setUserVotes((prev) => {
+          const newVote = {
+            accept: false,
+            interested: false,
+            decline: true,
+            recommend: false,
           };
-        }
-        return offer;
-      });
-
-      localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
-    } catch (error) {
-      console.error("Failed to save feedback:", error);
+          const newVotes = { ...prev, [pendingDeclineOfferId]: newVote };
+          localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
+          return newVotes;
+        });
+      } catch (error) {
+        console.error("Failed to save feedback:", error);
+      }
     }
 
-    setOffers(updatedOffers);
-
-    // Now proceed with the decline vote
-    setUserVotes((prev) => {
-      const newVote = {
-        accept: false,
-        interested: false,
-        decline: true,
-        recommend: false,
-      };
-      const newVotes = { ...prev, [pendingDeclineOfferId]: newVote };
-      localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
-      return newVotes;
-    });
-
-    // Close dialog and reset state
     setIsFeedbackDialogOpen(false);
     setFeedbackText("");
     setPendingDeclineOfferId(null);
-
-    // Trigger update event for Pitch app
-    window.dispatchEvent(new CustomEvent("offers-updated"));
   };
 
   const handleFeedbackDialogClose = () => {
@@ -518,16 +592,42 @@ export function IncomingOffersAppComponent({
             style={isMacOSTheme ? { background: "transparent" } : undefined}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredOffers.map((offer) => (
-                <OfferCard
-                  key={offer.id}
-                  offer={offer}
-                  votes={userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false }}
-                  counts={aggregatedCounts[offer.id]}
-                  onVote={(option) => handleVote(offer.id, option)}
-                  onApprove={() => handleApproveClick(offer.id)}
-                />
-              ))}
+              {filteredOffers.map((offer) => {
+                // Get vote state: for pitches, check API; for others, use localStorage
+                let voteState: UserVote = { accept: false, interested: false, decline: false, recommend: false };
+                
+                if (offer.source === "pitch" && offer.pitchId && greenroomUserId) {
+                  const detail = pitchDetails[offer.pitchId];
+                  const userVote = detail?.votes?.find((v) => v.user_id === greenroomUserId);
+                  if (userVote) {
+                    if (userVote.vote_value === 1) {
+                      voteState.accept = true;
+                    } else if (userVote.vote_value === -1) {
+                      voteState.decline = true;
+                    } else if (userVote.vote_value === 0) {
+                      const comment = userVote.comment || "";
+                      if (comment.startsWith("[INTERESTED]")) {
+                        voteState.interested = true;
+                      } else if (comment.startsWith("[RECOMMEND]")) {
+                        voteState.recommend = true;
+                      }
+                    }
+                  }
+                } else {
+                  voteState = userVotes[offer.id] || { accept: false, interested: false, decline: false, recommend: false };
+                }
+
+                return (
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    votes={voteState}
+                    counts={aggregatedCounts[offer.id]}
+                    onVote={(option) => handleVote(offer.id, option)}
+                    onApprove={() => handleApproveClick(offer.id)}
+                  />
+                );
+              })}
               {filteredOffers.length === 0 && (
                   <div 
                     className="col-span-full text-center py-10 text-muted-foreground"

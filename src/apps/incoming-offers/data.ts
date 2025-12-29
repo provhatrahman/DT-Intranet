@@ -11,6 +11,14 @@ export interface Offer {
   status: "new" | "reviewed" | "archived";
   feedback?: string[]; // Anonymous feedback for rejected pitches
   submittedAt?: string; // ISO timestamp when the offer was submitted/received
+  pitchId?: number; // Backend pitch ID if source is "pitch"
+  pitchStatus?: string; // Backend pitch status
+  pitchVotes?: {
+    accept: number;
+    interested: number;
+    decline: number;
+    recommend: number;
+  };
 }
 
 export const dummyOffers: Offer[] = [
