@@ -19,6 +19,7 @@ export const appIds = [
   "active-projects",
   "pitch",
   "archive",
+  "api-tester",
 ] as const;
 
 export type AppId = (typeof appIds)[number];

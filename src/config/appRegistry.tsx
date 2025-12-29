@@ -198,6 +198,11 @@ const LazyArchiveApp = createLazyComponent<unknown>(
   "archive"
 );
 
+const LazyApiTesterApp = createLazyComponent<unknown>(
+  () => import("@/apps/api-tester/components/ApiTesterAppComponent").then(m => ({ default: m.ApiTesterAppComponent })),
+  "api-tester"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -222,6 +227,7 @@ import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpI
 import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
 import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
 import { appMetadata as archiveMetadata, helpItems as archiveHelpItems } from "@/apps/archive";
+import { appMetadata as apiTesterMetadata, helpItems as apiTesterHelpItems } from "@/apps/api-tester";
 
 // ============================================================================
 // APP REGISTRY
@@ -498,6 +504,19 @@ export const appRegistry = {
     component: LazyArchiveApp,
     helpItems: archiveHelpItems,
     metadata: archiveMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
+  ["api-tester"]: {
+    id: "api-tester",
+    name: "API Tester",
+    icon: { type: "image", src: apiTesterMetadata.icon },
+    description: "Test Greenroom Backend API endpoints",
+    component: LazyApiTesterApp,
+    helpItems: apiTesterHelpItems,
+    metadata: apiTesterMetadata,
     windowConfig: {
       defaultSize: { width: 1000, height: 700 },
       minSize: { width: 800, height: 500 },
