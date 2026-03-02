@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2025-11-10T17:42:50.404Z",
+  "generatedAt": "2025-12-20T01:49:57.789Z",
   "themes": {
     "default": [
       "app.png",
@@ -161,6 +161,7 @@
       "paint.png",
       "pc.png",
       "photo-booth.png",
+      "pitch.png",
       "question.png",
       "sites.png",
       "sound.png",
@@ -170,6 +171,7 @@
       "textedit.png",
       "trash-empty.png",
       "trash-full.png",
+      "vault.png",
       "video-tape.png",
       "videos.png",
       "warn.png"

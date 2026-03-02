@@ -23,6 +23,7 @@ interface DesktopStyles {
   backgroundRepeat?: string;
   backgroundPosition?: string;
   transition?: string;
+  backgroundColor?: string;
 }
 
 interface DesktopProps {
@@ -64,9 +65,8 @@ export function Desktop({
   const fileStore = useFilesStore();
   const launchApp = useLaunchApp();
   
-  // Get trash icon (updates automatically when trash state changes)
+  // Get all items for desktop shortcuts
   const allItems = useFilesStore((state) => state.items);
-  const trashIcon = fileStore.getItem("/Trash")?.icon || "/icons/trash-empty.png";
 
   // Define the default order for desktop shortcuts
   const defaultShortcutOrder: AppId[] = [
@@ -389,6 +389,20 @@ export function Desktop({
     if (!path || isVideoWallpaper) return {};
 
     const isTiled = path.includes("/wallpapers/tiles/");
+    const isDaytimersLogo = path.includes("daytimers-logo");
+    
+    // Special handling for DAYTIMERS logo: scale it down and match background color
+    if (isDaytimersLogo) {
+      return {
+        backgroundImage: `url(${path})`,
+        backgroundSize: "auto 35%", // Scale logo to 25% of screen height for smaller size
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        backgroundColor: "#fffbf2", // Exact cream color to match the logo background
+        transition: "background-image 0.3s ease-in-out",
+      };
+    }
+    
     return {
       backgroundImage: `url(${path})`,
       backgroundSize: isTiled ? "64px 64px" : "cover",
@@ -812,38 +826,6 @@ export function Desktop({
               data-desktop-icon="true"
             />
           ))}
-          {/* Display Trash icon at the end for non-macOS X themes */}
-          {currentTheme !== "macosx" && (
-            <FileIcon
-              name={t("common.menu.trash")}
-              isDirectory={true}
-              icon={trashIcon}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedAppId("trash");
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                localStorage.setItem("app_finder_initialPath", "/Trash");
-                const finderApp = apps.find((app) => app.id === "finder");
-                if (finderApp) {
-                  toggleApp(finderApp.id);
-                }
-                setSelectedAppId(null);
-              }}
-              onContextMenu={(e: React.MouseEvent<HTMLDivElement>) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setContextMenuPos({ x: e.clientX, y: e.clientY });
-                setContextMenuAppId("trash");
-                setContextMenuShortcutPath(null);
-                setSelectedAppId("trash");
-              }}
-              isSelected={selectedAppId === "trash"}
-              size="large"
-              data-desktop-icon="true"
-            />
-          )}
         </div>
       </div>
       <RightClickMenu

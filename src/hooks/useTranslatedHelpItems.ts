@@ -29,6 +29,10 @@ export function useTranslatedHelpItems(
     "applet-viewer": ["appletStore", "createWithRyosChat", "viewApplets", "shareApplets", "openFromFinder", "keepUpdated"],
     "control-panels": ["appearance", "sounds", "aiModel", "shaderEffects", "backupRestore", "system"],
     admin: ["adminAccess", "userManagement", "roomManagement", "statistics"],
+    pitch: ["pitchProject", "formFields", "submission"],
+    "incoming-offers": [],
+    "active-projects": [],
+    archive: [],
   };
 
   return useMemo(() => {

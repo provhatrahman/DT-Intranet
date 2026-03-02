@@ -23,7 +23,6 @@ import { useSound, Sounds } from "@/hooks/useSound";
 import type { AppInstance } from "@/stores/useAppStore";
 import type { AppletViewerInitialData } from "@/apps/applet-viewer";
 import { RightClickMenu, MenuItem } from "@/components/ui/right-click-menu";
-import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { requestCloseWindow } from "@/utils/windowUtils";
 import {
   AnimatePresence,
@@ -561,9 +560,6 @@ function MacDock() {
   const launchApp = useLaunchApp();
   const files = useFilesStore((s) => s.items);
   const fileStore = useFilesStore();
-  const trashIcon = useFilesStore(
-    (s) => s.items["/Trash"]?.icon || "/icons/trash-empty.png"
-  );
   const finderInstances = useFinderStore((s) => s.instances);
   
   // Get current username for admin check
@@ -583,17 +579,10 @@ function MacDock() {
     magnification: dockMagnification,
     setMagnification: setDockMagnification,
   } = useDockStore();
-  
-  const [isDraggingOverTrash, setIsDraggingOverTrash] = useState(false);
-  const [trashContextMenuPos, setTrashContextMenuPos] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const [applicationsContextMenuPos, setApplicationsContextMenuPos] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const [isEmptyTrashDialogOpen, setIsEmptyTrashDialogOpen] = useState(false);
   const dockContainerRef = useRef<HTMLDivElement | null>(null);
   const dockBarRef = useRef<HTMLDivElement | null>(null);
   const iconRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -748,7 +737,7 @@ function MacDock() {
     
     // Don't start timer if dragging or context menu open
     if (draggingItemId || externalDragIndex !== null || 
-        trashContextMenuPos || applicationsContextMenuPos || appContextMenu || dividerContextMenuPos) {
+        applicationsContextMenuPos || appContextMenu || dividerContextMenuPos) {
       return;
     }
     
@@ -769,7 +758,7 @@ function MacDock() {
         restartAutoHideTimer();
       }
     }, delay);
-  }, [isPhone, dockHiding, draggingItemId, externalDragIndex, trashContextMenuPos, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos]);
+  }, [isPhone, dockHiding, draggingItemId, externalDragIndex, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos]);
   
   // Restart auto-hide timer when context menus close or dragging ends
   useEffect(() => {
@@ -777,7 +766,7 @@ function MacDock() {
     if (dockHiding && isDockVisible) {
       restartAutoHideTimer();
     }
-  }, [dockHiding, isDockVisible, trashContextMenuPos, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos, draggingItemId, externalDragIndex, restartAutoHideTimer]);
+  }, [dockHiding, isDockVisible, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos, draggingItemId, externalDragIndex, restartAutoHideTimer]);
   
   // Show dock (called when mouse enters dock zone)
   const showDock = useCallback(() => {
@@ -804,7 +793,7 @@ function MacDock() {
     // Don't hide while dragging
     if (draggingItemId || externalDragIndex !== null) return;
     // Don't hide while context menu is open
-    if (trashContextMenuPos || applicationsContextMenuPos || appContextMenu || dividerContextMenuPos) return;
+    if (applicationsContextMenuPos || appContextMenu || dividerContextMenuPos) return;
     
     // Clear auto-hide timer
     if (autoHideTimerRef.current) {
@@ -813,7 +802,7 @@ function MacDock() {
     }
     
     setIsDockVisible(false);
-  }, [dockHiding, draggingItemId, externalDragIndex, trashContextMenuPos, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos]);
+  }, [dockHiding, draggingItemId, externalDragIndex, applicationsContextMenuPos, appContextMenu, dividerContextMenuPos]);
 
   // Divider context menu handler
   const handleDividerContextMenu = useCallback((e: React.MouseEvent) => {
@@ -868,15 +857,6 @@ function MacDock() {
 
   // Use long press hook for divider
   const dividerLongPress = useLongPress(handleDividerLongPress);
-
-  // Get trash items to check if trash is empty
-  // Use a selector that directly filters items to avoid infinite loops
-  const allItems = useFilesStore((s) => s.items);
-  const trashItems = useMemo(
-    () => Object.values(allItems).filter((item) => item.status === "trashed"),
-    [allItems]
-  );
-  const isTrashEmpty = trashItems.length === 0;
 
   // Helper to get applet info (icon and name) from instance
   const getAppletInfo = useCallback(
@@ -1680,7 +1660,7 @@ function MacDock() {
 
   // Generate context menu items for a folder shortcut
   const getFolderContextMenuItems = useCallback(
-    (folderPath: string, isTrash: boolean = false): MenuItem[] => {
+    (folderPath: string): MenuItem[] => {
       const items: MenuItem[] = [];
       
       // Handle virtual directories
@@ -1753,11 +1733,7 @@ function MacDock() {
         label: t("common.dock.open"),
         onSelect: () => {
           focusFinderAtPathOrLaunch(folderPath);
-          if (isTrash) {
-            setTrashContextMenuPos(null);
-          } else {
-            setApplicationsContextMenuPos(null);
-          }
+          setApplicationsContextMenuPos(null);
         },
       });
       
@@ -1825,11 +1801,7 @@ function MacDock() {
                 focusFinderAtPathOrLaunch(parentPath || "/");
               }
               // Close the context menu
-              if (isTrash) {
-                setTrashContextMenuPos(null);
-              } else {
-                setApplicationsContextMenuPos(null);
-              }
+              setApplicationsContextMenuPos(null);
             },
           };
         });
@@ -1842,23 +1814,11 @@ function MacDock() {
         });
       }
       
-      // For Trash, add separator and Empty Trash option
-      if (isTrash) {
-        items.push({ type: "separator" });
-        items.push({
-          type: "item",
-          label: t("apps.finder.contextMenu.emptyTrash"),
-          onSelect: () => {
-            setIsEmptyTrashDialogOpen(true);
-            setTrashContextMenuPos(null);
-          },
-          disabled: isTrashEmpty,
-        });
-      }
+      // Trash is no longer in the dock, so no trash-specific menu items needed
       
       return items;
     },
-    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, isTrashEmpty, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin]
+    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin]
   );
 
   // Handle app context menu
@@ -1960,7 +1920,6 @@ function MacDock() {
         item.type === "applet" ? item.instanceId! : item.appId
       ),
       "__applications__",
-      "__trash__",
     ];
     return ids;
   }, [pinnedItems, openItems]);
@@ -2040,14 +1999,14 @@ function MacDock() {
             if (dockHiding) {
               hideDock();
             }
-            if (effectiveMagnifyEnabled && !trashContextMenuPos && !appContextMenu) {
+            if (effectiveMagnifyEnabled && !appContextMenu) {
               mouseX.set(Infinity);
               handleIconLeave();
             }
           }}
           onMouseMove={(e) => {
             // Update mouse position for magnification
-            if (effectiveMagnifyEnabled && !trashContextMenuPos && !appContextMenu) {
+            if (effectiveMagnifyEnabled && !appContextMenu) {
               mouseX.set(e.clientX);
             }
             // Restart auto-hide timer on mouse movement (desktop fallback, throttled)
@@ -2269,7 +2228,7 @@ function MacDock() {
                 }
               })}
 
-              {/* Divider between open apps and Applications/Trash */}
+              {/* Divider between open apps and Applications */}
               <Divider 
                 key="divider-between" 
                 idKey="between" 
@@ -2280,7 +2239,7 @@ function MacDock() {
                 {...dividerLongPress}
               />
 
-              {/* Applications (left of Trash) */}
+              {/* Applications */}
               {(() => {
                 const handleApplicationsContextMenu = (
                   e: React.MouseEvent<HTMLButtonElement>
@@ -2325,98 +2284,6 @@ function MacDock() {
                   />
                 );
               })()}
-
-              {/* Trash (right side) */}
-              {(() => {
-                const handleTrashDragOver = (e: React.DragEvent<HTMLButtonElement>) => {
-                  // Check if this is a desktop shortcut being dragged
-                  // We can't use getData in dragOver, so check types instead
-                  const types = Array.from(e.dataTransfer.types);
-                  if (types.includes("application/json")) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.dataTransfer.dropEffect = "move";
-                    setIsDraggingOverTrash(true);
-                  }
-                };
-
-                const handleTrashDrop = (e: React.DragEvent<HTMLButtonElement>) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDraggingOverTrash(false);
-
-                  try {
-                    const data = e.dataTransfer.getData("application/json");
-                    if (data) {
-                      const parsed = JSON.parse(data);
-                      // Only handle desktop shortcuts
-                      if (parsed.path && parsed.path.startsWith("/Desktop/")) {
-                        // Move shortcut to trash
-                        fileStore.removeItem(parsed.path);
-                      }
-                    }
-                  } catch (err) {
-                    console.warn("[Dock] Failed to handle trash drop:", err);
-                  }
-                };
-
-                const handleTrashDragLeave = (e: React.DragEvent<HTMLButtonElement>) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDraggingOverTrash(false);
-                };
-
-                const handleTrashContextMenu = (
-                  e: React.MouseEvent<HTMLButtonElement>
-                ) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-
-                  const containerRect =
-                    dockContainerRef.current?.getBoundingClientRect();
-                  if (!containerRect) {
-                    setTrashContextMenuPos({ x: e.clientX, y: e.clientY });
-                    return;
-                  }
-
-                  setTrashContextMenuPos({
-                    x: e.clientX - containerRect.left,
-                    y: e.clientY - containerRect.top,
-                  });
-                };
-
-                return (
-                  <motion.div
-                    animate={{
-                      scale: isDraggingOverTrash ? 1.2 : 1,
-                      opacity: isDraggingOverTrash ? 0.7 : 1,
-                    }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <IconButton
-                      key="__trash__"
-                      label={t("common.dock.trash")}
-                      icon={trashIcon}
-                      idKey="__trash__"
-                      onClick={() => {
-                        focusFinderAtPathOrLaunch("/Trash");
-                      }}
-                      onDragOver={handleTrashDragOver}
-                      onDrop={handleTrashDrop}
-                      onDragLeave={handleTrashDragLeave}
-                      onContextMenu={handleTrashContextMenu}
-                      mouseX={mouseX}
-                      magnifyEnabled={effectiveMagnifyEnabled}
-                      isNew={hasMounted && !seenIdsRef.current.has("__trash__")}
-                      isHovered={hoveredId === "__trash__"}
-                      isSwapping={isSwapping}
-                      onHover={() => handleIconHover("__trash__")}
-                      onLeave={handleIconLeave}
-                      baseSize={scaledButtonSize}
-                    />
-                  </motion.div>
-                );
-              })()}
             </AnimatePresence>
           </LayoutGroup>
         </motion.div>
@@ -2445,15 +2312,7 @@ function MacDock() {
       )}
       
       <RightClickMenu
-        items={getFolderContextMenuItems("/Trash", true)}
-        position={trashContextMenuPos}
-        onClose={() => {
-          setTrashContextMenuPos(null);
-          mouseX.set(Infinity);
-        }}
-      />
-      <RightClickMenu
-        items={getFolderContextMenuItems("/Applications", false)}
+        items={getFolderContextMenuItems("/Applications")}
         position={applicationsContextMenuPos}
         onClose={() => {
           setApplicationsContextMenuPos(null);
@@ -2480,16 +2339,6 @@ function MacDock() {
           }}
         />
       )}
-      <ConfirmDialog
-        isOpen={isEmptyTrashDialogOpen}
-        onOpenChange={setIsEmptyTrashDialogOpen}
-        onConfirm={() => {
-          fileStore.emptyTrash();
-          setIsEmptyTrashDialogOpen(false);
-        }}
-        title={t("apps.finder.dialogs.emptyTrash.title")}
-        description={t("apps.finder.dialogs.emptyTrash.description")}
-      />
     </div>
   );
 }

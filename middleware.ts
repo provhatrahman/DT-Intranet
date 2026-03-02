@@ -15,6 +15,9 @@ const APP_NAMES: Record<string, string> = {
   terminal: "Terminal",
   "applet-viewer": "Applet Store",
   "control-panels": "Control Panels",
+  "active-projects": "Active Projects",
+  "pitch": "Pitch",
+  "archive": "Archive",
 };
 
 // App descriptions
@@ -27,13 +30,15 @@ const APP_DESCRIPTIONS: Record<string, string> = {
   paint: "Draw and edit art, like it's 1984",
   "photo-booth": "Take photos with shader effects",
   minesweeper: "Play this classic puzzle game",
-  videos: "Watch videos on ryOS",
+  videos: "Watch videos on Greenroom",
   ipod: "Click-wheel music player with live lyrics",
   synth: "Virtual synthesizer with custom sounds",
   pc: "DOS emulator with classic games",
   terminal: "Command line interface with Ryo AI",
   "applet-viewer": "Explore and install community applets",
   "control-panels": "Set themes, sounds, and system preferences",
+  "active-projects": "Manage active projects and curations",
+  "pitch": "Pitch a new project",
 };
 
 // App ID to macOS icon mapping
@@ -53,7 +58,10 @@ const APP_ICONS: Record<string, string> = {
   terminal: "terminal.png",
   "applet-viewer": "app.png",
   "control-panels": "control-panels/appearance-manager/app.png",
+  "active-projects": "pc.png",
+  "pitch": "pitch.png",
 };
+  "archive": "vault.png",
 
 function generateOgHtml(options: {
   title: string;
@@ -76,7 +84,7 @@ function generateOgHtml(options: {
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(description)}">
   <meta property="og:image" content="${escapeHtml(imageUrl)}">
-  <meta property="og:site_name" content="ryOS">
+  <meta property="og:site_name" content="Greenroom">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="${escapeHtml(title)}">
   <meta name="twitter:description" content="${escapeHtml(description)}">
@@ -116,7 +124,9 @@ export const config = {
     "/applet-viewer",
     "/applet-viewer/:path*",
     "/control-panels",
+    "/pitch",
   ],
+    "/archive",
 };
 
 // Simple title parser - extracts artist and title from common YouTube formats
@@ -162,7 +172,7 @@ async function getYouTubeInfo(videoId: string): Promise<{ title: string; artist:
   try {
     const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
     const response = await fetch(oEmbedUrl, { 
-      headers: { "User-Agent": "ryOS/1.0" },
+      headers: { "User-Agent": "Greenroom/1.0" },
     });
     
     if (!response.ok) return null;
@@ -188,7 +198,7 @@ export default async function middleware(request: Request) {
 
   // Default values
   let imageUrl = `${baseUrl}/icons/mac-512.png`;
-  let title = "ryOS";
+  let title = "Greenroom";
   let description = "An AI OS experience, made with Cursor";
   let matched = false;
 
@@ -197,8 +207,8 @@ export default async function middleware(request: Request) {
   if (appMatch && APP_NAMES[appMatch[1]]) {
     const appId = appMatch[1];
     imageUrl = `${baseUrl}/icons/macosx/${APP_ICONS[appId]}`;
-    title = `${APP_NAMES[appId]} on ryOS`;
-    description = APP_DESCRIPTIONS[appId] || "Open app in ryOS";
+    title = `${APP_NAMES[appId]} on Greenroom`;
+    description = APP_DESCRIPTIONS[appId] || "Open app in Greenroom";
     matched = true;
   }
 
@@ -212,10 +222,10 @@ export default async function middleware(request: Request) {
     const ytInfo = await getYouTubeInfo(videoId);
     if (ytInfo) {
       title = `${ytInfo.title}`;
-      description = "Watch on ryOS Videos";
+      description = "Watch on Greenroom Videos";
     } else {
-      title = "Shared Video on ryOS";
-      description = "Watch on ryOS Videos";
+      title = "Shared Video on Greenroom";
+      description = "Watch on Greenroom Videos";
     }
     matched = true;
   }
@@ -231,14 +241,14 @@ export default async function middleware(request: Request) {
     if (ytInfo) {
       if (ytInfo.artist) {
         title = `${ytInfo.title} - ${ytInfo.artist}`;
-        description = `Listen on ryOS iPod`;
+        description = `Listen on Greenroom iPod`;
       } else {
         title = ytInfo.title;
-        description = "Listen on ryOS iPod";
+        description = "Listen on Greenroom iPod";
       }
     } else {
-      title = "Shared Song - ryOS";
-      description = "Listen on ryOS iPod";
+      title = "Shared Song - Greenroom";
+      description = "Listen on Greenroom iPod";
     }
     matched = true;
   }
@@ -247,8 +257,8 @@ export default async function middleware(request: Request) {
   const appletMatch = pathname.match(/^\/applet-viewer\/([a-zA-Z0-9_-]+)$/);
   if (appletMatch) {
     imageUrl = `${baseUrl}/icons/macosx/applet.png`;
-    title = "Shared Applet on ryOS";
-    description = "Open applet in ryOS";
+    title = "Shared Applet on Greenroom";
+    description = "Open applet in Greenroom";
     matched = true;
   }
 
@@ -279,19 +289,19 @@ export default async function middleware(request: Request) {
         }
         
         if (sharedYear === "current") {
-          title = `${hostname} on ryOS`;
-          description = "Open in ryOS Internet Explorer";
+          title = `${hostname} on Greenroom`;
+          description = "Open in Greenroom Internet Explorer";
         } else {
-          title = `${hostname} in ${sharedYear} on ryOS`;
-          description = "Time travel in ryOS Internet Explorer";
+          title = `${hostname} in ${sharedYear} on Greenroom`;
+          description = "Time travel in Greenroom Internet Explorer";
         }
       } else {
-        title = "Shared Page on ryOS";
-        description = "Open in ryOS Internet Explorer";
+        title = "Shared Page on Greenroom";
+        description = "Open in Greenroom Internet Explorer";
       }
     } catch {
-      title = "Shared Page on ryOS";
-      description = "Open in ryOS Internet Explorer";
+      title = "Shared Page on Greenroom";
+      description = "Open in Greenroom Internet Explorer";
     }
     matched = true;
   }

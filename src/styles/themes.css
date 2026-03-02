@@ -352,6 +352,30 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+/* Emerald variant for aqua button */
+.aqua-button.emerald {
+  background: linear-gradient(
+    rgba(16, 185, 129, 0.75),
+    rgba(52, 211, 153, 0.75),
+    rgba(110, 231, 183, 0.75)
+  );
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(16, 185, 129, 0.4),
+    inset 0 1px 3px rgba(5, 78, 55, 0.6),
+    inset 0 2px 3px 1px rgba(16, 185, 129, 0.7);
+  font-weight: 900;
+}
+.aqua-button.emerald:focus,
+.aqua-button.emerald:active {
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(16, 185, 129, 0.4),
+    inset 0 1px 3px rgba(5, 78, 55, 0.6),
+    inset 0 2px 3px 1px rgba(16, 185, 129, 0.7), 0 0 3px rgba(16, 185, 129, 0.4);
+}
+.aqua-button.emerald,
+.aqua-button.emerald span {
+  color: #065f46;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
 /* Top shine */
 .aqua-button:before {
   content: "";

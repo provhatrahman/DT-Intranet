@@ -178,6 +178,31 @@ const LazyAdminApp = createLazyComponent<unknown>(
   "admin"
 );
 
+const LazyIncomingOffersApp = createLazyComponent<unknown>(
+  () => import("@/apps/incoming-offers/components/IncomingOffersAppComponent").then(m => ({ default: m.IncomingOffersAppComponent })),
+  "incoming-offers"
+);
+
+const LazyActiveProjectsApp = createLazyComponent<unknown>(
+  () => import("@/apps/active-projects/components/ActiveProjectsAppComponent").then(m => ({ default: m.ActiveProjectsAppComponent })),
+  "active-projects"
+);
+
+const LazyPitchApp = createLazyComponent<unknown>(
+  () => import("@/apps/pitch/components/PitchAppComponent").then(m => ({ default: m.PitchAppComponent })),
+  "pitch"
+);
+
+const LazyArchiveApp = createLazyComponent<unknown>(
+  () => import("@/apps/archive/components/ArchiveAppComponent").then(m => ({ default: m.ArchiveAppComponent })),
+  "archive"
+);
+
+const LazyApiTesterApp = createLazyComponent<unknown>(
+  () => import("@/apps/api-tester/components/ApiTesterAppComponent").then(m => ({ default: m.ApiTesterAppComponent })),
+  "api-tester"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -198,6 +223,11 @@ import { appMetadata as terminalMetadata, helpItems as terminalHelpItems } from 
 import { appMetadata as appletViewerMetadata, helpItems as appletViewerHelpItems } from "@/apps/applet-viewer";
 import { appMetadata as controlPanelsMetadata, helpItems as controlPanelsHelpItems } from "@/apps/control-panels";
 import { appMetadata as adminMetadata, helpItems as adminHelpItems } from "@/apps/admin";
+import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
+import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
+import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
+import { appMetadata as archiveMetadata, helpItems as archiveHelpItems } from "@/apps/archive";
+import { appMetadata as apiTesterMetadata, helpItems as apiTesterHelpItems } from "@/apps/api-tester";
 
 // ============================================================================
 // APP REGISTRY
@@ -226,6 +256,7 @@ export const appRegistry = {
     component: LazySoundboardApp,
     helpItems: soundboardHelpItems,
     metadata: soundboardMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 650, height: 475 },
       minSize: { width: 550, height: 375 },
@@ -239,6 +270,7 @@ export const appRegistry = {
     component: LazyInternetExplorerApp,
     helpItems: internetExplorerHelpItems,
     metadata: internetExplorerMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 730, height: 600 },
       minSize: { width: 400, height: 300 },
@@ -252,6 +284,7 @@ export const appRegistry = {
     component: LazyChatsApp,
     helpItems: chatsHelpItems,
     metadata: chatsMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 560, height: 360 },
       minSize: { width: 300, height: 320 },
@@ -320,6 +353,7 @@ export const appRegistry = {
     component: LazyVideosApp,
     helpItems: videosHelpItems,
     metadata: videosMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 400, height: 420 },
       minSize: { width: 400, height: 340 },
@@ -346,6 +380,7 @@ export const appRegistry = {
     component: LazySynthApp,
     helpItems: synthHelpItems,
     metadata: synthMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 720, height: 400 },
       minSize: { width: 720, height: 290 },
@@ -359,6 +394,7 @@ export const appRegistry = {
     component: LazyPcApp,
     helpItems: pcHelpItems,
     metadata: pcMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 645, height: 511 },
       minSize: { width: 645, height: 511 },
@@ -373,6 +409,7 @@ export const appRegistry = {
     component: LazyTerminalApp,
     helpItems: terminalHelpItems,
     metadata: terminalMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 600, height: 400 },
       minSize: { width: 400, height: 300 },
@@ -386,6 +423,7 @@ export const appRegistry = {
     component: LazyAppletViewerApp,
     helpItems: appletViewerHelpItems,
     metadata: appletViewerMetadata,
+    hidden: true,
     windowConfig: {
       defaultSize: { width: 320, height: 450 },
       minSize: { width: 300, height: 200 },
@@ -419,6 +457,71 @@ export const appRegistry = {
       minSize: { width: 600, height: 400 },
     } as WindowConstraints,
   },
+  ["incoming-offers"]: {
+    id: "incoming-offers",
+    name: "Inbox",
+    icon: { type: "image", src: incomingOffersMetadata.icon },
+    description: "Incoming gig and brand offers",
+    component: LazyIncomingOffersApp,
+    helpItems: incomingOffersHelpItems,
+    metadata: incomingOffersMetadata,
+    windowConfig: {
+      defaultSize: { width: 900, height: 600 },
+      minSize: { width: 600, height: 400 },
+    } as WindowConstraints,
+  },
+  ["active-projects"]: {
+    id: "active-projects",
+    name: "Active Projects",
+    icon: { type: "image", src: activeProjectsMetadata.icon },
+    description: "Manage active projects and curations",
+    component: LazyActiveProjectsApp,
+    helpItems: activeProjectsHelpItems,
+    metadata: activeProjectsMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
+  ["pitch"]: {
+    id: "pitch",
+    name: "Pitch",
+    icon: { type: "image", src: pitchMetadata.icon },
+    description: "Pitch a new project",
+    component: LazyPitchApp,
+    helpItems: pitchHelpItems,
+    metadata: pitchMetadata,
+    windowConfig: {
+      defaultSize: { width: 600, height: 700 },
+      minSize: { width: 500, height: 600 },
+    } as WindowConstraints,
+  },
+  ["archive"]: {
+    id: "archive",
+    name: "Archive",
+    icon: { type: "image", src: archiveMetadata.icon },
+    description: "View and manage archived projects",
+    component: LazyArchiveApp,
+    helpItems: archiveHelpItems,
+    metadata: archiveMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
+  ["api-tester"]: {
+    id: "api-tester",
+    name: "API Tester",
+    icon: { type: "image", src: apiTesterMetadata.icon },
+    description: "Test Greenroom Backend API endpoints",
+    component: LazyApiTesterApp,
+    helpItems: apiTesterHelpItems,
+    metadata: apiTesterMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
 } as const;
 
 // ============================================================================
@@ -444,6 +547,8 @@ export const getNonFinderApps = (isAdmin: boolean = false): Array<{
   return Object.entries(appRegistry)
     .filter(([id, app]) => {
       if (id === "finder") return false;
+      // Filter out hidden apps
+      if ((app as { hidden?: boolean }).hidden) return false;
       // Filter out admin-only apps for non-admin users
       if ((app as { adminOnly?: boolean }).adminOnly && !isAdmin) return false;
       return true;

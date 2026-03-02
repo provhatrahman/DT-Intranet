@@ -11,6 +11,7 @@ import { useSound, Sounds } from "./useSound";
 import { getWindowConfig } from "@/config/appRegistry";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useDockStore } from "@/stores/useDockStore";
+import { getMobileFullHeight, getMobileTopInset } from "@/utils/windowUtils";
 
 interface UseWindowManagerProps {
   appId: AppId;
@@ -42,7 +43,13 @@ export const useWindowManager = ({
     size: WindowSize;
   } => {
     const isMobile = window.innerWidth < 768;
-    const mobileY = 28; // Fixed Y position for mobile to account for menu bar
+    // Only use full height for inbox, pitch, active projects, and archive in mobile view
+    const shouldUseFullHeight = isMobile && (
+      appId === "incoming-offers" ||
+      appId === "pitch" ||
+      appId === "active-projects" ||
+      appId === "archive"
+    );
 
     const appIndex = appIds.indexOf(appId);
     const offsetIndex = appIndex >= 0 ? appIndex : 0;
@@ -50,9 +57,18 @@ export const useWindowManager = ({
     return {
       position: {
         x: isMobile ? 0 : 16 + offsetIndex * 32,
-        y: isMobile ? mobileY : 40 + offsetIndex * 20,
+        y: shouldUseFullHeight
+          ? getMobileTopInset()
+          : isMobile
+          ? 28
+          : 40 + offsetIndex * 20,
       },
-      size: isMobile
+      size: shouldUseFullHeight
+        ? {
+            width: window.innerWidth,
+            height: getMobileFullHeight(),
+          }
+        : isMobile
         ? {
             width: window.innerWidth,
             height: config.defaultSize.height,

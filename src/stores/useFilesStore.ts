@@ -186,6 +186,15 @@ const getParentPath = (path: string): string => {
   return "/" + parts.slice(0, -1).join("/");
 };
 
+// Default folders to hide in root (Macintosh HD) view
+// These folders will be hidden by default for all users
+const DEFAULT_HIDDEN_FOLDERS = [
+  "/Applets",
+  "/Images",
+  "/Videos",
+  // Add more folder paths here to hide them by default
+];
+
 // Track files pending lazy load (path -> FileSystemItemData)
 const pendingLazyLoadFiles = new Map<string, FileSystemItemData>();
 
@@ -788,11 +797,13 @@ export const useFilesStore = create<FilesStoreState>()(
 
         if (path === "/") {
           // Special case for root: Return top-level active directories/virtual directories
+          // Filter out default hidden folders
           return allItems.filter(
             (item) =>
               item.status === "active" &&
               item.path !== "/" && // Exclude the root item itself
-              getParentPath(item.path) === "/" // Ensure it's a direct child of root
+              getParentPath(item.path) === "/" && // Ensure it's a direct child of root
+              !DEFAULT_HIDDEN_FOLDERS.includes(item.path) // Hide default hidden folders
           );
         }
 
@@ -1091,10 +1102,22 @@ export const useFilesStore = create<FilesStoreState>()(
             (item) => item.status === "trashed"
           );
 
-          // Process all apps in registry except Finder and Control Panels
+          // Apps that should NOT have desktop shortcuts by default
+          const excludedAppIds = ["chats", "internet-explorer", "applet-viewer"];
+          
+          // Remove existing shortcuts for excluded apps (permanently delete them)
+          const shortcutsToRemove = desktopItems.filter(
+            (item) => item.aliasType === "app" && excludedAppIds.includes(item.aliasTarget || "")
+          );
+          
+          for (const shortcut of shortcutsToRemove) {
+            get().removeItem(shortcut.path, true); // Permanently delete
+          }
+
+          // Process all apps in registry except Finder, Control Panels, and hidden apps
           // @ts-ignore - iterating over values of appRegistry
           const apps = Object.values(appRegistry).filter(
-            (app: any) => app.id !== "finder" && app.id !== "control-panels"
+            (app: any) => app.id !== "finder" && app.id !== "control-panels" && !app.hidden
           );
 
           // Collect all shortcuts to create in a single batch update

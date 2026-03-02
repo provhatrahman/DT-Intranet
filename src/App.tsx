@@ -17,8 +17,10 @@ import { checkDesktopUpdate, onDesktopUpdate, DesktopUpdateResult } from "./util
 import { Download } from "lucide-react";
 import { ScreenSaverOverlay } from "./components/screensavers/ScreenSaverOverlay";
 
-// Convert registry to array
-const apps: AnyApp[] = Object.values(appRegistry);
+// Convert registry to array, filtering out hidden apps
+const apps: AnyApp[] = Object.values(appRegistry).filter(
+  (app) => !(app as { hidden?: boolean }).hidden
+);
 
 export function App() {
   const { t } = useTranslation();

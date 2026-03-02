@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import vercel from "vite-plugin-vercel";
 import { VitePWA } from "vite-plugin-pwa";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,13 +12,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   define: {
     // Expose VERCEL_ENV to the client for environment detection
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV || ''),
   },
   server: {
+    host: true, // Allow access from network devices
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     cors: { origin: ["*"] },
     watch: {
@@ -50,6 +52,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Enable HTTPS with auto-generated certificates for PWA testing (iOS requires HTTPS)
+    ...(process.env.VITE_HTTPS === 'true' ? [basicSsl()] : []),
     // Only include Vercel and PWA plugins when not building for Tauri
     ...(process.env.TAURI_ENV ? [] : [
       vercel(),
@@ -66,8 +70,8 @@ export default defineConfig({
         "fonts/*.ttf",
       ],
       manifest: {
-        name: "ryOS",
-        short_name: "ryOS",
+        name: "Greenroom",
+        short_name: "Greenroom",
         description: "An AI OS experience, made with Cursor",
         theme_color: "#000000",
         background_color: "#000000",
@@ -253,12 +257,13 @@ export default defineConfig({
         // index.html is precached to serve as navigation fallback when offline
         // Service worker uses skipWaiting + clientsClaim to update immediately,
         // minimizing risk of stale HTML referencing old scripts
-        globPatterns: [
+        // Disable precaching in dev mode (files don't exist in dev-dist)
+        globPatterns: mode === 'production' ? [
           "index.html",
           "**/*.css",
           "fonts/*.{woff,woff2,otf,ttf}",
           "icons/manifest.json",
-        ],
+        ] : [],
         // Exclude large data files from precaching (they'll be cached at runtime)
         globIgnores: [
           "**/data/all-sounds.json", // 4.7MB - too large
@@ -273,7 +278,7 @@ export default defineConfig({
         clientsClaim: true,
       },
       devOptions: {
-        enabled: false, // Disable in dev to avoid confusion
+        enabled: true, // Enable in dev for PWA testing on mobile devices
       },
     }),
     ]),
@@ -359,4 +364,4 @@ export default defineConfig({
     sourcemap: false,
     minify: true,
   },
-});
+}));

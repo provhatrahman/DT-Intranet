@@ -1,4 +1,4 @@
-# ryOS — A Web-Based Agentic AI OS, made with Cursor
+# Greenroom — A Web-Based Agentic AI OS, made with Cursor
 
 A modern web-based desktop environment inspired by classic macOS and Windows, built with React, TypeScript, and AI. Features multiple built-in applications, a familiar desktop interface, and a system-aware AI assistant. Works on all devices—desktop, tablet, and mobile.
 
@@ -84,6 +84,27 @@ bun run lint         # Run ESLint
 bun run preview      # Preview production build
 vercel dev           # Run with Vercel dev server (recommended)
 ```
+
+## Resetting Browser Data
+
+To reset all ryOS data (files, folders, settings) via browser console:
+
+```javascript
+// Clear all localStorage keys related to ryOS
+Object.keys(localStorage).forEach(key => {
+  if (key.startsWith('ryos:') || key.startsWith('dock-') || key.startsWith('app_') || key.startsWith('_usr_') || key.startsWith('_auth_')) {
+    localStorage.removeItem(key);
+    console.log('Removed:', key);
+  }
+});
+
+// Clear IndexedDB
+indexedDB.deleteDatabase('ryOS').onsuccess = () => {
+  console.log('IndexedDB cleared!');
+};
+```
+
+After running this, refresh the page to reinitialize with default folders.
 
 ## License
 

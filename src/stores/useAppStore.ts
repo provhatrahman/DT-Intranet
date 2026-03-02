@@ -11,6 +11,7 @@ import { AIModel } from "@/types/aiModels";
 import { ensureIndexedDBInitialized } from "@/utils/indexedDB";
 import { track } from "@vercel/analytics";
 import { APP_ANALYTICS } from "@/utils/analytics";
+import { getMobileFullHeight, getMobileTopInset } from "@/utils/windowUtils";
 export type { AIModel } from "@/types/aiModels";
 
 // ---------------- Types ---------------------------------------------------------
@@ -241,8 +242,8 @@ export const useAppStore = create<AppStoreState>()(
           },
         })),
 
-      currentWallpaper: "/wallpapers/photos/aqua/water.jpg",
-      wallpaperSource: "/wallpapers/photos/aqua/water.jpg",
+      currentWallpaper: "/wallpapers/photos/aqua/daytimers-logo.png",
+      wallpaperSource: "/wallpapers/photos/aqua/daytimers-logo.png",
       setCurrentWallpaper: (p) =>
         set({ currentWallpaper: p, wallpaperSource: p }),
 
@@ -528,14 +529,25 @@ export const useAppStore = create<AppStoreState>()(
           const offsetStep = 32;
           const isMobile =
             typeof window !== "undefined" && window.innerWidth < 768;
+          // Only use full height for inbox, pitch, active projects, and archive in mobile view
+          const shouldUseFullHeight = isMobile && (
+            appId === "incoming-offers" ||
+            appId === "pitch" ||
+            appId === "active-projects" ||
+            appId === "archive"
+          );
           const position = {
             x: isMobile ? 0 : baseOffset + openInstances * offsetStep,
-            y: isMobile
+            y: shouldUseFullHeight
+              ? getMobileTopInset()
+              : isMobile
               ? 28 + openInstances * offsetStep
               : 40 + openInstances * 20,
           };
           const cfg = getWindowConfig(appId);
-          let size = isMobile
+          let size = shouldUseFullHeight
+            ? { width: window.innerWidth, height: getMobileFullHeight() }
+            : isMobile
             ? { width: window.innerWidth, height: cfg.defaultSize.height }
             : cfg.defaultSize;
 
