@@ -13,6 +13,12 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,7 +36,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User, Clock, DollarSign, Building2, Link as LinkIcon, Target, AlertCircle, CheckCircle2, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Calendar, MessageSquare, Music, User, Clock, DollarSign, Building2, Link as LinkIcon, Target, AlertCircle, CheckCircle2, TrendingUp, ChevronLeft, ChevronRight, Info, AtSign, ExternalLink } from "lucide-react";
 
 const CURRENT_USER_ID = "user-1"; // Dummy user ID for voting
 
@@ -264,24 +270,34 @@ export function ActiveProjectsAppComponent({
 
   const handleAddNewDJ = () => {
     if (
-      !newDJForm.name ||
       !newDJForm.artistName ||
+      !newDJForm.preferredName ||
       !newDJForm.location ||
-      !newDJForm.creativeDisciplines
+      !newDJForm.typeOfAct
     ) {
       return;
     }
     const newDJ = addDJ({
-      name: newDJForm.name,
       artistName: newDJForm.artistName,
-      contactDetails: newDJForm.contactDetails || "",
+      preferredName: newDJForm.preferredName,
+      preferredPronouns: newDJForm.preferredPronouns || "",
+      heritage: newDJForm.heritage || "",
       location: newDJForm.location,
-      creativeDisciplines: newDJForm.creativeDisciplines,
-      linksToWork: newDJForm.linksToWork || "",
+      outsideUK: newDJForm.outsideUK || "",
+      typeOfAct: newDJForm.typeOfAct,
       genre: newDJForm.genre || "",
-      timesBooked: 0,
+      contactDetails: newDJForm.contactDetails || "",
+      instagram: newDJForm.instagram || "",
+      soundcloud: newDJForm.soundcloud || "",
+      tiktok: newDJForm.tiktok || "",
+      otherSocialMedia: newDJForm.otherSocialMedia || "",
+      linkToPreviousWork: newDJForm.linkToPreviousWork || "",
       mostRecentEvent: "",
       mostRecentEventDate: "",
+      smallGigsCount: 0,
+      mediumGigsCount: 0,
+      largeGigsCount: 0,
+      gigScore: 0,
     });
     setDJs((prev) => [...prev, newDJ]);
     setNewDJForm({});
@@ -709,6 +725,7 @@ function ProjectDetailView({
   const [statusUpdateText, setStatusUpdateText] = useState("");
   const [curationName, setCurationName] = useState("");
   const [curationLink, setCurationLink] = useState("");
+  const [selectedDJForDetail, setSelectedDJForDetail] = useState<DJ | null>(null);
 
   // Pagination logic for DJ search results
   const totalDJPages = Math.ceil(djs.length / itemsPerPage);
@@ -1454,14 +1471,14 @@ function ProjectDetailView({
                                     className="font-semibold text-sm truncate"
                                     style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
                                   >
-                                    {dj.name}
+                                    {dj.artistName}
                                   </h4>
-                                  {dj.artistName && dj.artistName !== dj.name && (
+                                  {dj.preferredName && dj.preferredName !== dj.artistName && (
                                     <p 
                                       className="text-xs text-muted-foreground truncate"
                                       style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                                     >
-                                      {dj.artistName}
+                                      {dj.preferredName}
                                     </p>
                                   )}
                                 </div>
@@ -1485,16 +1502,16 @@ function ProjectDetailView({
                                   </div>
                                 )}
                                 
-                                {dj.creativeDisciplines && (
+                                {dj.typeOfAct && (
                                   <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                                     <User className="h-3 w-3 shrink-0 mt-0.5" />
-                                    <span className="line-clamp-2">{dj.creativeDisciplines}</span>
+                                    <span className="line-clamp-2">{dj.typeOfAct}</span>
                                   </div>
                                 )}
                                 
-                                {dj.timesBooked > 0 && (
+                                {dj.gigScore > 0 && (
                                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-black/5">
-                                    <span>Booked {dj.timesBooked} {dj.timesBooked === 1 ? "time" : "times"}</span>
+                                    <span>Gig score: {dj.gigScore}</span>
                                   </div>
                                 )}
                               </div>
@@ -1561,18 +1578,6 @@ function ProjectDetailView({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="min-w-0">
                         <Label className="text-xs mb-2 flex items-center gap-2">
-                          <User className="h-3 w-3" />
-                          Name <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          value={newDJForm.name || ""}
-                          onChange={(e) => onNewDJFormChange({ ...newDJForm, name: e.target.value })}
-                          placeholder="Real name"
-                          className="w-full"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <Label className="text-xs mb-2 flex items-center gap-2">
                           <Music className="h-3 w-3" />
                           Artist Name <span className="text-red-500">*</span>
                         </Label>
@@ -1580,6 +1585,42 @@ function ProjectDetailView({
                           value={newDJForm.artistName || ""}
                           onChange={(e) => onNewDJFormChange({ ...newDJForm, artistName: e.target.value })}
                           placeholder="Stage/artist name"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Preferred Name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          value={newDJForm.preferredName || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, preferredName: e.target.value })}
+                          placeholder="Preferred name"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Preferred Pronouns
+                        </Label>
+                        <Input
+                          value={newDJForm.preferredPronouns || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, preferredPronouns: e.target.value })}
+                          placeholder="e.g., they/them, she/her"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Heritage
+                        </Label>
+                        <Input
+                          value={newDJForm.heritage || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, heritage: e.target.value })}
+                          placeholder="Cultural heritage / background"
                           className="w-full"
                         />
                       </div>
@@ -1597,12 +1638,24 @@ function ProjectDetailView({
                       </div>
                       <div className="min-w-0">
                         <Label className="text-xs mb-2 flex items-center gap-2">
-                          <User className="h-3 w-3" />
-                          Creative Disciplines <span className="text-red-500">*</span>
+                          <MapPin className="h-3 w-3" />
+                          Outside of UK (if applicable)
                         </Label>
                         <Input
-                          value={newDJForm.creativeDisciplines || ""}
-                          onChange={(e) => onNewDJFormChange({ ...newDJForm, creativeDisciplines: e.target.value })}
+                          value={newDJForm.outsideUK || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, outsideUK: e.target.value })}
+                          placeholder="Country / city if based outside UK"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Type of Act <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          value={newDJForm.typeOfAct || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, typeOfAct: e.target.value })}
                           placeholder="e.g., DJ / Producer / Live performer"
                           className="w-full"
                         />
@@ -1627,19 +1680,67 @@ function ProjectDetailView({
                         <Input
                           value={newDJForm.contactDetails || ""}
                           onChange={(e) => onNewDJFormChange({ ...newDJForm, contactDetails: e.target.value })}
-                          placeholder="Email or contact info"
+                          placeholder="Email or phone"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <LinkIcon className="h-3 w-3" />
+                          Instagram
+                        </Label>
+                        <Input
+                          value={newDJForm.instagram || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, instagram: e.target.value })}
+                          placeholder="@handle or URL"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <LinkIcon className="h-3 w-3" />
+                          SoundCloud
+                        </Label>
+                        <Input
+                          value={newDJForm.soundcloud || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, soundcloud: e.target.value })}
+                          placeholder="SoundCloud URL"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <LinkIcon className="h-3 w-3" />
+                          TikTok
+                        </Label>
+                        <Input
+                          value={newDJForm.tiktok || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, tiktok: e.target.value })}
+                          placeholder="TikTok URL or @handle"
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs mb-2 flex items-center gap-2">
+                          <LinkIcon className="h-3 w-3" />
+                          Other Social Media
+                        </Label>
+                        <Input
+                          value={newDJForm.otherSocialMedia || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, otherSocialMedia: e.target.value })}
+                          placeholder="Twitter, Bandcamp, etc."
                           className="w-full"
                         />
                       </div>
                       <div className="min-w-0 md:col-span-2">
                         <Label className="text-xs mb-2 flex items-center gap-2">
                           <LinkIcon className="h-3 w-3" />
-                          Links to Work
+                          Link to Previous Work
                         </Label>
                         <Input
-                          value={newDJForm.linksToWork || ""}
-                          onChange={(e) => onNewDJFormChange({ ...newDJForm, linksToWork: e.target.value })}
-                          placeholder="Website, SoundCloud, Bandcamp, etc."
+                          value={newDJForm.linkToPreviousWork || ""}
+                          onChange={(e) => onNewDJFormChange({ ...newDJForm, linkToPreviousWork: e.target.value })}
+                          placeholder="Website, Spotify, mix links, etc."
                           className="w-full"
                         />
                       </div>
@@ -1651,10 +1752,10 @@ function ProjectDetailView({
                           onAddNewDJ();
                         }}
                         disabled={
-                          !newDJForm.name ||
                           !newDJForm.artistName ||
+                          !newDJForm.preferredName ||
                           !newDJForm.location ||
-                          !newDJForm.creativeDisciplines
+                          !newDJForm.typeOfAct
                         }
                       >
                         Add DJ
@@ -1777,22 +1878,34 @@ function ProjectDetailView({
                                       className="font-semibold text-sm truncate"
                                       style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
                                     >
-                                      {dj.name}
+                                      {dj.artistName}
                                     </h4>
-                                    {dj.artistName && dj.artistName !== dj.name && (
+                                    {dj.preferredName && dj.preferredName !== dj.artistName && (
                                       <p 
                                         className="text-xs text-muted-foreground truncate"
                                         style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                                       >
-                                        {dj.artistName}
+                                        {dj.preferredName}
                                       </p>
                                     )}
                                   </div>
-                                  {isAssigned && (
-                                    <Badge variant="default" className="text-xs shrink-0">
-                                      Assigned
-                                    </Badge>
-                                  )}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {isAssigned && (
+                                      <Badge variant="default" className="text-xs">
+                                        Assigned
+                                      </Badge>
+                                    )}
+                                    <button
+                                      className="p-1 rounded hover:bg-black/5 text-muted-foreground hover:text-foreground transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedDJForDetail(dj);
+                                      }}
+                                      title="View full profile"
+                                    >
+                                      <Info className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                                 
                                 <div className="space-y-1.5">
@@ -1810,16 +1923,16 @@ function ProjectDetailView({
                                     </div>
                                   )}
                                   
-                                  {dj.creativeDisciplines && (
+                                  {dj.typeOfAct && (
                                     <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                                       <User className="h-3 w-3 shrink-0 mt-0.5" />
-                                      <span className="line-clamp-2">{dj.creativeDisciplines}</span>
+                                      <span className="line-clamp-2">{dj.typeOfAct}</span>
                                     </div>
                                   )}
                                   
-                                  {dj.timesBooked > 0 && (
+                                  {dj.gigScore > 0 && (
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-black/5">
-                                      <span>Booked {dj.timesBooked} {dj.timesBooked === 1 ? "time" : "times"}</span>
+                                      <span>Gig score: {dj.gigScore}</span>
                                     </div>
                                   )}
                                 </div>
@@ -1869,6 +1982,187 @@ function ProjectDetailView({
           </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      {/* DJ detail dialog */}
+      <Dialog open={!!selectedDJForDetail} onOpenChange={(open) => { if (!open) setSelectedDJForDetail(null); }}>
+        <DialogContent className={cn("max-w-[calc(100vw-2rem)] sm:max-w-[420px] overflow-hidden flex flex-col")}>
+          <DialogHeader>{selectedDJForDetail?.artistName ?? "Artist Profile"}</DialogHeader>
+          {selectedDJForDetail && (
+            <div className="overflow-y-auto flex-1 min-h-0">
+              {/* Name header */}
+              <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p
+                    className="font-semibold text-base leading-tight"
+                    style={isMacOSTheme ? { textShadow: "0 1px 2px rgba(0,0,0,0.1)" } : {}}
+                  >
+                    {selectedDJForDetail.artistName}
+                  </p>
+                  {selectedDJForDetail.preferredName && selectedDJForDetail.preferredName !== selectedDJForDetail.artistName && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedDJForDetail.preferredName}</p>
+                  )}
+                </div>
+                {project.finalLineup.includes(selectedDJForDetail.id) && (
+                  <Badge variant="default" className="shrink-0 mt-0.5">Assigned</Badge>
+                )}
+              </div>
+
+              {/* Rows */}
+              <div className="border-t text-sm">
+                {/* Helper: inline label+value row */}
+                {[
+                  selectedDJForDetail.location && {
+                    label: "Location",
+                    value: selectedDJForDetail.location + (selectedDJForDetail.outsideUK ? ` (${selectedDJForDetail.outsideUK})` : ""),
+                  },
+                  selectedDJForDetail.preferredPronouns && { label: "Pronouns", value: selectedDJForDetail.preferredPronouns },
+                  selectedDJForDetail.heritage && { label: "Heritage", value: selectedDJForDetail.heritage },
+                ].filter(Boolean).map((row) => (
+                  <div key={(row as {label:string}).label} className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">{(row as {label:string}).label}</span>
+                    <span className="flex-1 min-w-0 break-words">{(row as {value:string}).value}</span>
+                  </div>
+                ))}
+
+                {(selectedDJForDetail.typeOfAct || selectedDJForDetail.genre) && (
+                  <>
+                    {selectedDJForDetail.typeOfAct && (
+                      <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                        <span className="text-xs text-muted-foreground w-20 shrink-0">Type</span>
+                        <span className="flex-1 min-w-0 break-words">{selectedDJForDetail.typeOfAct}</span>
+                      </div>
+                    )}
+                    {selectedDJForDetail.genre && (
+                      <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                        <span className="text-xs text-muted-foreground w-20 shrink-0">Genre</span>
+                        <span className="flex-1 min-w-0 break-words">{selectedDJForDetail.genre}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {selectedDJForDetail.contactDetails && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Contact</span>
+                    <span className="flex-1 min-w-0">
+                      {selectedDJForDetail.contactDetails.includes("@") && !selectedDJForDetail.contactDetails.startsWith("http") ? (
+                        <a
+                          href={`mailto:${selectedDJForDetail.contactDetails}`}
+                          className="text-blue-600 hover:underline break-words"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {selectedDJForDetail.contactDetails}
+                        </a>
+                      ) : (
+                        <span className="break-words">{selectedDJForDetail.contactDetails}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {selectedDJForDetail.instagram && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Instagram</span>
+                    <a
+                      href={selectedDJForDetail.instagram.startsWith("http") ? selectedDJForDetail.instagram : `https://instagram.com/${selectedDJForDetail.instagram.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 text-blue-600 hover:underline break-words"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {selectedDJForDetail.instagram}
+                    </a>
+                  </div>
+                )}
+
+                {selectedDJForDetail.soundcloud && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">SoundCloud</span>
+                    <a
+                      href={selectedDJForDetail.soundcloud.startsWith("http") ? selectedDJForDetail.soundcloud : `https://${selectedDJForDetail.soundcloud}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 text-blue-600 hover:underline break-words"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {selectedDJForDetail.soundcloud}
+                    </a>
+                  </div>
+                )}
+
+                {selectedDJForDetail.tiktok && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">TikTok</span>
+                    <a
+                      href={selectedDJForDetail.tiktok.startsWith("http") ? selectedDJForDetail.tiktok : `https://tiktok.com/@${selectedDJForDetail.tiktok.replace(/^@/, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 text-blue-600 hover:underline break-words"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {selectedDJForDetail.tiktok}
+                    </a>
+                  </div>
+                )}
+
+                {selectedDJForDetail.otherSocialMedia && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Other</span>
+                    <span className="flex-1 min-w-0 break-words whitespace-pre-line">{selectedDJForDetail.otherSocialMedia}</span>
+                  </div>
+                )}
+
+                {selectedDJForDetail.linkToPreviousWork && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Prev. Work</span>
+                    <span className="flex-1 min-w-0 break-words whitespace-pre-line">{selectedDJForDetail.linkToPreviousWork}</span>
+                  </div>
+                )}
+
+                {selectedDJForDetail.mostRecentEvent && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Last booked</span>
+                    <span className="flex-1 min-w-0 break-words">
+                      {selectedDJForDetail.mostRecentEvent}
+                      {selectedDJForDetail.mostRecentEventDate ? ` — ${selectedDJForDetail.mostRecentEventDate}` : ""}
+                    </span>
+                  </div>
+                )}
+
+                {(selectedDJForDetail.smallGigsCount > 0 || selectedDJForDetail.mediumGigsCount > 0 || selectedDJForDetail.largeGigsCount > 0 || selectedDJForDetail.gigScore > 0) && (
+                  <div className="flex items-baseline gap-3 px-5 py-2 border-b">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Gigs</span>
+                    <span className="flex-1 min-w-0 text-xs">
+                      {[
+                        selectedDJForDetail.smallGigsCount > 0 && `S: ${selectedDJForDetail.smallGigsCount}`,
+                        selectedDJForDetail.mediumGigsCount > 0 && `M: ${selectedDJForDetail.mediumGigsCount}`,
+                        selectedDJForDetail.largeGigsCount > 0 && `L: ${selectedDJForDetail.largeGigsCount}`,
+                      ].filter(Boolean).join("  ")}
+                      {selectedDJForDetail.gigScore > 0 && (
+                        <span className="font-medium ml-3">Score: {selectedDJForDetail.gigScore}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Assign button */}
+              <div className="px-5 py-4">
+                <Button
+                  className={cn("w-full", isMacOSTheme ? "aqua-button" : "")}
+                  variant={project.finalLineup.includes(selectedDJForDetail.id) ? "outline" : "default"}
+                  onClick={() => {
+                    onAssignDJ(project.id, selectedDJForDetail.id);
+                    setSelectedDJForDetail(null);
+                  }}
+                >
+                  {project.finalLineup.includes(selectedDJForDetail.id) ? "Remove from Lineup" : "Add to Lineup"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

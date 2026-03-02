@@ -860,14 +860,14 @@ function ProjectDetailView({
                                         className="font-semibold text-sm truncate"
                                         style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}}
                                       >
-                                        {dj.name}
+                                        {dj.artistName}
                                       </h4>
-                                      {dj.artistName && dj.artistName !== dj.name && (
+                                      {dj.preferredName && dj.preferredName !== dj.artistName && (
                                         <p
                                           className="text-xs text-muted-foreground truncate"
                                           style={isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" } : {}}
                                         >
-                                          {dj.artistName}
+                                          {dj.preferredName}
                                         </p>
                                       )}
                                     </div>
@@ -891,16 +891,16 @@ function ProjectDetailView({
                                       </div>
                                     )}
 
-                                    {dj.creativeDisciplines && (
+                                    {dj.typeOfAct && (
                                       <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                                         <User className="h-3 w-3 shrink-0 mt-0.5" />
-                                        <span className="line-clamp-2">{dj.creativeDisciplines}</span>
+                                        <span className="line-clamp-2">{dj.typeOfAct}</span>
                                       </div>
                                     )}
 
-                                    {dj.timesBooked > 0 && (
+                                    {dj.gigScore > 0 && (
                                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1 border-t border-black/5">
-                                        <span>Booked {dj.timesBooked} {dj.timesBooked === 1 ? "time" : "times"}</span>
+                                        <span>Gig score: {dj.gigScore}</span>
                                       </div>
                                     )}
                                   </div>
@@ -1171,9 +1171,9 @@ function ProjectDetailView({
                                             isMacOSTheme ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.08)" } : {}
                                           }
                                         >
-                                          {dj?.name || `DJ ${lineupPayment.djId}`}
+                                          {dj?.artistName || `DJ ${lineupPayment.djId}`}
                                         </div>
-                                        {dj?.artistName && dj.artistName !== dj.name && (
+                                        {dj?.preferredName && dj.preferredName !== dj.artistName && (
                                           <div
                                             className="text-sm text-muted-foreground"
                                             style={
