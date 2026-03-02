@@ -168,7 +168,7 @@ export function PitchAppComponent({
       });
 
       await createPitch({
-        submitter_user_id: greenroomUserId,
+        submitter_user_id: greenroomUserId!,
         title: name.trim(),
         description: fullDescription,
         status: "submitted",
@@ -185,7 +185,13 @@ export function PitchAppComponent({
       toast.success("Pitch submitted successfully!");
       setActiveTab("pitches");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to submit pitch";
+      let message = error instanceof Error ? error.message : "Failed to submit pitch";
+      
+      // Provide more context for user ID errors
+      if (message.toLowerCase().includes("user id") || message.toLowerCase().includes("submitter")) {
+        message = `${message} (User ID: ${greenroomUserId}, Source: ${effectiveAccount.source})`;
+      }
+      
       setSubmitError(message);
       toast.error(message);
     } finally {

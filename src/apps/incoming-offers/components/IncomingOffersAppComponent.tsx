@@ -71,6 +71,7 @@ export function IncomingOffersAppComponent({
   // Approve dialog state
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [pendingApproveOfferId, setPendingApproveOfferId] = useState<string | null>(null);
+  const [approveVersion, setApproveVersion] = useState(0);
 
   const { username } = useAuth();
   const { getAccount } = useGreenroomAccountStore();
@@ -186,7 +187,7 @@ export function IncomingOffersAppComponent({
     // Merge dummy offers with pitch offers, filter out approved
     const allOffers = [...dummyOffers, ...pitchOffers];
     return allOffers.filter((o) => !approvedOfferIds.has(o.id));
-  }, [pitches, pitchDetails]);
+  }, [pitches, pitchDetails, approveVersion]);
 
   // Calculate aggregated counts: use pitch votes for pitches, localStorage votes for others
   const aggregatedCounts = useMemo(() => {
@@ -469,15 +470,16 @@ export function IncomingOffersAppComponent({
       console.error("Failed to update inbox localStorage:", error);
     }
 
-    // Trigger update events - this will cause both apps to reload
+    // Trigger update events for other apps to reload
     const activeProjectsEvent = new CustomEvent("active-projects-updated", { bubbles: true });
     const offersEvent = new CustomEvent("offers-updated", { bubbles: true });
     window.dispatchEvent(activeProjectsEvent);
     window.dispatchEvent(offersEvent);
-    console.log("Dispatched active-projects-updated and offers-updated events");
 
-    // Reload offers to ensure filtering is applied
-    loadOffers();
+    // Force offers memo to re-run so the approved card is removed immediately
+    setApproveVersion((v) => v + 1);
+
+    toast.success(`"${offer.name}" moved to Active Projects`);
 
     // Close dialog and reset state
     setIsApproveDialogOpen(false);
