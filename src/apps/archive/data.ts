@@ -1,58 +1,28 @@
-import type { ProjectPaymentStatus, LineupPaymentStatus } from "../active-projects/data";
+export type {
+  ProjectListItem,
+  ProjectDetail,
+  ProjectMember,
+  ProjectWrapup,
+} from "@/lib/api/projects";
 
-export type { ProjectPaymentStatus, LineupPaymentStatus };
+export type { Payment, PaymentStatus } from "@/lib/api/payments";
 
-export interface LineupPaymentInfo {
-  djId: string;
-  status: LineupPaymentStatus;
-  invoiceGeneratedAt?: string;
-  invoiceSentAt?: string;
-  paidAt?: string;
-}
+// Backend payment status enum, used by the Archive payments tab.
+export const PAYMENT_STATUSES = [
+  "pending",
+  "issued",
+  "paid",
+  "overdue",
+  "cancelled",
+] as const;
 
-export interface ArchivedProject {
-  // All fields from ActiveProject
-  id: string;
-  name: string;
-  description: string;
-  promoter: string;
-  venue: string;
-  date: string;
-  fee: string;
-  timings: string;
-  projectSize: "Small" | "Med" | "Large";
-  projectLead: string;
-  team: string[];
-  deadline: string;
-  googleDriveLink: string;
-  statusUpdates: Array<{
-    id: string;
-    timestamp: string;
-    text: string;
-    userId: string;
-  }>;
-  curationSuggestions: Array<{
-    id: string;
-    name: string;
-    workLink?: string;
-    votes: Record<string, boolean>;
-  }>;
-  finalLineup: string[]; // Array of DJ IDs
-  
-  // Archive-specific fields
-  archivedAt: string;
-  projectPaymentStatus: ProjectPaymentStatus;
-  lineupPayments: LineupPaymentInfo[];
-  photosAndVideos: string; // Google Drive link or notes
-  wrapUpFeedback: Array<{
-    id: string;
-    userId: string;
-    timestamp: string;
-    text: string;
-  }>;
-}
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  issued: "Issued",
+  paid: "Paid",
+  overdue: "Overdue",
+  cancelled: "Cancelled",
+};
 
-// Note: The conversion function is in active-projects/data.ts to avoid circular dependencies
-
-// Empty array - archived projects will be loaded from localStorage
-export const dummyArchivedProjects: ArchivedProject[] = [];
+// Statuses a project must have to appear in the Archive.
+export const ARCHIVED_PROJECT_STATUSES = ["completed", "cancelled"] as const;

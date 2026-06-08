@@ -8,14 +8,18 @@ import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { useAuth } from "@/hooks/useAuth";
-import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
+import { useProjectsStore } from "@/stores/useProjectsStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
-import { convertOfferToActiveProject } from "../../active-projects/data";
 import { toast } from "sonner";
+
+// Events/bookings endpoints are currently broken on the backend (500). Until
+// they are fixed, the inbox falls back to the local dummyOffers for the
+// non-pitch (event/booking) portion. Flip this flag to false and wire up
+// getBookings()/getEvents() once the backend is repaired.
+const USE_DUMMY_EVENT_OFFERS = true;
 import {
   Card,
   CardContent,
@@ -71,22 +75,25 @@ export function IncomingOffersAppComponent({
   // Approve dialog state
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [pendingApproveOfferId, setPendingApproveOfferId] = useState<string | null>(null);
-  const [approveVersion, setApproveVersion] = useState(0);
+  const [isApproving, setIsApproving] = useState(false);
+  // Dummy (event/booking) offers approved this session are hidden locally,
+  // since there is no backend record to track their state yet.
+  const [approvedDummyIds, setApprovedDummyIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
-  const { username } = useAuth();
-  const { getAccount } = useGreenroomAccountStore();
   const effectiveAccount = useEffectiveGreenroomAccount();
   const greenroomUserId = effectiveAccount.userId;
 
   const {
     pitches,
     pitchDetails,
-    isLoading: pitchesLoading,
     fetchPitches,
     refreshPitch,
     voteOnPitch,
-    addComment,
+    updatePitch,
   } = usePitchesStore();
+  const { createProject } = useProjectsStore();
 
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
@@ -130,13 +137,14 @@ export function IncomingOffersAppComponent({
           } else if (vote.vote_value === -1) {
             voteCounts.decline++;
           } else if (vote.vote_value === 0) {
+            // vote_value 0 is overloaded via a comment prefix. A bare 0 with no
+            // recognized prefix is an abstain/comment-only vote and must not be
+            // miscounted as "interested".
             const comment = vote.comment || "";
             if (comment.startsWith("[INTERESTED]")) {
               voteCounts.interested++;
             } else if (comment.startsWith("[RECOMMEND]")) {
               voteCounts.recommend++;
-            } else {
-              voteCounts.interested++;
             }
           }
         });
@@ -160,34 +168,20 @@ export function IncomingOffersAppComponent({
       };
     });
 
-    // Get active projects to filter out approved offers
-    let activeProjects: any[] = [];
-    try {
-      const activeProjectsJson = localStorage.getItem("active_projects_list");
-      if (activeProjectsJson) {
-        const parsed = JSON.parse(activeProjectsJson);
-        if (Array.isArray(parsed)) {
-          activeProjects = parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse active projects:", e);
-    }
+    // Pitch offers that have been approved (linked to a project) have left the
+    // inbox and should no longer appear here.
+    const visiblePitchOffers = pitchOffers.filter(
+      (o) => o.pitchStatus !== "approved" && o.pitchStatus !== "implemented"
+    );
 
-    const approvedOfferIds = new Set<string>();
-    activeProjects.forEach((project) => {
-      if (project.id) {
-        const match = project.id.match(/^project-(.+?)-/);
-        if (match && match[1]) {
-          approvedOfferIds.add(match[1]);
-        }
-      }
-    });
+    // Dummy event/booking offers are a local-only fallback while those backend
+    // endpoints are broken. Hide any approved this session.
+    const eventOffers = USE_DUMMY_EVENT_OFFERS
+      ? dummyOffers.filter((o) => !approvedDummyIds.has(o.id))
+      : [];
 
-    // Merge dummy offers with pitch offers, filter out approved
-    const allOffers = [...dummyOffers, ...pitchOffers];
-    return allOffers.filter((o) => !approvedOfferIds.has(o.id));
-  }, [pitches, pitchDetails, approveVersion]);
+    return [...eventOffers, ...visiblePitchOffers];
+  }, [pitches, pitchDetails, approvedDummyIds]);
 
   // Calculate aggregated counts: use pitch votes for pitches, localStorage votes for others
   const aggregatedCounts = useMemo(() => {
@@ -352,44 +346,19 @@ export function IncomingOffersAppComponent({
         toast.error(message);
       }
     } else {
-      // Legacy localStorage handling for non-pitch offers
-      try {
-        const savedOffersJson = localStorage.getItem("incoming_offers_list");
-        let savedOffers: Offer[] = [];
-        
-        if (savedOffersJson) {
-          const parsed = JSON.parse(savedOffersJson);
-          if (Array.isArray(parsed)) {
-            savedOffers = parsed;
-          }
-        }
-
-        const updatedSavedOffers = savedOffers.map((o) => {
-          if (o.id === pendingDeclineOfferId) {
-            return {
-              ...o,
-              feedback: [...(o.feedback || []), feedback],
-            };
-          }
-          return o;
-        });
-
-        localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
-
-        setUserVotes((prev) => {
-          const newVote = {
-            accept: false,
-            interested: false,
-            decline: true,
-            recommend: false,
-          };
-          const newVotes = { ...prev, [pendingDeclineOfferId]: newVote };
-          localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
-          return newVotes;
-        });
-      } catch (error) {
-        console.error("Failed to save feedback:", error);
-      }
+      // Non-pitch (dummy event) offers have no backend record yet; record the
+      // decline vote locally so the UI reflects it.
+      setUserVotes((prev) => {
+        const newVote = {
+          accept: false,
+          interested: false,
+          decline: true,
+          recommend: false,
+        };
+        const newVotes = { ...prev, [pendingDeclineOfferId]: newVote };
+        localStorage.setItem("incoming_offers_votes", JSON.stringify(newVotes));
+        return newVotes;
+      });
     }
 
     setIsFeedbackDialogOpen(false);
@@ -408,85 +377,57 @@ export function IncomingOffersAppComponent({
     setIsApproveDialogOpen(true);
   };
 
-  const handleApproveConfirm = () => {
+  const handleApproveConfirm = async () => {
     if (!pendingApproveOfferId) return;
 
-    const offer = offers.find(o => o.id === pendingApproveOfferId);
+    const offer = offers.find((o) => o.id === pendingApproveOfferId);
     if (!offer) {
       setIsApproveDialogOpen(false);
       setPendingApproveOfferId(null);
       return;
     }
 
-    // Convert offer to active project
-    const activeProject = convertOfferToActiveProject(offer);
-    console.log("Approving offer:", offer.name, "Converting to project:", activeProject.id);
-
-    // Load existing active projects
-    let activeProjects: any[] = [];
+    setIsApproving(true);
     try {
-      const activeProjectsJson = localStorage.getItem("active_projects_list");
-      if (activeProjectsJson) {
-        const parsed = JSON.parse(activeProjectsJson);
-        if (Array.isArray(parsed)) {
-          activeProjects = parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load active projects:", e);
-    }
+      // Create a backend project for the approved offer.
+      const projectId = await createProject({
+        name: offer.name,
+        description: offer.description,
+        status: "active",
+        updated_by_user_id: greenroomUserId ?? undefined,
+      });
 
-    console.log("Existing active projects count:", activeProjects.length);
-
-    // Add the new project
-    activeProjects.push(activeProject);
-    console.log("Saving active projects, new count:", activeProjects.length);
-    localStorage.setItem("active_projects_list", JSON.stringify(activeProjects));
-
-    // Verify it was saved
-    const verify = localStorage.getItem("active_projects_list");
-    if (verify) {
-      const verifyParsed = JSON.parse(verify);
-      console.log("Verified saved active projects count:", verifyParsed.length);
-    }
-
-    // Update localStorage for inbox - remove the approved offer
-    try {
-      const savedOffersJson = localStorage.getItem("incoming_offers_list");
-      let savedOffers: Offer[] = [];
-      
-      if (savedOffersJson) {
-        const parsed = JSON.parse(savedOffersJson);
-        if (Array.isArray(parsed)) {
-          savedOffers = parsed;
-        }
+      // For a pitch offer, link the pitch to the new project and approve it so
+      // it leaves the inbox (replaces the old move-to-project + localStorage).
+      if (offer.source === "pitch" && offer.pitchId) {
+        await updatePitch(offer.pitchId, {
+          project_id: projectId,
+          status: "approved",
+        });
+        await fetchPitches();
+      } else {
+        // Dummy event/booking offer: hide it locally for this session.
+        setApprovedDummyIds((prev) => {
+          const next = new Set(prev);
+          next.add(offer.id);
+          return next;
+        });
       }
 
-      // Remove the approved offer from saved offers
-      const updatedSavedOffers = savedOffers.filter(o => o.id !== pendingApproveOfferId);
-      localStorage.setItem("incoming_offers_list", JSON.stringify(updatedSavedOffers));
-      console.log("Removed offer from inbox, remaining:", updatedSavedOffers.length);
+      toast.success(`"${offer.name}" moved to Active Projects`);
     } catch (error) {
-      console.error("Failed to update inbox localStorage:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to approve offer";
+      toast.error(message);
+    } finally {
+      setIsApproving(false);
+      setIsApproveDialogOpen(false);
+      setPendingApproveOfferId(null);
     }
-
-    // Trigger update events for other apps to reload
-    const activeProjectsEvent = new CustomEvent("active-projects-updated", { bubbles: true });
-    const offersEvent = new CustomEvent("offers-updated", { bubbles: true });
-    window.dispatchEvent(activeProjectsEvent);
-    window.dispatchEvent(offersEvent);
-
-    // Force offers memo to re-run so the approved card is removed immediately
-    setApproveVersion((v) => v + 1);
-
-    toast.success(`"${offer.name}" moved to Active Projects`);
-
-    // Close dialog and reset state
-    setIsApproveDialogOpen(false);
-    setPendingApproveOfferId(null);
   };
 
   const handleApproveDialogClose = () => {
+    if (isApproving) return;
     setIsApproveDialogOpen(false);
     setPendingApproveOfferId(null);
   };
