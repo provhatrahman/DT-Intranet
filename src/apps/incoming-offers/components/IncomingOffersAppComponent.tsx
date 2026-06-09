@@ -13,6 +13,7 @@ import { usePitchesStore } from "@/stores/usePitchesStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { Offer, dummyOffers, initialVoteCounts, VoteCounts } from "../data";
+import { DevDataBanner } from "@/components/shared/DevDataBanner";
 import { toast } from "sonner";
 
 // Events/bookings endpoints are currently broken on the backend (500). Until
@@ -489,6 +490,14 @@ export function IncomingOffersAppComponent({
             isMacOSTheme ? "bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]" : "bg-background"
           )}
         >
+          <DevDataBanner
+            sources={[
+              { label: "pitches", status: "live", detail: "/api/pitches/" },
+              { label: "projects", status: "live", detail: "/api/projects/" },
+              { label: "events", status: USE_DUMMY_EVENT_OFFERS ? "broken" : "live", detail: USE_DUMMY_EVENT_OFFERS ? "500 — dummy fallback" : "/api/events/" },
+              { label: "bookings", status: USE_DUMMY_EVENT_OFFERS ? "broken" : "live", detail: USE_DUMMY_EVENT_OFFERS ? "500 — dummy fallback" : "/api/bookings/" },
+            ]}
+          />
           {/* Toolbar */}
           <div 
             className={cn(
@@ -569,6 +578,7 @@ export function IncomingOffersAppComponent({
                     counts={aggregatedCounts[offer.id]}
                     onVote={(option) => handleVote(offer.id, option)}
                     onApprove={() => handleApproveClick(offer.id)}
+                    isDevDummy={offer.source !== "pitch"}
                   />
                 );
               })}
@@ -630,18 +640,22 @@ export function IncomingOffersAppComponent({
   );
 }
 
+const IS_DEV = import.meta.env.DEV;
+
 function OfferCard({
   offer,
   votes,
   counts,
   onVote,
   onApprove,
+  isDevDummy = false,
 }: {
   offer: Offer;
   votes: UserVote;
   counts: VoteCounts;
   onVote: (option: VoteOption) => void;
   onApprove: () => void;
+  isDevDummy?: boolean;
 }) {
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOSTheme = currentTheme === "macosx";
@@ -651,7 +665,8 @@ function OfferCard({
     <Card 
       className={cn(
         "flex flex-col h-full overflow-hidden transition-all relative",
-        !isMacOSTheme && "hover:shadow-md"
+        !isMacOSTheme && "hover:shadow-md",
+        IS_DEV && isDevDummy && "ring-2 ring-amber-400/60"
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -698,6 +713,26 @@ function OfferCard({
             zIndex: 1,
           }}
         />
+      )}
+      {IS_DEV && (
+        <div
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 border-b text-[10px] font-mono relative z-10",
+            isDevDummy
+              ? "bg-amber-50 border-amber-200 text-amber-700"
+              : "bg-green-50 border-green-200 text-green-700"
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block w-1.5 h-1.5 rounded-full shrink-0",
+              isDevDummy ? "bg-amber-500" : "bg-green-500"
+            )}
+          />
+          {isDevDummy
+            ? "dummy data — events/bookings 500"
+            : "live — /api/pitches/ + /api/projects/"}
+        </div>
       )}
       <CardHeader 
         className={cn(

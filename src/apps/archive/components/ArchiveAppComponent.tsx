@@ -5,6 +5,7 @@ import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { helpItems, appMetadata } from "../index.tsx";
+import { DevDataBanner, DevDataChip } from "@/components/shared/DevDataBanner";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
@@ -147,9 +148,17 @@ export function ArchiveAppComponent({
         onNavigatePrevious={onNavigatePrevious}
         menuBar={isXpTheme ? menuBar : undefined}
       >
+        <div className="flex flex-col h-full w-full min-h-0">
+          <DevDataBanner
+            sources={[
+              { label: "projects", status: "live", detail: "/api/projects/ (client-filtered)" },
+              { label: "payments", status: "live", detail: "/api/payments/" },
+              { label: "gig scores", status: "hidden", detail: "analytics 500 — not shown" },
+            ]}
+          />
         <div
           className={cn(
-            "flex h-full w-full min-h-0",
+            "flex flex-1 w-full min-h-0",
             isMacOSTheme
               ? "p-4 pt-2 bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]"
               : "p-4 bg-background"
@@ -211,6 +220,7 @@ export function ArchiveAppComponent({
                                 {project.end_date || project.start_date || "No date"}
                               </span>
                             </div>
+                            <DevDataChip status="live" label="API" detail="/api/projects/" />
                           </div>
                         </button>
                       );
@@ -249,6 +259,7 @@ export function ArchiveAppComponent({
               )}
             </div>
           )}
+        </div>
         </div>
 
         <HelpDialog
@@ -446,9 +457,11 @@ function ProjectDetailView({
 
               {/* Final Lineup */}
               <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <h2 className="text-lg font-semibold">Final Lineup</h2>
+                  <DevDataChip status="live" label="members" detail="/api/projects/" />
+                  <DevDataChip status="hidden" label="gig score" detail="analytics 500" />
                 </div>
                 {project.members.length === 0 ? (
                   <div className="text-muted-foreground text-sm py-2">
@@ -468,6 +481,7 @@ function ProjectDetailView({
                               <div className="text-xs text-muted-foreground">
                                 {member.role_in_project}
                               </div>
+                              <DevDataChip status="live" label="artist" detail="/api/artists/" className="mt-0.5" />
                             </div>
                           </div>
                         </CardContent>
@@ -513,9 +527,10 @@ function ProjectDetailView({
         >
           <ScrollArea className="flex-1">
             <div className="space-y-4 p-4 pr-6">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold">Payments</h3>
+                <DevDataChip status="live" label="/api/payments/" />
               </div>
               {payments.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-4">
@@ -536,6 +551,7 @@ function ProjectDetailView({
                                 ? `Invoice ${payment.invoice_number}`
                                 : "No invoice number"}
                             </div>
+                            <DevDataChip status="live" label="payment" detail="/api/payments/" className="mt-0.5" />
                           </div>
                           <div className="text-sm font-semibold shrink-0">
                             {payment.currency} {payment.amount}
