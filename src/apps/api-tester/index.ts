@@ -44,8 +44,8 @@ export const ApiTesterApp: BaseApp = {
   helpItems,
   metadata: appMetadata,
   windowConstraints: {
-    defaultSize: { width: 1000, height: 700 },
-    minSize: { width: 800, height: 500 },
+    minWidth: 800,
+    minHeight: 500,
   },
 };
 

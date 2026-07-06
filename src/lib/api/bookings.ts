@@ -1,59 +1,66 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 
-// STUBBED: The /api/bookings/ service currently returns 500 (Django
-// ProgrammingError, likely an unapplied migration). These functions and types
-// are implemented against the documented contract so the Inbox/Incoming Offers
-// app can be wired up trivially once the backend is repaired, but they are NOT
-// called from the UI yet. Do not rely on these at runtime until the bookings
-// service is fixed.
+// LIVE — verified against the running backend on 2026-07-06 (BACKEND_STATE.md).
+// The bookings service is project-centric: a booking links an artist to a
+// project, and the event fields shown on a booking (event_date, city, country,
+// venue) are denormalized FROM the project. Set event data on the project.
 
 export type BookingStatus =
   | "pending"
   | "confirmed"
+  | "declined"
   | "cancelled"
+  | "completed"
   | string;
 
 export interface BookingListItem {
   booking_id: number;
   artist_id: number;
   artist_name: string;
-  event_id: number;
-  event_name: string;
+  project_id: number;
+  project_name: string;
+  event_date: string | null;
+  city: string | null;
+  country: string | null;
+  location_id: number | null;
   status: BookingStatus;
   agreed_fee: string | null;
+  notes: string | null;
 }
 
 export interface BookingDetail {
   booking_id: number;
   artist: { id: number; name: string };
-  event: { id: number; name: string; event_date: string };
+  project: {
+    id: number;
+    name: string;
+    event_date: string | null;
+    city: string | null;
+    country: string | null;
+    location_id: number | null;
+    venue_name: string | null;
+    gig_size_id: number | null;
+  };
   status: BookingStatus;
   agreed_fee: string | null;
+  notes: string | null;
 }
 
+// artist_id + project_id are the only required fields.
 export interface CreateBookingPayload {
   artist_id: number;
-  event_id: number;
+  project_id: number;
   status?: BookingStatus;
   agreed_fee?: string | number;
   notes?: string;
-  user_id?: number;
 }
 
 export interface UpdateBookingPayload {
   artist_id?: number;
-  event_id?: number;
+  project_id?: number;
   status?: BookingStatus;
   agreed_fee?: string | number;
   notes?: string;
-  user_id?: number;
-  updated_by_user_id?: number;
-}
-
-export interface GetBookingsParams {
-  artist_id?: number;
-  start_date?: string;
-  end_date?: string;
 }
 
 interface BookingsListResponse {
@@ -67,20 +74,9 @@ async function parseError(response: Response, fallback: string): Promise<string>
   return error.error || fallback;
 }
 
-export async function getBookings(
-  params?: GetBookingsParams
-): Promise<BookingListItem[]> {
-  const query = new URLSearchParams();
-  if (params?.artist_id !== undefined) {
-    query.set("artist_id", String(params.artist_id));
-  }
-  if (params?.start_date) query.set("start_date", params.start_date);
-  if (params?.end_date) query.set("end_date", params.end_date);
-  const queryString = query.toString();
-  const url = queryString
-    ? `${GREENROOM_API_BASE}/bookings/?${queryString}`
-    : `${GREENROOM_API_BASE}/bookings/`;
-  const response = await fetch(url);
+// The list endpoint takes no verified query params; filter client-side.
+export async function getBookings(): Promise<BookingListItem[]> {
+  const response = await fetch(`${GREENROOM_API_BASE}/bookings/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch bookings: ${response.statusText}`);
   }
@@ -101,7 +97,7 @@ export async function createBooking(
 ): Promise<{
   id: number;
   artist_name: string;
-  event_name: string;
+  project_name: string;
   message: string;
 }> {
   const response = await fetch(`${GREENROOM_API_BASE}/bookings/create/`, {
@@ -129,6 +125,19 @@ export async function updateBooking(
   );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to update booking"));
+  }
+  return await response.json();
+}
+
+export async function deleteBooking(
+  id: number
+): Promise<{ message: string }> {
+  const response = await fetch(
+    `${GREENROOM_API_BASE}/bookings/${id}/delete/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to delete booking"));
   }
   return await response.json();
 }

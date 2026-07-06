@@ -13,9 +13,9 @@ import {
   deletePitch as apiDeletePitch,
   voteOnPitch as apiVoteOnPitch,
   addComment as apiAddComment,
-  parsePitchDescription,
+  approvePitch as apiApprovePitch,
+  closePitch as apiClosePitch,
 } from "@/lib/api/pitches";
-import { useGreenroomAccountStore } from "./useGreenroomAccountStore";
 
 interface PitchesState {
   pitches: Pitch[];
@@ -33,6 +33,13 @@ interface PitchesState {
     payload: VotePayload
   ) => Promise<void>;
   addComment: (id: number, payload: CommentPayload) => Promise<void>;
+  // POST /pitches/{id}/approve/ — creates a project from the pitch and links
+  // it. Returns the new project id so the caller can fill in project fields.
+  approvePitch: (id: number) => Promise<number>;
+  // POST /pitches/{id}/close/ — closes without creating a project.
+  closePitch: (id: number) => Promise<void>;
+  // No dedicated endpoint; sets status "rejected" via update.
+  rejectPitch: (id: number) => Promise<void>;
   getCurrentUserPitches: (greenroomUserId: number | null) => Pitch[];
   clearError: () => void;
 }
@@ -117,7 +124,8 @@ export const usePitchesStore = create<PitchesState>((set, get) => ({
     try {
       await apiDeletePitch(id);
       set((state) => {
-        const { [id]: removed, ...pitchDetails } = state.pitchDetails;
+        const pitchDetails = { ...state.pitchDetails };
+        delete pitchDetails[id];
         return {
           pitches: state.pitches.filter((p) => p.id !== id),
           pitchDetails,
@@ -155,6 +163,40 @@ export const usePitchesStore = create<PitchesState>((set, get) => ({
       set({ error: message });
       throw error;
     }
+  },
+
+  approvePitch: async (id: number) => {
+    set({ error: null });
+    try {
+      const result = await apiApprovePitch(id);
+      await get().refreshPitch(id);
+      await get().fetchPitches();
+      return result.project_id;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to approve pitch";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  closePitch: async (id: number) => {
+    set({ error: null });
+    try {
+      await apiClosePitch(id);
+      await get().refreshPitch(id);
+      await get().fetchPitches();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to close pitch";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  rejectPitch: async (id: number) => {
+    await get().updatePitch(id, { status: "rejected" });
+    await get().fetchPitches();
   },
 
   getCurrentUserPitches: (greenroomUserId: number | null) => {

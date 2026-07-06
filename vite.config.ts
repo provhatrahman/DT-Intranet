@@ -22,6 +22,19 @@ export default defineConfig(({ mode }) => ({
     host: true, // Allow access from network devices
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     cors: { origin: ["*"] },
+    // The external Greenroom API (AWS API Gateway) sends no CORS headers, so a
+    // browser can't call it cross-origin. In dev we proxy `/greenroom-api/*`
+    // through Vite to the gateway's `/api/*` so requests are same-origin. The
+    // client base URL switches to `/greenroom-api` in dev (see
+    // src/config/greenroomApi.ts).
+    proxy: {
+      "/greenroom-api": {
+        target: "https://jzre02jvh9.execute-api.eu-west-2.amazonaws.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/greenroom-api/, "/api"),
+      },
+    },
     watch: {
       ignored: ["**/.terminals/**, dist/**, .vercel/**, src-tauri/**, api/**"],
     },

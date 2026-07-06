@@ -50,6 +50,8 @@ function statusBadgeClasses(status: string): string {
       return "bg-blue-100 text-blue-800 border-blue-200";
     case "cancelled":
       return "bg-red-100 text-red-800 border-red-200";
+    case "archived":
+      return "bg-purple-100 text-purple-800 border-purple-200";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
@@ -77,24 +79,22 @@ export function ArchiveAppComponent({
   const tabStyles = getTabStyles(currentTheme);
 
   const {
-    isLoadingAll,
+    archivedProjects,
+    isLoadingArchived,
     error,
-    fetchAllProjects,
-    getArchivedProjects,
+    fetchArchivedProjects,
     projectDetails,
     refreshProject,
     clearError,
   } = useProjectsStore();
 
-  const archivedProjects = getArchivedProjects();
-
   useEffect(() => {
     if (isWindowOpen) {
-      fetchAllProjects().catch((err) => {
+      fetchArchivedProjects().catch((err) => {
         console.error("Failed to fetch archived projects:", err);
       });
     }
-  }, [isWindowOpen, fetchAllProjects]);
+  }, [isWindowOpen, fetchArchivedProjects]);
 
   useEffect(() => {
     if (error) {
@@ -151,9 +151,9 @@ export function ArchiveAppComponent({
         <div className="flex flex-col h-full w-full min-h-0">
           <DevDataBanner
             sources={[
-              { label: "projects", status: "live", detail: "/api/projects/ (client-filtered)" },
+              { label: "projects", status: "live", detail: "?status=completed|cancelled|archived" },
               { label: "payments", status: "live", detail: "/api/payments/" },
-              { label: "gig scores", status: "hidden", detail: "analytics 500 — not shown" },
+              { label: "archive", status: "live", detail: "POST /projects/{id}/archive/" },
             ]}
           />
         <div
@@ -176,7 +176,7 @@ export function ArchiveAppComponent({
               <h2 className="text-lg font-semibold mb-3">Archived Projects</h2>
               <ScrollArea className="flex-1 min-h-0">
                 <div className="space-y-2">
-                  {isLoadingAll && archivedProjects.length === 0 ? (
+                  {isLoadingArchived && archivedProjects.length === 0 ? (
                     <div className="text-sm text-muted-foreground p-2">
                       Loading...
                     </div>
@@ -217,7 +217,8 @@ export function ArchiveAppComponent({
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3 shrink-0" />
                               <span className="truncate">
-                                {project.end_date || project.start_date || "No date"}
+                                {(project.end_date || project.start_date || "").slice(0, 10) ||
+                                  "No date"}
                               </span>
                             </div>
                             <DevDataChip status="live" label="API" detail="/api/projects/" />
@@ -290,7 +291,8 @@ function ProjectDetailView({
   isMobile: boolean;
   onBack: () => void;
 }) {
-  const { fetchWrapup, saveWrapup } = useProjectsStore();
+  const { fetchWrapup, saveWrapup, archiveProject, fetchArchivedProjects } =
+    useProjectsStore();
   const { paymentsByProject, fetchPaymentsForProject, updatePayment } =
     usePaymentsStore();
 
@@ -298,6 +300,25 @@ function ProjectDetailView({
   const [lessons, setLessons] = useState("");
   const [hasExistingWrapup, setHasExistingWrapup] = useState(false);
   const [isSavingWrapup, setIsSavingWrapup] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  // Completed and cancelled projects can be formally filed via the backend's
+  // archive endpoint, which sets status "archived" and records history.
+  const canArchive =
+    project.status === "completed" || project.status === "cancelled";
+
+  const handleArchive = async () => {
+    setIsArchiving(true);
+    try {
+      await archiveProject(project.id);
+      await fetchArchivedProjects();
+      toast.success("Project filed to archive");
+    } catch {
+      // store records error
+    } finally {
+      setIsArchiving(false);
+    }
+  };
 
   const payments = paymentsByProject[project.id] ?? [];
 
@@ -400,12 +421,24 @@ function ProjectDetailView({
                     </p>
                   )}
                 </div>
-                <Badge
-                  variant="outline"
-                  className={cn("text-sm shrink-0", statusBadgeClasses(project.status))}
-                >
-                  {formatProjectStatus(project.status)}
-                </Badge>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={cn("text-sm", statusBadgeClasses(project.status))}
+                  >
+                    {formatProjectStatus(project.status)}
+                  </Badge>
+                  {canArchive && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleArchive}
+                      disabled={isArchiving}
+                    >
+                      {isArchiving ? "Archiving..." : "File to Archive"}
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
@@ -453,7 +486,64 @@ function ProjectDetailView({
                     </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <Label className="text-xs text-muted-foreground block">
+                      Event Date
+                    </Label>
+                    <div className="text-sm font-medium">
+                      {project.event_date || "Not set"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <Label className="text-xs text-muted-foreground block">
+                      Venue / Location
+                    </Label>
+                    <div className="text-sm font-medium">
+                      {[project.venue_name, project.city, project.country]
+                        .filter(Boolean)
+                        .join(", ") || "Not set"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <Label className="text-xs text-muted-foreground block">
+                      Promoter
+                    </Label>
+                    <div className="text-sm font-medium">
+                      {project.promoter_name || "Not set"}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                  <Target className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="min-w-0">
+                    <Label className="text-xs text-muted-foreground block">
+                      Source / Gig Size
+                    </Label>
+                    <div className="text-sm font-medium">
+                      {[project.source, project.gig_size_code]
+                        .filter(Boolean)
+                        .join(" / ") || "Not set"}
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {project.feedback && (
+                <div className="space-y-2 pt-4 border-t">
+                  <h2 className="text-lg font-semibold">Feedback</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {project.feedback}
+                  </p>
+                </div>
+              )}
 
               {/* Final Lineup */}
               <div className="space-y-3 pt-4 border-t">

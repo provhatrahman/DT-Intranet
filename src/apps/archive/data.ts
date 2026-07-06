@@ -24,5 +24,11 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-// Statuses a project must have to appear in the Archive.
-export const ARCHIVED_PROJECT_STATUSES = ["completed", "cancelled"] as const;
+// Statuses a project must have to appear in the Archive. "archived" is the
+// backend's explicit filing status (POST /projects/{id}/archive/); completed
+// and cancelled are terminal working statuses that can still be filed.
+export const ARCHIVED_PROJECT_STATUSES = [
+  "completed",
+  "cancelled",
+  "archived",
+] as const;

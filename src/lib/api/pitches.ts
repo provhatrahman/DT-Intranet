@@ -1,5 +1,13 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 
+// Verified against the live backend on 2026-07-06 — see BACKEND_STATE.md.
+// The pitch table stores ONLY the fields below; budget/venue/dates sent to
+// create/update are silently dropped, so structured metadata is packed into
+// the description (serializePitchDescription / parsePitchDescription).
+//
+// Statuses observed: draft, submitted, under_review, approved, rejected,
+// implemented, closed. The API does not validate status values.
+
 export interface Pitch {
   id: number;
   title: string;
@@ -50,9 +58,12 @@ export interface UpdatePitchPayload {
   project_id?: number | null;
 }
 
+// One vote per user, upserted: voting again REPLACES the previous vote.
+// vote_value is 1 (yes), -1 (no), or 0 (abstain / clear). The backend does
+// not validate the value, so callers must stick to these three.
 export interface VotePayload {
   user_id: number;
-  vote_value: number;
+  vote_value: 1 | -1 | 0;
   comment?: string;
 }
 
@@ -179,6 +190,47 @@ export async function updatePitch(
   return await response.json();
 }
 
+// Creates a project from the pitch (name = title, description copied,
+// source = "pitch", everything else null), links pitch.project_id, sets
+// status "approved" and date_closed. Returns 201 with the new project_id.
+// All other project fields must be filled by a follow-up updateProject().
+export async function approvePitch(id: number): Promise<{
+  message: string;
+  pitch_id: number;
+  project_id: number;
+  project_name?: string;
+  project_status?: string;
+}> {
+  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/approve/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || `Failed to approve pitch: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+// Sets status "closed" and date_closed without creating a project.
+export async function closePitch(
+  id: number
+): Promise<{ message: string; pitch_id: number; status: string }> {
+  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/close/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || `Failed to close pitch: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+// Blocked (400) once the pitch has any votes or comments — the API exposes no
+// way to remove those, so deletion is only possible for untouched pitches.
 export async function deletePitch(id: number): Promise<{ message: string }> {
   const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/delete/`, {
     method: "DELETE",

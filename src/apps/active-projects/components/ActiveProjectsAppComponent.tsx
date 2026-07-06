@@ -13,8 +13,11 @@ import { useArtistsStore } from "@/stores/useArtistsStore";
 import {
   PROJECT_ROLES,
   DEFAULT_PROJECT_ROLE,
+  GIG_SIZES,
+  PROJECT_TYPES,
   formatProjectStatus,
   formatBudget,
+  toDateInputValue,
 } from "../data";
 import type { ProjectDetail, ProjectMember } from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
@@ -106,10 +109,11 @@ export function ActiveProjectsAppComponent({
     error,
     fetchActiveProjects,
     refreshProject,
+    updateProject,
     updateStatus,
     clearError,
   } = useProjectsStore();
-  const { artists, fetchArtists } = useArtistsStore();
+  const { fetchArtists } = useArtistsStore();
 
   // Fetch projects and artists when the window opens.
   useEffect(() => {
@@ -165,10 +169,14 @@ export function ActiveProjectsAppComponent({
   const handleCompleteConfirm = async () => {
     if (pendingCompleteProjectId === null) return;
     try {
-      await updateStatus(pendingCompleteProjectId, {
-        status: "completed",
-        end_date: new Date().toISOString().split("T")[0],
-      });
+      // update-status only takes the status; the end date is a normal field.
+      const project = projectDetails[pendingCompleteProjectId];
+      if (!project?.end_date) {
+        await updateProject(pendingCompleteProjectId, {
+          end_date: new Date().toISOString().split("T")[0],
+        });
+      }
+      await updateStatus(pendingCompleteProjectId, "completed");
       toast.success("Project marked as complete and moved to Archive");
       if (selectedProjectId === pendingCompleteProjectId) {
         setSelectedProjectId(null);
@@ -237,9 +245,6 @@ export function ActiveProjectsAppComponent({
                   ) : (
                     activeProjects.map((project) => {
                       const isSelected = selectedProjectId === project.id;
-                      const leadArtist = artists.find(
-                        (a) => a.id === project.lead_artist_id
-                      );
                       return (
                         <button
                           key={project.id}
@@ -278,14 +283,18 @@ export function ActiveProjectsAppComponent({
                               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <Calendar className="h-3 w-3 shrink-0" />
                                 <span className="truncate">
-                                  {project.start_date || "No date"}
+                                  {toDateInputValue(
+                                    project.event_date || project.start_date
+                                  ) || "No date"}
                                 </span>
                               </div>
-                              {leadArtist && (
+                              {(project.city || project.venue_name) && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <User className="h-3 w-3 shrink-0" />
+                                  <MapPin className="h-3 w-3 shrink-0" />
                                   <span className="truncate">
-                                    {leadArtist.artist_name}
+                                    {[project.venue_name, project.city]
+                                      .filter(Boolean)
+                                      .join(", ")}
                                   </span>
                                 </div>
                               )}
@@ -380,31 +389,31 @@ function ProjectDetailView({
   onBack: () => void;
   onMarkComplete: (projectId: number) => void;
 }) {
-  const { artists } = useArtistsStore();
-  const { updateProject, assignTeam } = useProjectsStore();
+  const { updateProject, updateStatus, assignTeam } = useProjectsStore();
 
-  const [form, setForm] = useState({
-    name: project.name,
-    description: project.description ?? "",
-    project_type: project.project_type ?? "",
-    start_date: project.start_date ?? "",
-    end_date: project.end_date ?? "",
-    budget: project.budget ?? "",
-    lead_artist_id: project.lead_artist_id,
+  const projectToForm = (p: ProjectDetail) => ({
+    name: p.name,
+    description: p.description ?? "",
+    project_type: p.project_type ?? "",
+    start_date: toDateInputValue(p.start_date),
+    end_date: toDateInputValue(p.end_date),
+    budget: p.budget ?? "",
+    event_date: toDateInputValue(p.event_date),
+    event_type: p.event_type ?? "",
+    venue_name: p.venue_name ?? "",
+    city: p.city ?? "",
+    country: p.country ?? "",
+    promoter_name: p.promoter_name ?? "",
+    gig_size_id: p.gig_size_id,
+    feedback: p.feedback ?? "",
   });
+
+  const [form, setForm] = useState(() => projectToForm(project));
   const [isSaving, setIsSaving] = useState(false);
 
   // Reset the form when switching projects.
   useEffect(() => {
-    setForm({
-      name: project.name,
-      description: project.description ?? "",
-      project_type: project.project_type ?? "",
-      start_date: project.start_date ?? "",
-      end_date: project.end_date ?? "",
-      budget: project.budget ?? "",
-      lead_artist_id: project.lead_artist_id,
-    });
+    setForm(projectToForm(project));
   }, [project]);
 
   const handleSave = async () => {
@@ -417,13 +426,34 @@ function ProjectDetailView({
         start_date: form.start_date || undefined,
         end_date: form.end_date || undefined,
         budget: form.budget || undefined,
-        lead_artist_id: form.lead_artist_id,
+        event_date: form.event_date || undefined,
+        event_type: form.event_type || undefined,
+        venue_name: form.venue_name || undefined,
+        city: form.city || undefined,
+        country: form.country || undefined,
+        promoter_name: form.promoter_name || undefined,
+        gig_size_id: form.gig_size_id ?? undefined,
+        feedback: form.feedback || undefined,
       });
       toast.success("Project saved");
     } catch {
       // error surfaced via store toast
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (status: string) => {
+    if (status === project.status) return;
+    try {
+      await updateStatus(project.id, status);
+      toast.success(
+        status === "active"
+          ? "Project set active"
+          : `Project ${formatProjectStatus(status).toLowerCase()}`
+      );
+    } catch {
+      // error surfaced via store toast
     }
   };
 
@@ -504,9 +534,22 @@ function ProjectDetailView({
                     {formatProjectStatus(project.status)}
                   </Badge>
                 </div>
-                <Button onClick={() => onMarkComplete(project.id)}>
-                  Mark Complete
-                </Button>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Button onClick={() => onMarkComplete(project.id)}>
+                    Mark Complete
+                  </Button>
+                  <Select value={project.status} onValueChange={handleStatusChange}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="on_hold">On Hold</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -531,13 +574,32 @@ function ProjectDetailView({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Project Type</Label>
-                  <Input
-                    value={form.project_type}
-                    onChange={(e) =>
-                      setForm({ ...form, project_type: e.target.value })
+                  <Select
+                    value={form.project_type || "unset"}
+                    onValueChange={(v) =>
+                      setForm({ ...form, project_type: v === "unset" ? "" : v })
                     }
-                    placeholder="e.g., Concert, Album"
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      {PROJECT_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                      {form.project_type &&
+                        !(PROJECT_TYPES as readonly string[]).includes(
+                          form.project_type
+                        ) && (
+                          <SelectItem value={form.project_type}>
+                            {form.project_type}
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium flex items-center gap-1.5">
@@ -578,40 +640,121 @@ function ProjectDetailView({
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Event Date
+                  </Label>
+                  <Input
+                    type="date"
+                    value={form.event_date}
+                    onChange={(e) =>
+                      setForm({ ...form, event_date: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Event Type</Label>
+                  <Input
+                    value={form.event_type}
+                    onChange={(e) =>
+                      setForm({ ...form, event_type: e.target.value })
+                    }
+                    placeholder="e.g., Concert"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Venue
+                  </Label>
+                  <Input
+                    value={form.venue_name}
+                    onChange={(e) =>
+                      setForm({ ...form, venue_name: e.target.value })
+                    }
+                    placeholder="e.g., Electric Brixton"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Gig Size</Label>
+                  <Select
+                    value={
+                      form.gig_size_id !== null
+                        ? String(form.gig_size_id)
+                        : "unset"
+                    }
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        gig_size_id: v === "unset" ? null : Number(v),
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      {GIG_SIZES.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)}>
+                          {g.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    City
+                  </Label>
+                  <Input
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Country</Label>
+                  <Input
+                    value={form.country}
+                    onChange={(e) =>
+                      setForm({ ...form, country: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5" />
+                    Promoter
+                  </Label>
+                  <Input
+                    value={form.promoter_name}
+                    onChange={(e) =>
+                      setForm({ ...form, promoter_name: e.target.value })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5" />
-                  Lead Artist
-                </Label>
-                <Select
-                  value={
-                    form.lead_artist_id ? String(form.lead_artist_id) : "none"
+                <Label className="text-sm font-medium">Feedback</Label>
+                <Textarea
+                  value={form.feedback}
+                  onChange={(e) =>
+                    setForm({ ...form, feedback: e.target.value })
                   }
-                  onValueChange={(value) =>
-                    setForm({
-                      ...form,
-                      lead_artist_id: value === "none" ? null : Number(value),
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select lead artist" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No lead artist</SelectItem>
-                    {artists.map((artist) => (
-                      <SelectItem key={artist.id} value={String(artist.id)}>
-                        {artist.artist_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Feedback collected on this project..."
+                  className="min-h-[60px]"
+                />
               </div>
 
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                 <span>Budget: {formatBudget(project.budget)}</span>
+                {project.source && <span>Source: {project.source}</span>}
+                {project.gig_size_code && (
+                  <span>Gig size: {project.gig_size_code}</span>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">

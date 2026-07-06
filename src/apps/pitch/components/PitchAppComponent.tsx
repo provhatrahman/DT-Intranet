@@ -62,8 +62,8 @@ export function PitchAppComponent({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { username } = useAuth();
-  const { getAccount, setAccount } = useGreenroomAccountStore();
-  const { getUseDevGreenroomAccount, setUseDevGreenroomAccount } = useDevOverridesStore();
+  const { setAccount } = useGreenroomAccountStore();
+  const { setUseDevGreenroomAccount } = useDevOverridesStore();
   const effectiveAccount = useEffectiveGreenroomAccount();
   const greenroomUserId = effectiveAccount.userId;
   const isUsingDevAccount = effectiveAccount.source === "dev";
@@ -73,13 +73,13 @@ export function PitchAppComponent({
   const shouldShowDevToggle = isDevMode && devUserIdEnv && String(devUserIdEnv).trim() !== "";
 
   const {
-    pitches,
     pitchDetails,
     isLoading,
     error,
     fetchPitches,
     createPitch,
     deletePitch,
+    closePitch,
     getCurrentUserPitches,
     clearError,
   } = usePitchesStore();
@@ -131,15 +131,32 @@ export function PitchAppComponent({
 
   const handleDeleteConfirm = async () => {
     if (!pitchToDelete) return;
-    
+
     try {
       await deletePitch(pitchToDelete);
       toast.success("Pitch deleted successfully");
     } catch (error) {
+      // The backend blocks deletion once a pitch has votes or comments (and
+      // exposes no way to remove them), so fall back to withdrawing it.
       const message = error instanceof Error ? error.message : "Failed to delete pitch";
-      toast.error(message);
+      if (message.toLowerCase().includes("votes or comments")) {
+        try {
+          await closePitch(pitchToDelete);
+          toast.info(
+            "This pitch already has votes or comments so it can't be deleted — it was withdrawn (closed) instead."
+          );
+        } catch (closeError) {
+          const closeMessage =
+            closeError instanceof Error
+              ? closeError.message
+              : "Failed to withdraw pitch";
+          toast.error(closeMessage);
+        }
+      } else {
+        toast.error(message);
+      }
     }
-    
+
     setDeleteConfirmOpen(false);
     setPitchToDelete(null);
   };
@@ -610,10 +627,12 @@ export function PitchAppComponent({
                         const detail = pitchDetails[pitch.id];
                         const { description: pitchDescription, metadata } = parsePitchDescription(pitch.description);
                         const status = pitch.status;
-                        const statusDisplay = status === "approved" ? "Approved" : 
+                        const statusDisplay = status === "approved" ? "Approved" :
                                             status === "rejected" ? "Rejected" :
                                             status === "implemented" ? "Implemented" :
-                                            status === "closed" ? "Closed" : "Pending";
+                                            status === "closed" ? "Closed" :
+                                            status === "under_review" ? "Under Review" :
+                                            status === "draft" ? "Draft" : "Submitted";
                         const statusColor = status === "approved" || status === "implemented"
                           ? (isMacOSTheme ? "bg-green-100 text-green-800 border-green-300" : "bg-green-50 text-green-900")
                           : status === "rejected" || status === "closed"
@@ -827,7 +846,7 @@ export function PitchAppComponent({
           onOpenChange={setDeleteConfirmOpen}
           onConfirm={handleDeleteConfirm}
           title="Delete Pitch"
-          description="Are you sure you want to delete this pitch? This action cannot be undone and it will be removed from the Inbox."
+          description="Are you sure you want to delete this pitch? It will be removed from the Inbox. If it already has votes or comments the backend cannot delete it, so it will be withdrawn (closed) instead."
         />
         <Dialog open={accountSetupOpen} onOpenChange={setAccountSetupOpen}>
           <DialogContent>

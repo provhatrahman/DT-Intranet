@@ -13,11 +13,6 @@ interface GreenroomAccountState {
   clearAccount: (username: string) => void;
 }
 
-const DEFAULT_ACCOUNT: GreenroomAccount = {
-  greenroomUserId: null,
-  displayName: undefined,
-};
-
 export const useGreenroomAccountStore = create<GreenroomAccountState>()(
   persist(
     (set, get) => ({

@@ -12,12 +12,14 @@ interface IncomingOffersMenuBarProps {
   onClose: () => void;
   onShowHelp: () => void;
   onShowAbout: () => void;
+  onLogOffer?: () => void;
 }
 
 export function IncomingOffersMenuBar({
   onClose,
   onShowHelp,
   onShowAbout,
+  onLogOffer,
 }: IncomingOffersMenuBarProps) {
   const appName = "Inbox";
   const currentTheme = useThemeStore((state) => state.current);
@@ -30,6 +32,14 @@ export function IncomingOffersMenuBar({
           File
         </MenubarTrigger>
         <MenubarContent align="start" sideOffset={1} className="px-0">
+          {onLogOffer && (
+            <>
+              <MenubarItem onClick={onLogOffer} className="text-md h-6 px-3">
+                Log Incoming Offer...
+              </MenubarItem>
+              <MenubarSeparator className="h-[2px] bg-black my-1" />
+            </>
+          )}
           <MenubarItem onClick={onClose} className="text-md h-6 px-3">
             Close
           </MenubarItem>

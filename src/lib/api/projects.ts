@@ -1,10 +1,15 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 
+// Types verified against the live backend on 2026-07-06 — see BACKEND_STATE.md.
+// Notable: `lead_artist_id` no longer exists; event fields (event_date, venue,
+// city/country, promoter, gig size) are merged onto the project itself.
+
 export type ProjectStatus =
   | "active"
   | "completed"
   | "on_hold"
   | "cancelled"
+  | "archived"
   | string;
 
 export interface ProjectListItem {
@@ -15,8 +20,19 @@ export interface ProjectListItem {
   project_type: string | null;
   start_date: string | null;
   end_date: string | null;
-  lead_artist_id: number | null;
+  feedback: string | null;
   budget: string | null;
+  drive_parent_folder_id: string | null;
+  event_date: string | null;
+  event_type: string | null;
+  venue_name: string | null;
+  location_id: number | null;
+  city: string | null;
+  country: string | null;
+  promoter_name: string | null;
+  source: string | null;
+  gig_size_id: number | null;
+  gig_size_code: string | null;
 }
 
 export interface ProjectMember {
@@ -41,47 +57,57 @@ export interface ProjectWrapup {
   summary: string | null;
   lessons_learned: string | null;
   submitted_by?: string | null;
+  submitted_by_user_id?: number | null;
   date_created?: string | null;
 }
 
+export interface ProjectStatusHistoryEntry {
+  id: number;
+  old_status: string | null;
+  new_status: string;
+  changed_by_user_id: number | null;
+  changed_by_username: string | null;
+  notes: string | null;
+  changed_at: string;
+}
+
 export interface ProjectDetail extends ProjectListItem {
+  // `lineup` exists on detail responses but is empty on every project in the
+  // live DB, so its item shape is unverified. Members is the populated list.
+  lineup: ProjectMember[];
   members: ProjectMember[];
   tasks: ProjectTask[];
   wrapup: ProjectWrapup | null;
 }
 
-export interface CreateProjectPayload {
-  name: string;
-  status: ProjectStatus;
-  description?: string;
-  project_type?: string;
-  start_date?: string;
-  end_date?: string;
-  lead_artist_id?: number | null;
-  budget?: string | number;
-  drive_parent_folder_id?: string;
-  updated_by_user_id?: number;
-}
-
-export interface UpdateProjectPayload {
+// Only `name` and `status` are required by the backend. `city`/`country` are
+// accepted on create/update and auto-resolve `location_id` server-side.
+export interface ProjectFieldsPayload {
   name?: string;
   description?: string;
   status?: ProjectStatus;
   project_type?: string;
   start_date?: string;
   end_date?: string;
-  lead_artist_id?: number | null;
+  feedback?: string;
   budget?: string | number;
   drive_parent_folder_id?: string;
-  updated_by_user_id?: number;
+  event_date?: string;
+  event_type?: string;
+  venue_name?: string;
+  city?: string;
+  country?: string;
+  promoter_name?: string;
+  source?: string;
+  gig_size_id?: number;
 }
 
-export interface UpdateProjectStatusPayload {
-  status?: ProjectStatus;
-  description?: string;
-  end_date?: string;
-  updated_by_user_id?: number;
+export interface CreateProjectPayload extends ProjectFieldsPayload {
+  name: string;
+  status: ProjectStatus;
 }
+
+export type UpdateProjectPayload = ProjectFieldsPayload;
 
 export interface TeamMemberPayload {
   artist_id: number;
@@ -91,8 +117,7 @@ export interface TeamMemberPayload {
 export interface WrapupPayload {
   summary?: string;
   lessons_learned?: string;
-  wrapup_by_user_id?: number;
-  updated_by_user_id?: number;
+  submitted_by_user_id?: number;
 }
 
 interface ProjectsListResponse {
@@ -101,6 +126,7 @@ interface ProjectsListResponse {
 
 interface ProjectDetailResponse {
   project: ProjectListItem;
+  lineup?: ProjectMember[];
   members?: ProjectMember[];
   tasks?: ProjectTask[];
   wrapup?: ProjectWrapup | null;
@@ -120,10 +146,9 @@ async function parseError(response: Response, fallback: string): Promise<string>
   return error.error || fallback;
 }
 
-// NOTE: The backend `?status=` filter is unreliable. The default and
-// `?status=active` return only active projects, but any other value returns
-// ALL projects regardless of status. Callers that need completed/cancelled
-// projects should fetch with a non-active status and filter client-side.
+// IMPORTANT (verified live): the unfiltered list returns ONLY active projects.
+// Non-active projects (completed/cancelled/on_hold/archived) are only reachable
+// via an explicit `?status=` — there is no way to fetch all statuses at once.
 export async function getProjects(
   status?: string
 ): Promise<ProjectListItem[]> {
@@ -146,6 +171,7 @@ export async function getProjectById(id: number): Promise<ProjectDetail> {
   const data: ProjectDetailResponse = await response.json();
   return {
     ...data.project,
+    lineup: data.lineup ?? [],
     members: data.members ?? [],
     tasks: data.tasks ?? [],
     wrapup: data.wrapup ?? null,
@@ -184,16 +210,18 @@ export async function updateProject(
   return await response.json();
 }
 
+// PATCH (POST returns 405). The backend does NOT validate the status value and
+// records a status-history row, so callers must only pass known statuses.
 export async function updateProjectStatus(
   id: number,
-  payload: UpdateProjectStatusPayload
+  status: ProjectStatus
 ): Promise<{ message: string; project_id: number; status: ProjectStatus }> {
   const response = await fetch(
     `${GREENROOM_API_BASE}/projects/${id}/update-status/`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ status }),
     }
   );
   if (!response.ok) {
@@ -222,6 +250,8 @@ export async function assignTeam(
   return await response.json();
 }
 
+// Sets status to "archived" (a real status, distinct from completed/cancelled)
+// and writes a status-history row.
 export async function archiveProject(
   id: number
 ): Promise<{ message: string; project_id: number }> {
@@ -230,10 +260,41 @@ export async function archiveProject(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     }
   );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to archive project"));
+  }
+  return await response.json();
+}
+
+export async function getProjectStatusHistory(
+  id: number
+): Promise<ProjectStatusHistoryEntry[]> {
+  const response = await fetch(
+    `${GREENROOM_API_BASE}/projects/${id}/status-history/`
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch status history: ${response.statusText}`
+    );
+  }
+  const data = await response.json();
+  return data.status_history ?? [];
+}
+
+// Blocked (400) while the project has any members, tasks, wrapups, files,
+// bookings, payments, linked pitches, lineup, or suggestions.
+export async function deleteProject(
+  id: number
+): Promise<{ message: string }> {
+  const response = await fetch(
+    `${GREENROOM_API_BASE}/projects/${id}/delete/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to delete project"));
   }
   return await response.json();
 }

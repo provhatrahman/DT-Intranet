@@ -2,10 +2,10 @@ import { create } from "zustand";
 import {
   ProjectListItem,
   ProjectDetail,
+  ProjectStatus,
   ProjectWrapup,
   CreateProjectPayload,
   UpdateProjectPayload,
-  UpdateProjectStatusPayload,
   TeamMemberPayload,
   WrapupPayload,
   getProjects as apiGetProjects,
@@ -20,30 +20,33 @@ import {
   updateWrapup as apiUpdateWrapup,
 } from "@/lib/api/projects";
 
-// Statuses that the Archive app treats as "done". The backend has no
-// dedicated "archived" status and its ?status= filter is unreliable, so we
-// fetch all projects and filter client-side.
-const ARCHIVED_STATUSES = ["completed", "cancelled"];
+// Statuses shown in the Archive app. "archived" is the explicit filing status
+// set by POST /projects/{id}/archive/; completed and cancelled are terminal
+// working statuses that can still be filed to the archive.
+export const ARCHIVE_VIEW_STATUSES: ProjectStatus[] = [
+  "completed",
+  "cancelled",
+  "archived",
+];
 
 interface ProjectsState {
   activeProjects: ProjectListItem[];
-  allProjects: ProjectListItem[];
+  // Projects with a status in ARCHIVE_VIEW_STATUSES. The backend list endpoint
+  // returns only active projects unless a ?status= filter is given, so these
+  // are fetched with one request per status and merged.
+  archivedProjects: ProjectListItem[];
   projectDetails: Record<number, ProjectDetail>;
   isLoading: boolean;
-  isLoadingAll: boolean;
+  isLoadingArchived: boolean;
   error: string | null;
   lastFetch: number | null;
 
   fetchActiveProjects: () => Promise<void>;
-  fetchAllProjects: () => Promise<void>;
-  getArchivedProjects: () => ProjectListItem[];
+  fetchArchivedProjects: () => Promise<void>;
   refreshProject: (id: number) => Promise<ProjectDetail>;
   createProject: (payload: CreateProjectPayload) => Promise<number>;
   updateProject: (id: number, payload: UpdateProjectPayload) => Promise<void>;
-  updateStatus: (
-    id: number,
-    payload: UpdateProjectStatusPayload
-  ) => Promise<void>;
+  updateStatus: (id: number, status: ProjectStatus) => Promise<void>;
   assignTeam: (id: number, members: TeamMemberPayload[]) => Promise<void>;
   archiveProject: (id: number) => Promise<void>;
   fetchWrapup: (id: number) => Promise<ProjectWrapup | null>;
@@ -57,10 +60,10 @@ interface ProjectsState {
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
   activeProjects: [],
-  allProjects: [],
+  archivedProjects: [],
   projectDetails: {},
   isLoading: false,
-  isLoadingAll: false,
+  isLoadingArchived: false,
   error: null,
   lastFetch: null,
 
@@ -81,25 +84,26 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  fetchAllProjects: async () => {
-    set({ isLoadingAll: true, error: null });
+  fetchArchivedProjects: async () => {
+    set({ isLoadingArchived: true, error: null });
     try {
-      // The ?status= filter only narrows for "active"; passing a non-active
-      // value returns all projects, which is what we want for the archive.
-      const allProjects = await apiGetProjects("completed");
-      set({ allProjects, isLoadingAll: false });
+      const lists = await Promise.all(
+        ARCHIVE_VIEW_STATUSES.map((status) => apiGetProjects(status))
+      );
+      const archivedProjects = lists
+        .flat()
+        .sort((a, b) =>
+          (b.end_date ?? b.start_date ?? "").localeCompare(
+            a.end_date ?? a.start_date ?? ""
+          )
+        );
+      set({ archivedProjects, isLoadingArchived: false });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to fetch projects";
-      set({ error: message, isLoadingAll: false });
+      set({ error: message, isLoadingArchived: false });
       throw error;
     }
-  },
-
-  getArchivedProjects: () => {
-    return get().allProjects.filter((p) =>
-      ARCHIVED_STATUSES.includes(p.status)
-    );
   },
 
   refreshProject: async (id: number) => {
@@ -121,7 +125,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     set({ error: null });
     try {
       const result = await apiCreateProject(payload);
-      await get().fetchActiveProjects();
+      if (payload.status === "active") {
+        await get().fetchActiveProjects();
+      }
       return result.id;
     } catch (error) {
       const message =
@@ -143,15 +149,14 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  updateStatus: async (id: number, payload: UpdateProjectStatusPayload) => {
+  updateStatus: async (id: number, status: ProjectStatus) => {
     try {
-      await apiUpdateProjectStatus(id, payload);
+      await apiUpdateProjectStatus(id, status);
       await get().refreshProject(id);
-      // Keep the active list in sync; a project leaving "active" should drop
-      // out of the Active Projects view.
+      // A project leaving "active" drops out of the Active Projects view.
       set((state) => ({
         activeProjects:
-          payload.status && payload.status !== "active"
+          status !== "active"
             ? state.activeProjects.filter((p) => p.id !== id)
             : state.activeProjects,
       }));
@@ -183,6 +188,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       await get().refreshProject(id);
       set((state) => ({
         activeProjects: state.activeProjects.filter((p) => p.id !== id),
+        archivedProjects: state.archivedProjects.map((p) =>
+          p.id === id ? { ...p, status: "archived" } : p
+        ),
       }));
     } catch (error) {
       const message =

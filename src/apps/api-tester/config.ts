@@ -86,61 +86,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     category: "Artists",
     requiresId: true,
   },
-  // Events
-  {
-    id: "events-list",
-    name: "List All Events",
-    method: "GET",
-    path: "/events/",
-    category: "Events",
-    queryParams: [
-      { name: "start_date", required: false },
-      { name: "end_date", required: false },
-    ],
-  },
-  {
-    id: "events-get",
-    name: "Get Event by ID",
-    method: "GET",
-    path: "/events/{id}/",
-    category: "Events",
-    requiresId: true,
-  },
-  {
-    id: "events-create",
-    name: "Create Event",
-    method: "POST",
-    path: "/events/create/",
-    category: "Events",
-    bodyFields: [
-      { name: "name", required: true, type: "string" },
-      { name: "event_date", required: true, type: "string" },
-      { name: "gig_size_id", required: true, type: "number" },
-      { name: "city", required: false, type: "string" },
-      { name: "country", required: false, type: "string" },
-    ],
-  },
-  {
-    id: "events-update",
-    name: "Update Event",
-    method: "PATCH",
-    path: "/events/{id}/update/",
-    category: "Events",
-    requiresId: true,
-    bodyFields: [
-      { name: "name", required: false, type: "string" },
-      { name: "event_date", required: false, type: "string" },
-      { name: "city", required: false, type: "string" },
-    ],
-  },
-  {
-    id: "events-delete",
-    name: "Delete Event",
-    method: "DELETE",
-    path: "/events/{id}/delete/",
-    category: "Events",
-    requiresId: true,
-  },
+  // Events: intentionally absent — the events service was consolidated into
+  // projects (event_date, venue_name, city/country, gig_size_* live on the
+  // project). The /events/ routes still exist server-side but 500 on reads.
   // Bookings
   {
     id: "bookings-list",
@@ -222,7 +170,10 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       { name: "name", required: true, type: "string" },
       { name: "status", required: true, type: "string" },
       { name: "description", required: false, type: "string" },
-      { name: "lead_artist_id", required: false, type: "number" },
+      { name: "budget", required: false, type: "string" },
+      { name: "event_date", required: false, type: "string" },
+      { name: "city", required: false, type: "string" },
+      { name: "country", required: false, type: "string" },
     ],
   },
   {

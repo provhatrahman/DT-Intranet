@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_ENDPOINTS, BASE_URL } from "../config";
 import { ApiEndpoint, ApiResponse } from "../types";
 import { toast } from "sonner";
