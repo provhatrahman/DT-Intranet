@@ -6,7 +6,6 @@ import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { helpItems, appMetadata } from "../index.tsx";
 import { DevDataBanner, DevDataChip } from "@/components/shared/DevDataBanner";
-import { useThemeStore } from "@/stores/useThemeStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
 import {
@@ -16,10 +15,17 @@ import {
 import { formatProjectStatus, formatBudget } from "../../active-projects/data";
 import type { ProjectDetail, ProjectListItem } from "@/lib/api/projects";
 import type { Payment, PaymentStatus } from "@/lib/api/payments";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import {
+  AquaCard,
+  EmptyState,
+  InfoTile,
+  SidebarRow,
+  StatusBadge,
+  useOsTheme,
+} from "@/components/greenroom";
 import {
   Select,
   SelectContent,
@@ -44,19 +50,6 @@ import {
   User,
 } from "lucide-react";
 
-function statusBadgeClasses(status: string): string {
-  switch (status) {
-    case "completed":
-      return "bg-blue-100 text-blue-800 border-blue-200";
-    case "cancelled":
-      return "bg-red-100 text-red-800 border-red-200";
-    case "archived":
-      return "bg-purple-100 text-purple-800 border-purple-200";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
-  }
-}
-
 export function ArchiveAppComponent({
   isWindowOpen,
   onClose,
@@ -73,10 +66,8 @@ export function ArchiveAppComponent({
     null
   );
 
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
-  const tabStyles = getTabStyles(currentTheme);
+  const { themeId, isMacTheme, isXpTheme } = useOsTheme();
+  const tabStyles = getTabStyles(themeId);
 
   const {
     archivedProjects,
@@ -158,10 +149,8 @@ export function ArchiveAppComponent({
           />
         <div
           className={cn(
-            "flex flex-1 w-full min-h-0",
-            isMacOSTheme
-              ? "p-4 pt-2 bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]"
-              : "p-4 bg-background"
+            "flex flex-1 w-full min-h-0 p-4",
+            isMacTheme ? "pt-2" : "bg-background"
           )}
         >
           {/* Project List Sidebar */}
@@ -170,49 +159,42 @@ export function ArchiveAppComponent({
               className={cn(
                 "flex flex-col min-h-0",
                 isMobile ? "w-full" : "w-64 pr-4 mr-4",
-                isMacOSTheme && !isMobile && "border-r border-r-black/10"
+                isMacTheme && !isMobile && "border-r border-r-black/10"
               )}
             >
               <h2 className="text-lg font-semibold mb-3">Archived Projects</h2>
-              <ScrollArea className="flex-1 min-h-0">
+              {/* Radix wraps content in a display:table div that grows to the
+                  content's intrinsic width; force block so rows can't exceed
+                  the fixed sidebar width. */}
+              <ScrollArea className="flex-1 min-h-0 [&_[data-radix-scroll-area-viewport]>div]:block!">
                 <div className="space-y-2">
                   {isLoadingArchived && archivedProjects.length === 0 ? (
-                    <div className="text-sm text-muted-foreground p-2">
-                      Loading...
-                    </div>
+                    <EmptyState title="Loading..." className="py-6" />
                   ) : archivedProjects.length === 0 ? (
-                    <div className="text-sm text-muted-foreground p-2">
-                      No archived projects yet. Complete projects from Active
-                      Projects to archive them.
-                    </div>
+                    <EmptyState
+                      title="No archived projects yet"
+                      hint="Complete projects from Active Projects to archive them."
+                      className="py-6"
+                    />
                   ) : (
                     archivedProjects.map((project: ProjectListItem) => {
                       const isSelected = selectedProjectId === project.id;
                       return (
-                        <button
+                        <SidebarRow
                           key={project.id}
+                          selected={isSelected}
                           onClick={() => setSelectedProjectId(project.id)}
-                          className={cn(
-                            "w-full text-left p-3 rounded-md transition-all border",
-                            isSelected
-                              ? "bg-muted border-primary/40"
-                              : "hover:bg-muted/50 border-transparent"
-                          )}
                         >
                           <div className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="font-medium text-sm flex-1">
+                              <div className="font-medium text-sm flex-1 min-w-0 break-words">
                                 {project.name}
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-xs shrink-0",
-                                  statusBadgeClasses(project.status)
-                                )}
-                              >
-                                {formatProjectStatus(project.status)}
-                              </Badge>
+                              <StatusBadge
+                                status={project.status}
+                                label={formatProjectStatus(project.status)}
+                                className="shrink-0"
+                              />
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3 shrink-0" />
@@ -223,7 +205,7 @@ export function ArchiveAppComponent({
                             </div>
                             <DevDataChip status="live" label="API" detail="/api/projects/" />
                           </div>
-                        </button>
+                        </SidebarRow>
                       );
                     })
                   )}
@@ -237,13 +219,11 @@ export function ArchiveAppComponent({
             <div
               className={cn(
                 "flex-1 flex flex-col min-w-0 min-h-0",
-                isMacOSTheme ? "bg-transparent" : "bg-background"
+                isMacTheme ? "bg-transparent" : "bg-background"
               )}
             >
               {archivedProjects.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  No archived projects yet.
-                </div>
+                <EmptyState title="No archived projects yet" className="flex-1" />
               ) : selectedProject ? (
                 <ProjectDetailView
                   project={selectedProject}
@@ -295,6 +275,7 @@ function ProjectDetailView({
     useProjectsStore();
   const { paymentsByProject, fetchPaymentsForProject, updatePayment } =
     usePaymentsStore();
+  const { isMacTheme } = useOsTheme();
 
   const [summary, setSummary] = useState("");
   const [lessons, setLessons] = useState("");
@@ -409,9 +390,11 @@ function ProjectDetailView({
           )}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-4 pr-6 max-w-3xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0 space-y-1">
+            <div className="space-y-6 p-4 pr-6 @container">
+              {/* Actions sit beside the title on wide windows and wrap below
+                  it on narrow ones/phones */}
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="flex-1 min-w-[14rem] space-y-1">
                   <h1 className="text-2xl font-semibold break-words">
                     {project.name}
                   </h1>
@@ -421,119 +404,56 @@ function ProjectDetailView({
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={cn("text-sm", statusBadgeClasses(project.status))}
-                  >
-                    {formatProjectStatus(project.status)}
-                  </Badge>
+                <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
+                  <StatusBadge
+                    status={project.status}
+                    label={formatProjectStatus(project.status)}
+                  />
                   {canArchive && (
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant={isMacTheme ? "secondary" : "outline"}
                       onClick={handleArchive}
                       disabled={isArchiving}
+                      className="min-h-[32px] touch-manipulation"
                     >
-                      {isArchiving ? "Archiving..." : "File to Archive"}
+                      <span>{isArchiving ? "Archiving..." : "File to Archive"}</span>
                     </Button>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Start Date
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {project.start_date || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      End Date
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {project.end_date || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Budget
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {formatBudget(project.budget)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Project Type
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {project.project_type || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Event Date
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {project.event_date || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Venue / Location
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {[project.venue_name, project.city, project.country]
-                        .filter(Boolean)
-                        .join(", ") || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Promoter
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {project.promoter_name || "Not set"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Target className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <Label className="text-xs text-muted-foreground block">
-                      Source / Gig Size
-                    </Label>
-                    <div className="text-sm font-medium">
-                      {[project.source, project.gig_size_code]
-                        .filter(Boolean)
-                        .join(" / ") || "Not set"}
-                    </div>
-                  </div>
-                </div>
+              {/* Two columns when the window is wide enough, one when narrow
+                  (container query = window width, not viewport) */}
+              <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-4 pt-4 border-t">
+                <InfoTile icon={Calendar} label="Start Date">
+                  {project.start_date || "Not set"}
+                </InfoTile>
+                <InfoTile icon={Calendar} label="End Date">
+                  {project.end_date || "Not set"}
+                </InfoTile>
+                <InfoTile icon={DollarSign} label="Budget">
+                  {formatBudget(project.budget)}
+                </InfoTile>
+                <InfoTile icon={Building2} label="Project Type">
+                  {project.project_type || "Not set"}
+                </InfoTile>
+                <InfoTile icon={Calendar} label="Event Date">
+                  {project.event_date || "Not set"}
+                </InfoTile>
+                <InfoTile icon={Building2} label="Venue / Location">
+                  {[project.venue_name, project.city, project.country]
+                    .filter(Boolean)
+                    .join(", ") || "Not set"}
+                </InfoTile>
+                <InfoTile icon={User} label="Promoter">
+                  {project.promoter_name || "Not set"}
+                </InfoTile>
+                <InfoTile icon={Target} label="Source / Gig Size">
+                  {[project.source, project.gig_size_code]
+                    .filter(Boolean)
+                    .join(" / ") || "Not set"}
+                </InfoTile>
               </div>
 
               {project.feedback && (
@@ -558,9 +478,9 @@ function ProjectDetailView({
                     No artists assigned to this project.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3">
                     {project.members.map((member) => (
-                      <Card key={member.artist_id}>
+                      <AquaCard key={member.artist_id}>
                         <CardContent className="p-3">
                           <div className="flex items-start gap-2">
                             <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
@@ -575,7 +495,7 @@ function ProjectDetailView({
                             </div>
                           </div>
                         </CardContent>
-                      </Card>
+                      </AquaCard>
                     ))}
                   </div>
                 )}
@@ -592,12 +512,13 @@ function ProjectDetailView({
                     {project.tasks.map((task) => (
                       <div
                         key={task.id}
-                        className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30"
+                        className={cn(
+                          "flex items-center justify-between gap-2 p-2 rounded-md",
+                          isMacTheme ? "aqua-well" : "bg-muted/30"
+                        )}
                       >
                         <span className="text-sm truncate">{task.title}</span>
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          {task.status}
-                        </Badge>
+                        <StatusBadge status={task.status} className="shrink-0" />
                       </div>
                     ))}
                   </div>
@@ -623,13 +544,15 @@ function ProjectDetailView({
                 <DevDataChip status="live" label="/api/payments/" />
               </div>
               {payments.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4">
-                  No payments recorded for this project.
-                </div>
+                <EmptyState
+                  icon={DollarSign}
+                  title="No payments recorded for this project"
+                  className="py-8"
+                />
               ) : (
                 <div className="space-y-3">
                   {payments.map((payment) => (
-                    <Card key={payment.id}>
+                    <AquaCard key={payment.id}>
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -672,7 +595,7 @@ function ProjectDetailView({
                           )}
                         </div>
                       </CardContent>
-                    </Card>
+                    </AquaCard>
                   ))}
                 </div>
               )}
@@ -689,35 +612,43 @@ function ProjectDetailView({
           )}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-4 p-4 pr-6 max-w-3xl">
+            <div className="space-y-4 p-4 pr-6 @container">
               <h2 className="text-lg font-semibold">Wrap-up</h2>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Summary</Label>
-                <Textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  placeholder="Overall summary of how the project went..."
-                  className="min-h-[100px]"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Lessons Learned</Label>
-                <Textarea
-                  value={lessons}
-                  onChange={(e) => setLessons(e.target.value)}
-                  placeholder="What did we learn? What would we do differently?"
-                  className="min-h-[100px]"
-                />
+              {/* Side-by-side on wide panes so both areas fill the width while
+                  each stays a readable line length; stacked when narrow. */}
+              <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Summary</Label>
+                  <Textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    placeholder="Overall summary of how the project went..."
+                    className="min-h-[140px]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Lessons Learned</Label>
+                  <Textarea
+                    value={lessons}
+                    onChange={(e) => setLessons(e.target.value)}
+                    placeholder="What did we learn? What would we do differently?"
+                    className="min-h-[140px]"
+                  />
+                </div>
               </div>
               <Button
+                variant="default"
                 onClick={handleSaveWrapup}
                 disabled={isSavingWrapup || (!summary.trim() && !lessons.trim())}
+                className="min-h-[36px] touch-manipulation"
               >
-                {isSavingWrapup
-                  ? "Saving..."
-                  : hasExistingWrapup
-                  ? "Update Wrap-up"
-                  : "Save Wrap-up"}
+                <span>
+                  {isSavingWrapup
+                    ? "Saving..."
+                    : hasExistingWrapup
+                    ? "Update Wrap-up"
+                    : "Save Wrap-up"}
+                </span>
               </Button>
             </div>
           </ScrollArea>

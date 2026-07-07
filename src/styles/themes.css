@@ -1743,3 +1743,249 @@
   filter: blur(1px);
   pointer-events: none;
 }
+
+/* ==========================================================================
+   Greenroom Aqua surfaces
+   Shared visual language for the Greenroom domain apps (Pitch, Inbox,
+   Active Projects, Archive), applied by src/components/greenroom/* when the
+   macosx theme is active. Recipes follow the aqua-button / aqua-tab
+   treatments above (gel gradients, top shine, layered inset strokes).
+   ========================================================================== */
+
+/* Red (destructive) gel variant, matching the orange/emerald recipes */
+.aqua-button.red {
+  background: linear-gradient(
+    rgba(185, 28, 28, 0.85),
+    rgba(220, 38, 38, 0.85),
+    rgba(248, 113, 113, 0.85)
+  );
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(185, 28, 28, 0.5),
+    inset 0 1px 3px rgba(80, 7, 7, 0.8),
+    inset 0 2px 3px 1px rgba(185, 28, 28, 0.75);
+}
+.aqua-button.red:focus,
+.aqua-button.red:active {
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(185, 28, 28, 0.5),
+    inset 0 1px 3px rgba(80, 7, 7, 0.8),
+    inset 0 2px 3px 1px rgba(185, 28, 28, 0.75), 0 0 3px rgba(220, 38, 38, 0.5);
+}
+.aqua-button.red,
+.aqua-button.red span {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Glossy raised card (project/offer/pitch cards) */
+.aqua-card {
+  position: relative;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95),
+    rgba(245, 245, 245, 0.95)
+  );
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14), 0 1px 1px rgba(0, 0, 0, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.05),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.48), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Top shine */
+.aqua-card::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 2px;
+  height: 20px;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.25)
+  );
+  border-radius: 8px 8px 4px 4px;
+  filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Keep card content above the shine */
+.aqua-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hover lift for clickable/actionable cards; hover-capable pointers only so
+   touch devices don't get sticky hover states */
+.aqua-card-interactive {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+@media (hover: hover) {
+  .aqua-card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.18), 0 2px 2px rgba(0, 0, 0, 0.3),
+      inset 0 1px 2px rgba(255, 255, 255, 0.7),
+      inset 0 0 4px rgba(0, 0, 0, 0.05),
+      inset 0 0 0 0.5px rgba(0, 0, 0, 0.48), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Gel status pill (candy-colored badge with shine) */
+.aqua-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 1px 10px;
+  border-radius: 9px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35);
+  -webkit-font-smoothing: antialiased;
+}
+.aqua-pill::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 1px;
+  height: 45%;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.25)
+  );
+  border-radius: 7px 7px 2px 2px;
+  filter: blur(0.5px);
+  pointer-events: none;
+}
+.aqua-pill > * {
+  position: relative;
+  z-index: 1;
+}
+.aqua-pill.green {
+  background: linear-gradient(
+    to bottom,
+    rgba(187, 239, 190, 0.95),
+    rgba(122, 201, 133, 0.95)
+  );
+  color: #14532d;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.blue {
+  background: linear-gradient(
+    to bottom,
+    rgba(191, 213, 255, 0.95),
+    rgba(133, 172, 240, 0.95)
+  );
+  color: #1e3a8a;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.red {
+  background: linear-gradient(
+    to bottom,
+    rgba(252, 197, 197, 0.95),
+    rgba(238, 130, 130, 0.95)
+  );
+  color: #7f1d1d;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.yellow {
+  background: linear-gradient(
+    to bottom,
+    rgba(253, 235, 176, 0.95),
+    rgba(245, 199, 92, 0.95)
+  );
+  color: #713f12;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.purple {
+  background: linear-gradient(
+    to bottom,
+    rgba(224, 204, 255, 0.95),
+    rgba(185, 150, 240, 0.95)
+  );
+  color: #4c1d95;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.gray {
+  background: linear-gradient(
+    to bottom,
+    rgba(233, 233, 233, 0.95),
+    rgba(198, 198, 198, 0.95)
+  );
+  color: #374151;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Pinstripe toolbar strip below the title bar */
+.aqua-toolbar {
+  background-image: var(--os-pinstripe-window);
+  border-bottom: var(--os-metrics-titlebar-border-width, 1px) solid
+    var(--os-color-titlebar-border-inactive, rgba(0, 0, 0, 0.2));
+}
+
+/* Inset content well (info tiles, comments, notice panels) */
+.aqua-well {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+.aqua-well.blue {
+  background: linear-gradient(
+    to bottom,
+    rgba(219, 234, 254, 0.85),
+    rgba(191, 219, 254, 0.85)
+  );
+}
+.aqua-well.yellow {
+  background: linear-gradient(
+    to bottom,
+    rgba(254, 249, 195, 0.9),
+    rgba(254, 240, 138, 0.9)
+  );
+}
+.aqua-well.red {
+  background: linear-gradient(
+    to bottom,
+    rgba(254, 226, 226, 0.9),
+    rgba(254, 202, 202, 0.9)
+  );
+}
+
+/* Sidebar / list row with the Aqua selection gradient */
+.aqua-row {
+  border-radius: 8px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) {
+  .aqua-row:hover:not(.aqua-row-selected) {
+    background-color: rgba(255, 255, 255, 0.65);
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+  }
+}
+.aqua-row:active:not(.aqua-row-selected) {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+.aqua-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--os-color-selection-glow, rgba(48, 103, 218, 0.5));
+}
+.aqua-row-selected {
+  background: linear-gradient(to bottom, #5c94e5 0%, #3067da 100%);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.aqua-row-selected .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.85);
+}

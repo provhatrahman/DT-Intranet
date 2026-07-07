@@ -14,7 +14,6 @@ import {
 } from "./ProjectDetailsFormDialog";
 import { LogOfferDialog, LogOfferFormValues } from "./LogOfferDialog";
 import { helpItems, appMetadata } from "..";
-import { useThemeStore } from "@/stores/useThemeStore";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
@@ -26,7 +25,6 @@ import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
 import { DevDataBanner } from "@/components/shared/DevDataBanner";
 import { toast } from "sonner";
 import {
-  Card,
   CardContent,
   CardDescription,
   CardFooter,
@@ -34,7 +32,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -43,6 +40,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import {
+  AquaCard,
+  AppToolbar,
+  EmptyState,
+  StatusBadge,
+  useOsTheme,
+} from "@/components/greenroom";
+import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -138,9 +143,7 @@ export function IncomingOffersAppComponent({
   } = useBookingsStore();
   const { artists, fetchArtists } = useArtistsStore();
 
-  const currentTheme = useThemeStore((state) => state.current);
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
-  const isMacOSTheme = currentTheme === "macosx";
+  const { isMacTheme, isXpTheme } = useOsTheme();
 
   useEffect(() => {
     if (isWindowOpen) {
@@ -522,10 +525,8 @@ export function IncomingOffersAppComponent({
       >
         <div
           className={cn(
-            "flex flex-col h-full text-foreground",
-            isMacOSTheme
-              ? "bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]"
-              : "bg-background"
+            "flex flex-col h-full w-full text-foreground",
+            !isMacTheme && "bg-background"
           )}
         >
           <DevDataBanner
@@ -535,31 +536,13 @@ export function IncomingOffersAppComponent({
               { label: "projects", status: "live", detail: "/api/projects/ (events merged in)" },
             ]}
           />
-          {/* Toolbar */}
-          <div
-            className={cn(
-              "flex items-center gap-4 p-4 border-b",
-              isMacOSTheme ? "" : "bg-muted/30"
-            )}
-            style={
-              isMacOSTheme
-                ? {
-                    backgroundImage: "var(--os-pinstripe-window)",
-                    borderBottom:
-                      "var(--os-metrics-titlebar-border-width, 1px) solid var(--os-color-titlebar-border-inactive, rgba(0, 0, 0, 0.2))",
-                    opacity: 0.95,
-                  }
-                : undefined
-            }
-          >
-            <div className="relative flex-1 max-w-sm">
-              <Input
-                placeholder="Search offers..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full"
-              />
-            </div>
+          <AppToolbar>
+            <Input
+              placeholder="Search offers..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="flex-1 min-w-[160px] max-w-sm"
+            />
             <Select
               value={sortBy}
               onValueChange={(v) => setSortBy(v as typeof sortBy)}
@@ -579,48 +562,48 @@ export function IncomingOffersAppComponent({
                 <SelectItem value="fee">Sort by Fee</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={() => setIsLogOfferOpen(true)}>Log Offer</Button>
-          </div>
+            <Button variant="default" onClick={() => setIsLogOfferOpen(true)}>
+              <span>Log Offer</span>
+            </Button>
+          </AppToolbar>
 
-          {/* Grid */}
+          {/* Card grid; container queries make columns track the window
+              width rather than the viewport, so a narrow desktop window
+              collapses the same way a phone does. (Padding lives on an inner
+              wrapper — container queries measure the content box.) */}
           <div
             className={cn(
-              "flex-1 overflow-auto p-4",
-              isMacOSTheme ? "" : "bg-muted/10"
+              "flex-1 overflow-auto @container",
+              !isMacTheme && "bg-muted/10"
             )}
-            style={isMacOSTheme ? { background: "transparent" } : undefined}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredOffers.map((offer) => (
-                <OfferCard
-                  key={offer.id}
-                  offer={offer}
-                  userVote={
-                    offer.pitchId ? getUserVote(offer.pitchId) : null
-                  }
-                  counts={voteCounts[offer.id]}
-                  onVote={(choice) => handleVote(offer, choice)}
-                  onApprove={() => handleApproveClick(offer.id)}
-                  onReject={() =>
-                    offer.source === "pitch"
-                      ? handleRejectClick(offer)
-                      : setPendingDeclineBookingId(offer.bookingId ?? null)
-                  }
-                />
-              ))}
-              {filteredOffers.length === 0 && (
-                <div
-                  className="col-span-full text-center py-10 text-muted-foreground"
-                  style={
-                    isMacOSTheme
-                      ? { textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)" }
-                      : {}
-                  }
-                >
-                  No offers found.
-                </div>
-              )}
-            </div>
+            {filteredOffers.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="No offers found"
+                hint="Incoming pitches and logged offers awaiting a decision show up here."
+              />
+            ) : (
+              <div className="grid grid-cols-1 @2xl:grid-cols-2 @5xl:grid-cols-3 gap-4 p-4">
+                {filteredOffers.map((offer) => (
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    userVote={
+                      offer.pitchId ? getUserVote(offer.pitchId) : null
+                    }
+                    counts={voteCounts[offer.id]}
+                    onVote={(choice) => handleVote(offer, choice)}
+                    onApprove={() => handleApproveClick(offer.id)}
+                    onReject={() =>
+                      offer.source === "pitch"
+                        ? handleRejectClick(offer)
+                        : setPendingDeclineBookingId(offer.bookingId ?? null)
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -725,107 +708,30 @@ function OfferCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-  const [isHovered, setIsHovered] = React.useState(false);
+  const { isMacTheme } = useOsTheme();
   const isPitch = offer.source === "pitch";
 
   return (
-    <Card
-      className={cn(
-        "flex flex-col h-full overflow-hidden transition-all relative",
-        !isMacOSTheme && "hover:shadow-md"
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        ...(isMacOSTheme && {
-          borderRadius: "8px",
-          background:
-            "linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(245, 245, 245, 0.95))",
-          border: "none",
-          boxShadow: isHovered
-            ? `
-              0 4px 8px rgba(0, 0, 0, 0.18),
-              0 2px 2px rgba(0, 0, 0, 0.3),
-              inset 0 1px 2px rgba(255, 255, 255, 0.7),
-              inset 0 0 4px rgba(0, 0, 0, 0.05),
-              inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-              inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-            `
-            : `
-              0 2px 4px rgba(0, 0, 0, 0.14),
-              0 1px 1px rgba(0, 0, 0, 0.25),
-              inset 0 1px 2px rgba(255, 255, 255, 0.6),
-              inset 0 0 4px rgba(0, 0, 0, 0.05),
-              inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-              inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-            `,
-          WebkitFontSmoothing: "antialiased",
-          transform: isHovered ? "translateY(-1px)" : "translateY(0)",
-        }),
-      }}
-    >
-      {/* Top shine effect for macOS */}
-      {isMacOSTheme && (
-        <div
-          style={{
-            position: "absolute",
-            left: "6px",
-            right: "6px",
-            top: "2px",
-            height: "20px",
-            background:
-              "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
-            borderRadius: "8px 8px 4px 4px",
-            filter: "blur(0.5px)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-      )}
-      <CardHeader
-        className={cn("pb-3 relative z-10", !isMacOSTheme && "bg-muted/5")}
-        style={{
-          ...(isMacOSTheme && {
-            background: "transparent",
-            textShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
-          }),
-        }}
-      >
+    <AquaCard interactive className="flex flex-col h-full overflow-hidden">
+      <CardHeader className={cn("pb-3", !isMacTheme && "bg-muted/5")}>
         <div className="flex justify-between items-start gap-2">
-          <div className="space-y-1">
-            <CardTitle
-              className="text-lg leading-tight"
-              style={{
-                ...(isMacOSTheme && {
-                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
-                }),
-              }}
-            >
+          <div className="space-y-1 min-w-0">
+            <CardTitle className="text-lg leading-tight">
               {offer.name}
             </CardTitle>
-            <CardDescription
-              style={{
-                ...(isMacOSTheme && {
-                  textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-                }),
-              }}
-            >
+            <CardDescription>
               {isPitch ? offer.promoter : offer.artistName ?? offer.promoter}
             </CardDescription>
           </div>
-          <SourceBadge source={offer.source} />
+          <StatusBadge
+            status={offer.source}
+            label={isPitch ? "Pitch" : "Offer"}
+            tone={isPitch ? "purple" : "blue"}
+            className="shrink-0 uppercase tracking-wide"
+          />
         </div>
       </CardHeader>
-      <CardContent
-        className="flex-1 py-4 space-y-4 text-sm relative z-10"
-        style={{
-          ...(isMacOSTheme && {
-            textShadow: "0 1px 1px rgba(0, 0, 0, 0.05)",
-          }),
-        }}
-      >
+      <CardContent className="flex-1 py-4 space-y-4 text-sm">
         <p className="text-muted-foreground line-clamp-3 min-h-[3rem]">
           {offer.description}
         </p>
@@ -874,69 +780,19 @@ function OfferCard({
       </CardContent>
       <CardFooter
         className={cn(
-          "pt-2 border-t relative z-10 flex flex-col gap-2",
-          !isMacOSTheme && "bg-muted/5"
+          "pt-3 border-t flex flex-col gap-2",
+          isMacTheme ? "border-black/10" : "bg-muted/5"
         )}
-        style={{
-          ...(isMacOSTheme && {
-            background: "transparent",
-            borderTop: "1px solid rgba(0, 0, 0, 0.1)",
-          }),
-        }}
       >
         <Button
+          variant="default"
           onClick={onApprove}
-          className={cn(
-            "w-full relative",
-            isMacOSTheme ? "aqua-button secondary" : ""
-          )}
-          style={
-            isMacOSTheme
-              ? {
-                  borderRadius: "6px",
-                  background:
-                    "linear-gradient(to bottom, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))",
-                  border: "none",
-                  boxShadow: `
-                    0 2px 4px rgba(0, 0, 0, 0.18),
-                    0 1px 1px rgba(0, 0, 0, 0.3),
-                    inset 0 1px 2px rgba(255, 255, 255, 0.5),
-                    inset 0 0 4px rgba(0, 0, 0, 0.1),
-                    inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
-                    inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-                  `,
-                  WebkitFontSmoothing: "antialiased",
-                  color: "white",
-                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-                  position: "relative",
-                }
-              : {}
-          }
+          className="w-full min-h-[36px] touch-manipulation"
+          title="Approve and move to Active Projects"
         >
-          {isMacOSTheme ? (
-            <>
-              <div
-                style={{
-                  position: "absolute",
-                  left: "3px",
-                  right: "3px",
-                  top: "2px",
-                  height: "12px",
-                  background:
-                    "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
-                  borderRadius: "4px 4px 2px 2px",
-                  filter: "blur(0.5px)",
-                  pointerEvents: "none",
-                  zIndex: 1,
-                }}
-              />
-              <span className="relative z-10 font-semibold">
-                Approve &amp; Move to Active Projects
-              </span>
-            </>
-          ) : (
-            "Approve & Move to Active Projects"
-          )}
+          <span className="font-semibold">
+            Approve &amp; Move to Active Projects
+          </span>
         </Button>
         {isPitch ? (
           <div className="w-full grid grid-cols-3 gap-2">
@@ -957,80 +813,26 @@ function OfferCard({
               No
             </VoteButton>
             <Button
-              variant="outline"
+              variant={isMacTheme ? "secondary" : "outline"}
               onClick={onReject}
-              className="h-auto min-h-[60px] py-2 px-2 text-[10px] font-semibold leading-tight"
+              className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
             >
-              Reject Pitch
+              <span className="text-[10px] font-semibold leading-tight">
+                Reject Pitch
+              </span>
             </Button>
           </div>
         ) : (
-          <Button variant="outline" onClick={onReject} className="w-full">
-            Decline Offer
+          <Button
+            variant={isMacTheme ? "secondary" : "outline"}
+            onClick={onReject}
+            className="w-full min-h-[36px] touch-manipulation"
+          >
+            <span>Decline Offer</span>
           </Button>
         )}
       </CardFooter>
-    </Card>
-  );
-}
-
-function SourceBadge({ source }: { source: "pitch" | "booking" }) {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-
-  const isPitch = source === "pitch";
-
-  if (!isMacOSTheme) {
-    return (
-      <Badge variant={isPitch ? "secondary" : "outline"}>{source}</Badge>
-    );
-  }
-
-  // macOS Aqua styling
-  const gradient = isPitch
-    ? "linear-gradient(to bottom, rgba(220, 200, 255, 0.9), rgba(200, 180, 240, 0.9))"
-    : "linear-gradient(to bottom, rgba(200, 220, 255, 0.9), rgba(180, 200, 240, 0.9))";
-
-  return (
-    <span
-      className="relative inline-flex items-center justify-center px-2.5 py-0.5 text-[10px] font-medium rounded-md overflow-hidden"
-      style={{
-        background: gradient,
-        boxShadow: `
-            0 2px 4px rgba(0, 0, 0, 0.14),
-            0 1px 1px rgba(0, 0, 0, 0.25),
-            inset 0 1px 2px rgba(255, 255, 255, 0.6),
-            inset 0 0 4px rgba(0, 0, 0, 0.05),
-            inset 0 0 0 0.5px rgba(0, 0, 0, 0.48),
-            inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-        `,
-        color: "black",
-        textShadow: "0 1px 2px rgba(0, 0, 0, 0.15)",
-        WebkitFontSmoothing: "antialiased",
-        border: "none",
-        cursor: "default",
-        minHeight: "18px",
-        lineHeight: 1.2,
-      }}
-    >
-      {/* Top shine effect */}
-      <div
-        style={{
-          position: "absolute",
-          left: "3px",
-          right: "3px",
-          top: "1px",
-          height: "8px",
-          background:
-            "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.25))",
-          borderRadius: "6px 6px 2px 2px",
-          filter: "blur(0.5px)",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      />
-      <span className="relative z-10 uppercase tracking-wide">{source}</span>
-    </span>
+    </AquaCard>
   );
 }
 
@@ -1047,96 +849,49 @@ function VoteButton({
   children: React.ReactNode;
   color: "green" | "red";
 }) {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
+  const { isMacTheme } = useOsTheme();
 
-  const getColorGradient = () => {
-    if (color === "green") {
-      return active
-        ? "linear-gradient(to bottom, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))"
-        : "linear-gradient(to bottom, rgba(34, 197, 94, 0.3), rgba(22, 163, 74, 0.3))";
-    }
-    return active
-      ? "linear-gradient(to bottom, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))"
-      : "linear-gradient(to bottom, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.3))";
-  };
-
-  const getColorOverlay = () => {
-    if (color === "green") {
-      return active ? "rgba(34, 197, 94, 0.95)" : "rgba(34, 197, 94, 0.25)";
-    }
-    return active ? "rgba(239, 68, 68, 0.95)" : "rgba(239, 68, 68, 0.25)";
-  };
-
-  if (isMacOSTheme) {
+  if (isMacTheme) {
+    // Inactive votes read as neutral gel buttons; the user's active vote gets
+    // the colored gel treatment (emerald yes / red no) from themes.css.
     return (
       <Button
+        variant="secondary"
         onClick={onClick}
+        aria-pressed={active}
         className={cn(
-          "w-full relative h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center",
-          "aqua-button secondary"
+          "w-full h-auto min-h-[60px] py-2 px-2 flex flex-col gap-0.5 items-center justify-center touch-manipulation",
+          active && (color === "green" ? "emerald" : "red")
         )}
-        style={{
-          borderRadius: "6px",
-          background: getColorGradient(),
-          border: "none",
-          boxShadow: active
-            ? `
-                0 2px 4px rgba(0, 0, 0, 0.18),
-                0 1px 1px rgba(0, 0, 0, 0.3),
-                inset 0 1px 2px rgba(255, 255, 255, 0.5),
-                inset 0 0 4px rgba(0, 0, 0, 0.1),
-                inset 0 0 0 0.5px rgba(0, 0, 0, 0.4),
-                inset 0 0 0 1px rgba(0, 0, 0, 0.08)
-              `
-            : `
-                0 1px 2px rgba(0, 0, 0, 0.12),
-                inset 0 1px 1px rgba(255, 255, 255, 0.3),
-                inset 0 0 2px rgba(0, 0, 0, 0.05)
-              `,
-          WebkitFontSmoothing: "antialiased",
-          color: active ? "white" : "black",
-          textShadow: active
-            ? "0 1px 2px rgba(0, 0, 0, 0.3)"
-            : "0 1px 1px rgba(0, 0, 0, 0.2)",
-          position: "relative",
-        }}
       >
-        {active && (
-          <div
-            style={{
-              position: "absolute",
-              left: "3px",
-              right: "3px",
-              top: "2px",
-              height: "12px",
-              background:
-                "linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.15))",
-              borderRadius: "4px 4px 2px 2px",
-              filter: "blur(0.5px)",
-              pointerEvents: "none",
-              zIndex: 1,
-            }}
-          />
-        )}
-        <span className="relative z-10 font-semibold text-[10px] leading-tight text-center">
+        <span className="font-semibold text-[10px] leading-tight text-center">
           {children}
         </span>
-        <span className="relative z-10 text-[9px] opacity-90">({count})</span>
+        <span className="text-[9px] opacity-90">({count})</span>
       </Button>
     );
   }
+
+  const overlay =
+    color === "green"
+      ? active
+        ? "rgba(34, 197, 94, 0.95)"
+        : "rgba(34, 197, 94, 0.25)"
+      : active
+      ? "rgba(239, 68, 68, 0.95)"
+      : "rgba(239, 68, 68, 0.25)";
 
   return (
     <Button
       variant="retro"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none focus:ring-0 relative overflow-hidden",
+        "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none focus:ring-0 relative overflow-hidden touch-manipulation",
         active && "[border-image:url('/assets/button-default.svg')_60_stretch]"
       )}
       style={{
-        backgroundColor: getColorOverlay(),
+        backgroundColor: overlay,
       }}
     >
       <span className="font-semibold text-[10px] leading-tight text-center relative z-10">

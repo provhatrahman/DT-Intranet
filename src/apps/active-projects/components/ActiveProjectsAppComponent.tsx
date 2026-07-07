@@ -7,7 +7,6 @@ import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { DevDataBanner, DevDataChip } from "@/components/shared/DevDataBanner";
-import { useThemeStore } from "@/stores/useThemeStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import {
@@ -21,13 +20,15 @@ import {
 } from "../data";
 import type { ProjectDetail, ProjectMember } from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AquaCard,
+  EmptyState,
+  FormDialog,
+  SidebarRow,
+  StatusBadge,
+  useOsTheme,
+} from "@/components/greenroom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -62,21 +63,6 @@ import {
   X,
 } from "lucide-react";
 
-function statusBadgeClasses(status: string): string {
-  switch (status) {
-    case "active":
-      return "bg-green-100 text-green-800 border-green-200";
-    case "completed":
-      return "bg-blue-100 text-blue-800 border-blue-200";
-    case "on_hold":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    case "cancelled":
-      return "bg-red-100 text-red-800 border-red-200";
-    default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
-  }
-}
-
 export function ActiveProjectsAppComponent({
   isWindowOpen,
   onClose,
@@ -97,10 +83,8 @@ export function ActiveProjectsAppComponent({
     null
   );
 
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
-  const tabStyles = getTabStyles(currentTheme);
+  const { themeId, isMacTheme, isXpTheme } = useOsTheme();
+  const tabStyles = getTabStyles(themeId);
 
   const {
     activeProjects,
@@ -215,10 +199,8 @@ export function ActiveProjectsAppComponent({
           />
         <div
           className={cn(
-            "flex flex-1 w-full min-h-0",
-            isMacOSTheme
-              ? "p-4 pt-2 bg-gradient-to-b from-[#ECECEC] to-[#E5E5E5]"
-              : "p-4 bg-background"
+            "flex flex-1 w-full min-h-0 p-4",
+            isMacTheme ? "pt-2" : "bg-background"
           )}
         >
           {/* Project List Sidebar */}
@@ -227,49 +209,42 @@ export function ActiveProjectsAppComponent({
               className={cn(
                 "flex flex-col min-h-0",
                 isMobile ? "w-full" : "w-64 pr-4 mr-4",
-                isMacOSTheme && !isMobile && "border-r border-r-black/10"
+                isMacTheme && !isMobile && "border-r border-r-black/10"
               )}
             >
               <h2 className="text-lg font-semibold mb-3">Projects</h2>
-              <ScrollArea className="flex-1 min-h-0">
+              {/* Radix wraps content in a display:table div that grows to the
+                  content's intrinsic width; force block so rows can't exceed
+                  the fixed sidebar width. */}
+              <ScrollArea className="flex-1 min-h-0 [&_[data-radix-scroll-area-viewport]>div]:block!">
                 <div className="space-y-2">
                   {isLoading && activeProjects.length === 0 ? (
-                    <div className="text-sm text-muted-foreground p-2">
-                      Loading projects...
-                    </div>
+                    <EmptyState title="Loading projects..." className="py-6" />
                   ) : activeProjects.length === 0 ? (
-                    <div className="text-sm text-muted-foreground p-2">
-                      No active projects. Approve offers from the Inbox to
-                      create projects.
-                    </div>
+                    <EmptyState
+                      title="No active projects"
+                      hint="Approve offers from the Inbox to create projects."
+                      className="py-6"
+                    />
                   ) : (
                     activeProjects.map((project) => {
                       const isSelected = selectedProjectId === project.id;
                       return (
-                        <button
+                        <SidebarRow
                           key={project.id}
+                          selected={isSelected}
                           onClick={() => setSelectedProjectId(project.id)}
-                          className={cn(
-                            "w-full text-left p-3 rounded-md transition-all border",
-                            isSelected
-                              ? "bg-muted border-primary/40"
-                              : "hover:bg-muted/50 border-transparent"
-                          )}
                         >
                           <div className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="font-medium text-sm flex-1">
+                              <div className="font-medium text-sm flex-1 min-w-0 break-words">
                                 {project.name}
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-xs shrink-0",
-                                  statusBadgeClasses(project.status)
-                                )}
-                              >
-                                {formatProjectStatus(project.status)}
-                              </Badge>
+                              <StatusBadge
+                                status={project.status}
+                                label={formatProjectStatus(project.status)}
+                                className="shrink-0"
+                              />
                             </div>
                             <div className="space-y-1">
                               {project.project_type && (
@@ -301,7 +276,7 @@ export function ActiveProjectsAppComponent({
                               <DevDataChip status="live" label="API" detail="/api/projects/" />
                             </div>
                           </div>
-                        </button>
+                        </SidebarRow>
                       );
                     })
                   )}
@@ -315,13 +290,11 @@ export function ActiveProjectsAppComponent({
             <div
               className={cn(
                 "flex-1 flex flex-col min-w-0 min-h-0",
-                isMacOSTheme ? "bg-transparent" : "bg-background"
+                isMacTheme ? "bg-transparent" : "bg-background"
               )}
             >
               {activeProjects.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  No active projects.
-                </div>
+                <EmptyState title="No active projects" className="flex-1" />
               ) : selectedProject ? (
                 <ProjectDetailView
                   project={selectedProject}
@@ -521,22 +494,26 @@ function ProjectDetailView({
           )}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-4 pr-6 max-w-3xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0 space-y-1">
+            <div className="space-y-6 p-4 pr-6 @container">
+              {/* Actions sit beside the title on wide windows and wrap below
+                  it on narrow ones/phones */}
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <div className="flex-1 min-w-[14rem] space-y-1">
                   <h1 className="text-2xl font-semibold break-words">
                     {project.name}
                   </h1>
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs", statusBadgeClasses(project.status))}
-                  >
-                    {formatProjectStatus(project.status)}
-                  </Badge>
+                  <StatusBadge
+                    status={project.status}
+                    label={formatProjectStatus(project.status)}
+                  />
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <Button onClick={() => onMarkComplete(project.id)}>
-                    Mark Complete
+                <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
+                  <Button
+                    variant="default"
+                    onClick={() => onMarkComplete(project.id)}
+                    className="min-h-[32px] touch-manipulation"
+                  >
+                    <span>Mark Complete</span>
                   </Button>
                   <Select value={project.status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="w-[140px]">
@@ -571,7 +548,10 @@ function ProjectDetailView({
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Fields flow into more columns as the detail pane widens
+                  (container query = pane width, not viewport) so a wide
+                  window fills instead of leaving a right-side gutter. */}
+              <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Project Type</Label>
                   <Select
@@ -758,8 +738,13 @@ function ProjectDetailView({
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
+                <Button
+                  variant="default"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="min-h-[36px] touch-manipulation"
+                >
+                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
                 </Button>
               </div>
             </div>
@@ -796,12 +781,10 @@ function ProjectDetailView({
                 <h3 className="text-sm font-semibold">Tasks</h3>
               </div>
               {project.tasks.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-4">
-                  No tasks for this project.
-                </div>
+                <EmptyState title="No tasks for this project" className="py-6" />
               ) : (
                 project.tasks.map((task) => (
-                  <Card key={task.id}>
+                  <AquaCard key={task.id}>
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -820,16 +803,12 @@ function ProjectDetailView({
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
-                          <Badge variant="secondary" className="text-xs">
-                            {task.status}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {task.priority}
-                          </Badge>
+                          <StatusBadge status={task.status} />
+                          <StatusBadge status={task.priority} tone="gray" />
                         </div>
                       </div>
                     </CardContent>
-                  </Card>
+                  </AquaCard>
                 ))
               )}
             </div>
@@ -850,6 +829,7 @@ function LineupTab({
   isMobile: boolean;
 }) {
   const { artists, getArtistDetail } = useArtistsStore();
+  const { isMacTheme } = useOsTheme();
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<string>(DEFAULT_PROJECT_ROLE);
   const [detailArtist, setDetailArtist] = useState<ArtistDetail | null>(null);
@@ -884,7 +864,7 @@ function LineupTab({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <div className="p-4 space-y-4 flex-1 min-h-0 flex flex-col">
+      <div className="p-4 space-y-4 flex-1 min-h-0 flex flex-col @container">
         {/* Current lineup */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -898,11 +878,14 @@ function LineupTab({
               No artists assigned yet.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-2">
               {project.members.map((member: ProjectMember) => (
                 <div
                   key={member.artist_id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md border"
+                  className={cn(
+                    "flex items-center justify-between gap-2 p-2 rounded-md",
+                    isMacTheme ? "aqua-well" : "border"
+                  )}
                 >
                   <button
                     className="flex-1 min-w-0 text-left"
@@ -967,7 +950,10 @@ function LineupTab({
                 return (
                   <div
                     key={artist.id}
-                    className="flex items-center justify-between gap-2 p-2 rounded-md border"
+                    className={cn(
+                      "flex items-center justify-between gap-2 p-2 rounded-md",
+                      isMacTheme ? "aqua-well" : "border"
+                    )}
                   >
                     <button
                       className="flex-1 min-w-0 text-left"
@@ -986,16 +972,16 @@ function LineupTab({
                     <Button
                       variant={assigned ? "secondary" : "default"}
                       size="sm"
-                      className="shrink-0"
+                      className="shrink-0 min-h-[32px] touch-manipulation"
                       onClick={() => onToggleMember(artist.id, role)}
                     >
                       {assigned ? (
-                        "Assigned"
+                        <span>Assigned</span>
                       ) : (
-                        <>
+                        <span className="inline-flex items-center">
                           <Plus className="h-4 w-4 mr-1" />
                           Add
-                        </>
+                        </span>
                       )}
                     </Button>
                   </div>
@@ -1011,20 +997,15 @@ function LineupTab({
         </div>
       </div>
 
-      <Dialog
-        open={detailArtist !== null}
+      <FormDialog
+        isOpen={detailArtist !== null}
         onOpenChange={(open) => {
           if (!open) setDetailArtist(null);
         }}
+        title={detailArtist?.artist_name || "Artist"}
+        contentClassName={cn(!isMobile && "max-w-md")}
       >
-        <DialogContent
-          className={cn(isMobile ? "max-w-[calc(100vw-2rem)]" : "max-w-md")}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {detailArtist?.artist_name || "Artist"}
-            </DialogTitle>
-          </DialogHeader>
+        <div className="py-1">
           {loadingDetail ? (
             <div className="py-4 text-sm text-muted-foreground">Loading...</div>
           ) : detailArtist ? (
@@ -1075,8 +1056,8 @@ function LineupTab({
               )}
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </FormDialog>
     </div>
   );
 }

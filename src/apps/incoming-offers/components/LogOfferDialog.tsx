@@ -1,15 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -18,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Field, FormDialog, useOsTheme } from "@/components/greenroom";
 import type { ArtistListItem } from "@/lib/api/artists";
 
 export interface LogOfferFormValues {
@@ -66,6 +57,7 @@ export function LogOfferDialog({
   onSubmit: (values: LogOfferFormValues) => void;
 }) {
   const [values, setValues] = useState<LogOfferFormValues>(EMPTY);
+  const { isMacTheme } = useOsTheme();
 
   useEffect(() => {
     if (isOpen) setValues(EMPTY);
@@ -79,33 +71,43 @@ export function LogOfferDialog({
   const canSubmit = values.name.trim() !== "" && values.artist_id !== null;
 
   return (
-    <Dialog
-      open={isOpen}
+    <FormDialog
+      isOpen={isOpen}
       onOpenChange={(open) => {
         if (!open && !isSaving) onClose();
       }}
+      title="Log Incoming Offer"
+      description="Record an offer received by email or elsewhere. This creates a pending booking (and an on-hold project) in the backend; the offer can then be approved or declined from the Inbox."
+      footer={
+        <>
+          <Button
+            variant="retro"
+            onClick={onClose}
+            disabled={isSaving}
+            className="w-full sm:w-auto min-h-[36px]"
+          >
+            <span>Cancel</span>
+          </Button>
+          <Button
+            variant={isMacTheme ? "default" : "retro"}
+            onClick={() => onSubmit(values)}
+            disabled={!canSubmit || isSaving}
+            className="w-full sm:w-auto min-h-[36px]"
+          >
+            <span>{isSaving ? "Saving..." : "Log Offer"}</span>
+          </Button>
+        </>
+      }
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Log Incoming Offer</DialogTitle>
-          <DialogDescription>
-            Record an offer received by email or elsewhere. This creates a
-            pending booking (and an on-hold project) in the backend; the offer
-            can then be approved or declined from the Inbox.
-          </DialogDescription>
-        </DialogHeader>
-        <ScrollArea className="max-h-[55vh] pr-3">
-          <div className="space-y-3 py-1">
-            <div className="space-y-1">
-              <Label className="text-sm">Offer / Event Name *</Label>
+      <div className="space-y-3 py-1">
+            <Field label="Offer / Event Name" required>
               <Input
                 value={values.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="e.g. Warehouse Project Opening"
               />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">Artist *</Label>
+            </Field>
+            <Field label="Artist" required>
               <Select
                 value={
                   values.artist_id !== null ? String(values.artist_id) : ""
@@ -123,62 +125,55 @@ export function LogOfferDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">Description</Label>
+            </Field>
+            <Field label="Description">
               <Textarea
                 value={values.description}
                 onChange={(e) => set("description", e.target.value)}
                 className="min-h-[60px]"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm">Event Date</Label>
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Event Date">
                 <Input
                   type="date"
                   value={values.event_date}
                   onChange={(e) => set("event_date", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Fee Offered</Label>
+              </Field>
+              <Field label="Fee Offered">
                 <Input
                   value={values.agreed_fee}
                   onChange={(e) => set("agreed_fee", e.target.value)}
                   placeholder="e.g. 1500"
+                  inputMode="decimal"
                 />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label className="text-sm">Venue</Label>
+              </Field>
+              <Field label="Venue" className="sm:col-span-2">
                 <Input
                   value={values.venue_name}
                   onChange={(e) => set("venue_name", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">City</Label>
+              </Field>
+              <Field label="City">
                 <Input
                   value={values.city}
                   onChange={(e) => set("city", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Country</Label>
+              </Field>
+              <Field label="Country">
                 <Input
                   value={values.country}
                   onChange={(e) => set("country", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Promoter</Label>
+              </Field>
+              <Field label="Promoter">
                 <Input
                   value={values.promoter_name}
                   onChange={(e) => set("promoter_name", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Source</Label>
+              </Field>
+              <Field label="Source">
                 <Select
                   value={values.source}
                   onValueChange={(v) => set("source", v)}
@@ -191,30 +186,16 @@ export function LogOfferDialog({
                     <SelectItem value="Direct">Direct</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label className="text-sm">Notes</Label>
+              </Field>
+              <Field label="Notes" className="sm:col-span-2">
                 <Textarea
                   value={values.notes}
                   onChange={(e) => set("notes", e.target.value)}
                   className="min-h-[50px]"
                 />
-              </div>
+              </Field>
             </div>
           </div>
-        </ScrollArea>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => onSubmit(values)}
-            disabled={!canSubmit || isSaving}
-          >
-            {isSaving ? "Saving..." : "Log Offer"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

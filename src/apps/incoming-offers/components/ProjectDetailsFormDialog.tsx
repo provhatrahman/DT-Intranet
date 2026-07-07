@@ -1,15 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -18,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Field, FormDialog, useOsTheme } from "@/components/greenroom";
 import type { UpdateProjectPayload } from "@/lib/api/projects";
 import { GIG_SIZES, PROJECT_TYPES } from "../../active-projects/data";
 
@@ -95,6 +86,7 @@ export function ProjectDetailsFormDialog({
   onSkip: () => void;
 }) {
   const [values, setValues] = useState<ProjectDetailsFormValues>(initialValues);
+  const { isMacTheme } = useOsTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -108,37 +100,50 @@ export function ProjectDetailsFormDialog({
   ) => setValues((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <Dialog
-      open={isOpen}
+    <FormDialog
+      isOpen={isOpen}
       onOpenChange={(open) => {
         if (!open && !isSaving) onSkip();
       }}
+      title={title}
+      description={description}
+      footer={
+        <>
+          <Button
+            variant="retro"
+            onClick={onSkip}
+            disabled={isSaving}
+            className="w-full sm:w-auto min-h-[36px]"
+          >
+            <span>Skip for Now</span>
+          </Button>
+          <Button
+            variant={isMacTheme ? "default" : "retro"}
+            onClick={() => onSave(values)}
+            disabled={isSaving}
+            className="w-full sm:w-auto min-h-[36px]"
+          >
+            <span>{isSaving ? "Saving..." : "Save Details"}</span>
+          </Button>
+        </>
+      }
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <ScrollArea className="max-h-[55vh] pr-3">
-          <div className="space-y-3 py-1">
-            <div className="space-y-1">
-              <Label className="text-sm">Project Name</Label>
+      <div className="space-y-3 py-1">
+            <Field label="Project Name">
               <Input
                 value={values.name}
                 onChange={(e) => set("name", e.target.value)}
               />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">Description</Label>
+            </Field>
+            <Field label="Description">
               <Textarea
                 value={values.description}
                 onChange={(e) => set("description", e.target.value)}
                 className="min-h-[60px]"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm">Project Type</Label>
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Project Type">
                 <Select
                   value={values.project_type || "unset"}
                   onValueChange={(v) =>
@@ -157,25 +162,23 @@ export function ProjectDetailsFormDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Budget</Label>
+              </Field>
+              <Field label="Budget">
                 <Input
                   value={values.budget}
                   onChange={(e) => set("budget", e.target.value)}
                   placeholder="e.g. 5000"
+                  inputMode="decimal"
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Event Date</Label>
+              </Field>
+              <Field label="Event Date">
                 <Input
                   type="date"
                   value={values.event_date}
                   onChange={(e) => set("event_date", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Gig Size</Label>
+              </Field>
+              <Field label="Gig Size">
                 <Select
                   value={
                     values.gig_size_id !== null
@@ -198,64 +201,48 @@ export function ProjectDetailsFormDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Start Date</Label>
+              </Field>
+              <Field label="Start Date">
                 <Input
                   type="date"
                   value={values.start_date}
                   onChange={(e) => set("start_date", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">End Date</Label>
+              </Field>
+              <Field label="End Date">
                 <Input
                   type="date"
                   value={values.end_date}
                   onChange={(e) => set("end_date", e.target.value)}
                 />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label className="text-sm">Venue</Label>
+              </Field>
+              <Field label="Venue" className="sm:col-span-2">
                 <Input
                   value={values.venue_name}
                   onChange={(e) => set("venue_name", e.target.value)}
                   placeholder="e.g. Electric Brixton"
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">City</Label>
+              </Field>
+              <Field label="City">
                 <Input
                   value={values.city}
                   onChange={(e) => set("city", e.target.value)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm">Country</Label>
+              </Field>
+              <Field label="Country">
                 <Input
                   value={values.country}
                   onChange={(e) => set("country", e.target.value)}
                 />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label className="text-sm">Promoter</Label>
+              </Field>
+              <Field label="Promoter" className="sm:col-span-2">
                 <Input
                   value={values.promoter_name}
                   onChange={(e) => set("promoter_name", e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
           </div>
-        </ScrollArea>
-        <DialogFooter>
-          <Button variant="outline" onClick={onSkip} disabled={isSaving}>
-            Skip for Now
-          </Button>
-          <Button onClick={() => onSave(values)} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Details"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
