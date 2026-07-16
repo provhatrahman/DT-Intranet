@@ -484,7 +484,35 @@ export function PitchAppComponent({
                             ? `${pitch.yes_votes}/${pitch.total_votes} votes`
                             : null;
 
-                        const comments = detail?.comments || [];
+                        // Feedback shown to the submitter combines two
+                        // sources: comments left when a pitch is rejected
+                        // (detail.comments) and the optional comments voters
+                        // attach to their yes/no vote in the Inbox
+                        // (detail.votes[].comment). Vote comments carry a
+                        // sentiment badge so the submitter sees who voted which
+                        // way and why.
+                        const voteComments = (detail?.votes || [])
+                          .filter((v) => v.comment && v.comment.trim())
+                          .map((v) => ({
+                            key: `vote-${v.user_id}`,
+                            username: v.username,
+                            text: v.comment as string,
+                            sentiment:
+                              v.vote_value === 1
+                                ? ("yes" as const)
+                                : v.vote_value === -1
+                                ? ("no" as const)
+                                : null,
+                          }));
+                        const plainComments = (detail?.comments || []).map(
+                          (c) => ({
+                            key: `comment-${c.id}`,
+                            username: c.username,
+                            text: c.comment,
+                            sentiment: null,
+                          })
+                        );
+                        const feedback = [...voteComments, ...plainComments];
 
                         return (
                           <AquaCard key={pitch.id} className="group overflow-hidden">
@@ -587,7 +615,7 @@ export function PitchAppComponent({
                                   </div>
                                 )}
                               </div>
-                              {comments.length > 0 && (
+                              {feedback.length > 0 && (
                                 <div
                                   className={cn(
                                     "mt-4 pt-4 border-t",
@@ -595,22 +623,38 @@ export function PitchAppComponent({
                                   )}
                                 >
                                   <div className="font-semibold mb-2 text-xs text-muted-foreground">
-                                    Comments ({comments.length}):
+                                    Feedback ({feedback.length}):
                                   </div>
                                   <div className="space-y-2">
-                                    {comments.map((comment) => (
+                                    {feedback.map((item) => (
                                       <div
-                                        key={comment.id}
+                                        key={item.key}
                                         className={cn(
                                           "rounded-md",
                                           isMobile ? "text-xs p-2.5" : "text-sm p-3",
                                           isMacTheme ? "aqua-well" : "bg-muted/50"
                                         )}
                                       >
-                                        <div className="font-medium mb-1">
-                                          {comment.username}
+                                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                          <span className="font-medium">
+                                            {item.username}
+                                          </span>
+                                          {item.sentiment && (
+                                            <span
+                                              className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase tracking-wide",
+                                                item.sentiment === "yes"
+                                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                                  : "bg-red-500/15 text-red-700 dark:text-red-400"
+                                              )}
+                                            >
+                                              {item.sentiment === "yes"
+                                                ? "Voted Yes"
+                                                : "Voted No"}
+                                            </span>
+                                          )}
                                         </div>
-                                        <div>{comment.comment}</div>
+                                        <div>{item.text}</div>
                                       </div>
                                     ))}
                                   </div>

@@ -91,11 +91,11 @@ export function IncomingOffersAppComponent({
     "date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc"
   >("submitted-desc");
 
-  // Feedback dialog: comment attached to a "no" vote, or reason for rejecting
-  // a pitch outright.
-  const [feedbackMode, setFeedbackMode] = useState<"vote-no" | "reject-pitch">(
-    "vote-no"
-  );
+  // Feedback dialog: optional comment attached to a "yes"/"no" vote, or the
+  // reason for rejecting a pitch outright.
+  const [feedbackMode, setFeedbackMode] = useState<
+    "vote-yes" | "vote-no" | "reject-pitch"
+  >("vote-no");
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [pendingFeedbackOfferId, setPendingFeedbackOfferId] = useState<
@@ -328,7 +328,16 @@ export function IncomingOffersAppComponent({
     }
     const current = getUserVote(offer);
 
-    // Voting "no" collects an optional comment first.
+    // Casting a fresh yes/no vote collects an optional comment first, so the
+    // reason travels with the vote back to the submitter's Pitch app. Toggling
+    // your existing choice off (below) skips the dialog.
+    if (choice === "yes" && current !== "yes") {
+      setFeedbackMode("vote-yes");
+      setPendingFeedbackOfferId(offer.id);
+      setFeedbackText("");
+      setIsFeedbackDialogOpen(true);
+      return;
+    }
     if (choice === "no" && current !== "no") {
       setFeedbackMode("vote-no");
       setPendingFeedbackOfferId(offer.id);
@@ -418,18 +427,21 @@ export function IncomingOffersAppComponent({
     if (!offer || !greenroomUserId) return;
 
     try {
-      if (feedbackMode === "vote-no") {
-        // "No" vote with an optional reason — route to the right backend.
+      if (feedbackMode === "vote-yes" || feedbackMode === "vote-no") {
+        // Yes/No vote with an optional comment — route to the right backend.
+        // The comment is stored on the vote and surfaced to the submitter in
+        // the Pitch app's "My Pitches" tab.
+        const voteValue: 1 | -1 = feedbackMode === "vote-yes" ? 1 : -1;
         if (offer.source === "pitch" && offer.pitchId) {
           await voteOnPitch(offer.pitchId, {
             user_id: greenroomUserId,
-            vote_value: -1,
+            vote_value: voteValue,
             comment: feedback,
           });
         } else if (offer.source === "booking" && offer.bookingId) {
           await voteOnBooking(offer.bookingId, {
             user_id: greenroomUserId,
-            vote_value: -1,
+            vote_value: voteValue,
             comment: feedback,
           });
         }
@@ -794,16 +806,26 @@ export function IncomingOffersAppComponent({
           }}
           onSubmit={handleFeedbackSubmit}
           title={
-            feedbackMode === "vote-no" ? "Vote No" : "Reject Pitch"
+            feedbackMode === "vote-yes"
+              ? "Vote Yes"
+              : feedbackMode === "vote-no"
+              ? "Vote No"
+              : "Reject Pitch"
           }
           description={
-            feedbackMode === "vote-no"
-              ? "Optionally explain your no vote. The comment is stored with your vote."
+            feedbackMode === "vote-yes"
+              ? "Optionally add a comment with your yes vote. It's shared with the submitter in their Pitch app."
+              : feedbackMode === "vote-no"
+              ? "Optionally explain your no vote. The comment is stored with your vote and shared with the submitter in their Pitch app."
               : "Provide feedback for why this pitch is being rejected. It will be added as a comment for the submitter, and the pitch will be marked rejected."
           }
           value={feedbackText}
           onChange={setFeedbackText}
-          submitLabel={feedbackMode === "vote-no" ? "Submit Vote" : "Reject Pitch"}
+          submitLabel={
+            feedbackMode === "reject-pitch" ? "Reject Pitch" : "Submit Vote"
+          }
+          // Vote comments are optional; a rejection reason is required.
+          allowEmpty={feedbackMode !== "reject-pitch"}
         />
         <ConfirmDialog
           isOpen={isApproveDialogOpen}

@@ -26,6 +26,9 @@ interface FeedbackDialogProps {
   errorMessage?: string | null;
   submitLabel?: string;
   showCancel?: boolean;
+  // When true the comment is optional: Submit stays enabled with an empty
+  // textarea and an empty string is passed to onSubmit.
+  allowEmpty?: boolean;
 }
 
 export function FeedbackDialog({
@@ -40,6 +43,7 @@ export function FeedbackDialog({
   errorMessage = null,
   submitLabel,
   showCancel = true,
+  allowEmpty = false,
 }: FeedbackDialogProps) {
   const { t } = useTranslation();
   const currentTheme = useThemeStore((state) => state.current);
@@ -50,9 +54,10 @@ export function FeedbackDialog({
   // dialog rather than a full-width, full-width-button layout.
   const isMobile = useMediaQuery("(max-width: 768px)");
   const defaultSubmitLabel = submitLabel || t("common.dialog.save");
+  const canSubmit = allowEmpty || value.trim().length > 0;
 
   const handleSubmit = () => {
-    if (!isLoading && value.trim()) {
+    if (!isLoading && canSubmit) {
       onSubmit(value.trim());
     }
   };
@@ -142,7 +147,7 @@ export function FeedbackDialog({
           <Button
             variant={isMacTheme ? "default" : "retro"}
             onClick={handleSubmit}
-            disabled={isLoading || !value.trim()}
+            disabled={isLoading || !canSubmit}
             className={cn(
               "w-full touch-manipulation",
               isMobile ? "min-h-[44px]" : "sm:w-auto",
