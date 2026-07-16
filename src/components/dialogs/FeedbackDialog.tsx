@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface FeedbackDialogProps {
   isOpen: boolean;
@@ -45,7 +45,10 @@ export function FeedbackDialog({
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
   const isMacTheme = currentTheme === "macosx";
-  const isMobile = useIsMobile();
+  // Use actual viewport width (not touch capability) to decide the mobile
+  // layout — a touch-enabled desktop should still get the compact desktop
+  // dialog rather than a full-width, full-width-button layout.
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const defaultSubmitLabel = submitLabel || t("common.dialog.save");
 
   const handleSubmit = () => {

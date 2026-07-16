@@ -26,7 +26,7 @@ import {
   useOsTheme,
 } from "@/components/greenroom";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { getTabStyles } from "@/utils/tabStyles";
 import { Trash2, AlertCircle, Settings, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
@@ -87,7 +87,9 @@ export function PitchAppComponent({
   } = usePitchesStore();
 
   const { themeId, isMacTheme, isXpTheme } = useOsTheme();
-  const isMobile = useIsMobile();
+  // Viewport-width based (not touch): a touch-enabled desktop keeps the
+  // desktop layout instead of the full-width, stacked mobile layout.
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const tabStyles = getTabStyles(themeId);
 
   const userPitches = getCurrentUserPitches(greenroomUserId);

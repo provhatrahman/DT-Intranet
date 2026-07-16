@@ -35,7 +35,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -60,7 +60,9 @@ export function ArchiveAppComponent({
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const isMobile = useIsMobile();
+  // Viewport-width based (not touch): a touch-enabled desktop keeps the
+  // two-pane master-detail layout instead of collapsing to a single pane.
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null
   );
