@@ -107,7 +107,7 @@ Operational source of truth for developing and shipping Greenroom. Full walkthro
 
 **Repos & branch.** Frontend = this repo (`ryos`). Backend = `c:\Projects\backend` (Django split into per-domain AWS Lambdas; github.com/arronS22/greenroom-backend). Active dev branch on both = **`greenroom-develop`**.
 
-**AWS.** Account `471028617262`, region `eu-west-2`, CLI profile **`greenroom-cli`** (admin). Always pass `--profile greenroom-cli`. NOTE: the SSO profile `AdministratorAccess-471028617262` is **MFA-locked/unusable** — any doc (e.g. the older `DEVELOPMENT_WORKFLOW.md`) that uses it for deploys is stale; use `greenroom-cli` instead.
+**AWS.** Account `471028617262`, region `eu-west-2`, CLI profile **`greenroom-cli`** (admin). Always pass `--profile greenroom-cli`. NOTE: the SSO profile `AdministratorAccess-471028617262` is **MFA-locked/unusable** — the deploy scripts default to it, so always override with `greenroom-cli`.
 
 **Local dev loop** (isolated, safe): backend `cd c:\Projects\backend && .venv\Scripts\python manage.py runserver 8000` (serves all `/api/<domain>/` from the dev DB); frontend `GREENROOM_API_TARGET=http://localhost:8000 bun dev` (env-driven proxy in `vite.config.ts`; unset → prod). `bun run dev:vercel` runs the frontend against the **prod** Greenroom API (needed for ryOS AI `/api` routes).
 

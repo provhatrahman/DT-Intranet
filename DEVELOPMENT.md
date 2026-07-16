@@ -156,6 +156,17 @@ so build via CI:
 
 ---
 
+## Tips & troubleshooting
+
+- **Preview a prod build locally** before deploying: `bun run preview` (serves `dist/` at :4173).
+- **Version bump** (user-visible release number): run `bun run version:bump` before `.\deploy.ps1`.
+  Update prompts also fire on build-number (commit SHA) change, so a bump isn't required for redeploys.
+- **`bun dev` port in use:** `$env:PORT=3000; bun dev`.
+- **Build fails:** TypeScript errors → fix them; missing deps → `bun install`. Always `bun run build` before deploying.
+- **Deploy "Unable to locate credentials":** you didn't set the working profile — `$env:AWS_PROFILE="greenroom-cli"`.
+- **Deploy "NoSuchDistribution":** CloudFront id must be `E3OF10QS7S5YPV`.
+- **Site not updating:** CloudFront invalidation takes 1–5 min; then hard-refresh (Ctrl+Shift+R).
+
 ## Key facts
 - **AWS account:** `471028617262` / `eu-west-2` / profile `greenroom-cli`
 - **Live frontend:** https://greenroom.daytimers.org (S3 + CloudFront `E3OF10QS7S5YPV`)
