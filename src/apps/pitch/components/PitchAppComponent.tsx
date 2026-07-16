@@ -8,17 +8,14 @@ import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useAuth } from "@/hooks/useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
-import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
 import { serializePitchDescription, parsePitchDescription } from "@/lib/api/pitches";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import {
   AquaCard,
   EmptyState,
@@ -72,14 +69,8 @@ export function PitchAppComponent({
 
   const { username } = useAuth();
   const { setAccount } = useGreenroomAccountStore();
-  const { setUseDevGreenroomAccount } = useDevOverridesStore();
   const effectiveAccount = useEffectiveGreenroomAccount();
   const greenroomUserId = effectiveAccount.userId;
-  const isUsingDevAccount = effectiveAccount.source === "dev";
-
-  const isDevMode = import.meta.env.DEV;
-  const devUserIdEnv = import.meta.env.VITE_DEV_GREENROOM_USER_ID;
-  const shouldShowDevToggle = isDevMode && devUserIdEnv && String(devUserIdEnv).trim() !== "";
 
   const {
     pitches,
@@ -288,51 +279,6 @@ export function PitchAppComponent({
               !isMacTheme && "bg-muted/10"
             )}
           >
-            {isDevMode && (
-              <NoticePanel
-                tone={shouldShowDevToggle ? "info" : "neutral"}
-                icon={Settings}
-                title="Developer Testing"
-                className="mb-4"
-              >
-                {shouldShowDevToggle ? (
-                  <>
-                    <p className="mb-3">
-                      {isUsingDevAccount ? (
-                        <>Using dev testing account: <strong>{effectiveAccount.displayName}</strong> (ID: {greenroomUserId})</>
-                      ) : (
-                        <>Dev account available: <strong>{import.meta.env.VITE_DEV_GREENROOM_USER_DISPLAY || "Dev Tester"}</strong> (ID: {import.meta.env.VITE_DEV_GREENROOM_USER_ID})</>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={isUsingDevAccount}
-                        onCheckedChange={(checked) => {
-                          setUseDevGreenroomAccount(username, checked);
-                        }}
-                      />
-                      <Label
-                        className="text-sm cursor-pointer"
-                        onClick={() => {
-                          setUseDevGreenroomAccount(username, !isUsingDevAccount);
-                        }}
-                      >
-                        Use Dev Testing Account
-                      </Label>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Dev user ID not configured. Set <code className="text-xs bg-black/10 px-1 rounded">VITE_DEV_GREENROOM_USER_ID</code> in <code className="text-xs bg-black/10 px-1 rounded">.env.local</code> and restart the dev server.
-                    {devUserIdEnv && (
-                      <span className="block mt-1 text-xs">
-                        Current value: <code className="bg-black/10 px-1 rounded">{String(devUserIdEnv)}</code>
-                      </span>
-                    )}
-                  </p>
-                )}
-              </NoticePanel>
-            )}
             {!greenroomUserId && (
               <NoticePanel
                 tone="warning"

@@ -5,7 +5,6 @@ import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { helpItems, appMetadata } from "../index.tsx";
-import { DevDataBanner, DevDataChip } from "@/components/shared/DevDataBanner";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
 import {
@@ -140,13 +139,6 @@ export function ArchiveAppComponent({
         menuBar={isXpTheme ? menuBar : undefined}
       >
         <div className="flex flex-col h-full w-full min-h-0">
-          <DevDataBanner
-            sources={[
-              { label: "projects", status: "live", detail: "?status=completed|cancelled|archived" },
-              { label: "payments", status: "live", detail: "/api/payments/" },
-              { label: "archive", status: "live", detail: "POST /projects/{id}/archive/" },
-            ]}
-          />
         <div
           className={cn(
             "flex flex-1 w-full min-h-0 p-4",
@@ -203,7 +195,6 @@ export function ArchiveAppComponent({
                                   "No date"}
                               </span>
                             </div>
-                            <DevDataChip status="live" label="API" detail="/api/projects/" />
                           </div>
                         </SidebarRow>
                       );
@@ -470,8 +461,6 @@ function ProjectDetailView({
                 <div className="flex items-center gap-2 flex-wrap">
                   <Users className="h-4 w-4 text-muted-foreground" />
                   <h2 className="text-lg font-semibold">Final Lineup</h2>
-                  <DevDataChip status="live" label="members" detail="/api/projects/" />
-                  <DevDataChip status="hidden" label="gig score" detail="analytics 500" />
                 </div>
                 {project.members.length === 0 ? (
                   <div className="text-muted-foreground text-sm py-2">
@@ -491,7 +480,6 @@ function ProjectDetailView({
                               <div className="text-xs text-muted-foreground">
                                 {member.role_in_project}
                               </div>
-                              <DevDataChip status="live" label="artist" detail="/api/artists/" className="mt-0.5" />
                             </div>
                           </div>
                         </CardContent>
@@ -541,7 +529,6 @@ function ProjectDetailView({
               <div className="flex items-center gap-2 flex-wrap">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold">Payments</h3>
-                <DevDataChip status="live" label="/api/payments/" />
               </div>
               {payments.length === 0 ? (
                 <EmptyState
@@ -564,7 +551,6 @@ function ProjectDetailView({
                                 ? `Invoice ${payment.invoice_number}`
                                 : "No invoice number"}
                             </div>
-                            <DevDataChip status="live" label="payment" detail="/api/payments/" className="mt-0.5" />
                           </div>
                           <div className="text-sm font-semibold shrink-0">
                             {payment.currency} {payment.amount}

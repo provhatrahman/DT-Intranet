@@ -17,6 +17,9 @@
 //   10 = "manager2"
 // Other known users (non-admin by default): 11 coordinator1, 12 coordinator2,
 //   13 staff1, 14 staff2. Edit the list to change who is treated as an admin.
+//
+// See also VIEW_AS_* below and useDevViewAsStore — the dev-only "View as" menu
+// impersonates one of these identities to preview role-gated UI.
 
 export interface GreenroomAdminAccount {
   userId: number;
@@ -39,17 +42,7 @@ export function isGreenroomAdminUserId(
   return userId != null && GREENROOM_ADMIN_USER_IDS.includes(userId);
 }
 
-/** Known users on the live backend (id → username), for demo/impersonation UI. */
-export const KNOWN_GREENROOM_USERS: Readonly<Record<number, string>> = {
-  8: "admin",
-  9: "manager1",
-  10: "manager2",
-  11: "coordinator1",
-  12: "coordinator2",
-  13: "staff1",
-  14: "staff2",
-};
-
-// The two identities the dev "view as" switch flips between.
-export const DEMO_ADMIN_USER_ID = 8; // "admin"
-export const DEMO_NON_ADMIN_USER_ID = 13; // "staff1"
+// The two live-backend identities the dev-only "View as" menu flips between.
+// Admin id 8 is in the allowlist above; non-admin id 13 ("staff1") is not.
+export const VIEW_AS_ADMIN_USER_ID = 8; // "admin"
+export const VIEW_AS_NON_ADMIN_USER_ID = 13; // "staff1"

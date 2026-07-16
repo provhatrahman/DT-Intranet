@@ -6,7 +6,6 @@ import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
-import { DevDataBanner, DevDataChip } from "@/components/shared/DevDataBanner";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import {
@@ -203,13 +202,6 @@ export function ActiveProjectsAppComponent({
         menuBar={isXpTheme ? menuBar : undefined}
       >
         <div className="flex flex-col h-full w-full min-h-0">
-          <DevDataBanner
-            sources={[
-              { label: "projects", status: "live", detail: "/api/projects/" },
-              { label: "artists", status: "live", detail: "/api/artists/" },
-              { label: "gig scores", status: "hidden", detail: "analytics 500 — not shown" },
-            ]}
-          />
         <div
           className={cn(
             "flex flex-1 w-full min-h-0 p-4",
@@ -286,7 +278,6 @@ export function ActiveProjectsAppComponent({
                                   </span>
                                 </div>
                               )}
-                              <DevDataChip status="live" label="API" detail="/api/projects/" />
                             </div>
                           </div>
                         </SidebarRow>
@@ -989,8 +980,6 @@ function LineupTab({
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Lineup</h3>
-            <DevDataChip status="live" label="assign-team" detail="/api/projects/" />
-            <DevDataChip status="hidden" label="gig score" detail="analytics 500" />
           </div>
           {project.members.length === 0 ? (
             <div className="text-sm text-muted-foreground py-2">
@@ -1016,7 +1005,6 @@ function LineupTab({
                     <div className="text-xs text-muted-foreground">
                       {member.role_in_project}
                     </div>
-                    <DevDataChip status="live" label="artist" detail="/api/artists/" className="mt-0.5" />
                   </button>
                   <Button
                     variant="ghost"
@@ -1040,7 +1028,6 @@ function LineupTab({
 
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs text-muted-foreground font-medium">All artists</span>
-            <DevDataChip status="live" label="/api/artists/" />
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <Input

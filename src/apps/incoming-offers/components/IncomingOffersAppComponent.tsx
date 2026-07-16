@@ -22,15 +22,9 @@ import { usePitchesStore } from "@/stores/usePitchesStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useBookingsStore } from "@/stores/useBookingsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
-import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
-import {
-  DEMO_ADMIN_USER_ID,
-  DEMO_NON_ADMIN_USER_ID,
-} from "@/config/greenroomAdmins";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { toDateInputValue } from "../../active-projects/data";
 import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
-import { DevDataBanner } from "@/components/shared/DevDataBanner";
 import { toast } from "sonner";
 import {
   CardContent,
@@ -48,8 +42,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   AquaCard,
   AppToolbar,
@@ -130,10 +122,6 @@ export function IncomingOffersAppComponent({
   // Declining/rejecting is an admin-only action (frontend-gated; see
   // src/config/greenroomAdmins.ts). Non-admins can only support (Yes / Approve).
   const isAdmin = useIsGreenroomAdmin();
-
-  // Dev-only "view as" switch to preview admin vs non-admin gating.
-  const isDev = import.meta.env.DEV;
-  const { viewAsUserId, setViewAsUserId } = useDevOverridesStore();
 
   const {
     pitches,
@@ -559,13 +547,6 @@ export function IncomingOffersAppComponent({
             !isMacTheme && "bg-background"
           )}
         >
-          <DevDataBanner
-            sources={[
-              { label: "pitches", status: "live", detail: "/api/pitches/" },
-              { label: "bookings", status: "live", detail: "/api/bookings/" },
-              { label: "projects", status: "live", detail: "/api/projects/ (events merged in)" },
-            ]}
-          />
           <AppToolbar>
             <Input
               placeholder="Search offers..."
@@ -595,34 +576,6 @@ export function IncomingOffersAppComponent({
             <Button variant="default" onClick={() => setIsLogOfferOpen(true)}>
               <span>Log Offer</span>
             </Button>
-            {isDev && (
-              <div
-                className="flex items-center gap-2 ml-auto shrink-0"
-                title="Dev only: preview the UI as an admin vs a non-admin user"
-              >
-                <Switch
-                  id="view-as-admin"
-                  checked={isAdmin}
-                  onCheckedChange={(checked) =>
-                    setViewAsUserId(
-                      checked ? DEMO_ADMIN_USER_ID : DEMO_NON_ADMIN_USER_ID
-                    )
-                  }
-                />
-                <Label
-                  htmlFor="view-as-admin"
-                  className="text-xs whitespace-nowrap cursor-pointer"
-                >
-                  View as: {isAdmin ? "Admin" : "Non-admin"}
-                  {viewAsUserId != null && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      (#{viewAsUserId})
-                    </span>
-                  )}
-                </Label>
-              </div>
-            )}
           </AppToolbar>
 
           {/* Card grid; container queries make columns track the window

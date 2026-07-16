@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { AppleMenu } from "./AppleMenu";
+import { DevMenu } from "./DevMenu";
 import { useAppContext } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -1369,6 +1370,7 @@ export function MenuBar({ children, inWindowFrame = false }: MenuBarProps) {
           className="flex items-stretch border-none bg-transparent space-x-0 p-0 rounded-none h-full"
         >
           <AppleMenu apps={apps} />
+          <DevMenu />
           {hasActiveApp && children ? children : <DefaultMenuItems />}
         </Menubar>
       </ScrollableMenuWrapper>

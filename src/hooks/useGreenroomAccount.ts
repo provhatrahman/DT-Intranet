@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import { useAuth } from "./useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
+import { useDevViewAsStore } from "@/stores/useDevViewAsStore";
 import {
   isGreenroomAdminUserId,
-  KNOWN_GREENROOM_USERS,
+  VIEW_AS_ADMIN_USER_ID,
+  VIEW_AS_NON_ADMIN_USER_ID,
 } from "@/config/greenroomAdmins";
 
 interface EffectiveGreenroomAccount {
@@ -21,7 +23,8 @@ interface EffectiveGreenroomAccount {
 export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const { username } = useAuth();
   const { getAccount } = useGreenroomAccountStore();
-  const { getUseDevGreenroomAccount, viewAsUserId } = useDevOverridesStore();
+  const { getUseDevGreenroomAccount } = useDevOverridesStore();
+  const viewAsRole = useDevViewAsStore((s) => s.viewAs);
 
   const isDev = import.meta.env.DEV;
   const devUserIdStr = import.meta.env.VITE_DEV_GREENROOM_USER_ID;
@@ -36,14 +39,15 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const currentAccount = getAccount(username);
   const useDevAccount = isDev && validDevUserId && getUseDevGreenroomAccount(username);
 
-  const viewAs = isDev && viewAsUserId != null ? viewAsUserId : null;
+  const viewAs = isDev ? viewAsRole : null;
 
   return useMemo(() => {
-    // Dev/demo "view as" wins over everything else.
+    // Dev-only "View as" override wins over everything else.
     if (viewAs != null) {
+      const isAdmin = viewAs === "admin";
       return {
-        userId: viewAs,
-        displayName: KNOWN_GREENROOM_USERS[viewAs] ?? `User ${viewAs}`,
+        userId: isAdmin ? VIEW_AS_ADMIN_USER_ID : VIEW_AS_NON_ADMIN_USER_ID,
+        displayName: isAdmin ? "Admin (view as)" : "Non-admin (view as)",
         source: "dev" as const,
       };
     }
