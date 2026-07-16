@@ -82,6 +82,16 @@ export interface PitchesListResponse {
   pitches: Pitch[];
 }
 
+// The create endpoint does NOT echo back a full pitch row — it returns only
+// these fields (verified live 2026-07-16). Callers must reconstruct the rest
+// from the request payload.
+export interface CreatePitchResponse {
+  id: number;
+  title: string;
+  status: string;
+  message: string;
+}
+
 export interface PitchDetailResponse {
   pitch: Pitch;
   votes: PitchVote[];
@@ -161,7 +171,9 @@ export async function getPitchById(id: number): Promise<PitchDetail> {
   };
 }
 
-export async function createPitch(payload: CreatePitchPayload): Promise<Pitch> {
+export async function createPitch(
+  payload: CreatePitchPayload
+): Promise<CreatePitchResponse> {
   const response = await fetch(`${GREENROOM_API_BASE}/pitches/create/`, {
     method: "POST",
     headers: {
@@ -173,7 +185,7 @@ export async function createPitch(payload: CreatePitchPayload): Promise<Pitch> {
     const error = await response.json().catch(() => ({ error: response.statusText }));
     throw new Error(error.error || `Failed to create pitch: ${response.statusText}`);
   }
-  const data = await response.json();
+  const data: CreatePitchResponse = await response.json();
   return data;
 }
 

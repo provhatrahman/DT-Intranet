@@ -91,7 +91,24 @@ export const usePitchesStore = create<PitchesState>((set, get) => ({
   createPitch: async (payload: CreatePitchPayload) => {
     set({ isLoading: true, error: null });
     try {
-      const newPitch = await apiCreatePitch(payload);
+      const created = await apiCreatePitch(payload);
+      // The create endpoint returns only { id, title, status, message } — not
+      // a full pitch row. Reconstruct the rest from the request payload so the
+      // stored pitch carries submitter_user_id/description. Without this the
+      // new pitch is invisible in "My Pitches" (getCurrentUserPitches filters
+      // on submitter_user_id) until the next full refetch.
+      const newPitch: Pitch = {
+        id: created.id,
+        title: created.title ?? payload.title,
+        description: payload.description ?? "",
+        status: created.status ?? payload.status ?? "submitted",
+        project_id: payload.project_id ?? null,
+        submitter_user_id: payload.submitter_user_id,
+        date_submitted: new Date().toISOString(),
+        date_closed: null,
+        total_votes: 0,
+        yes_votes: 0,
+      };
       set((state) => ({
         pitches: [newPitch, ...state.pitches],
         isLoading: false,
