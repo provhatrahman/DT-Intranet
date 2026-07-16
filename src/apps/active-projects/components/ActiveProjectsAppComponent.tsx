@@ -63,9 +63,28 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// Greenroom stores a Google Drive folder ID; build the folder URL from it.
+// Greenroom stores a bare Google Drive folder ID; build the folder URL from it.
 function driveFolderUrl(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+// Users paste a full "Open in Drive" link; pull the bare folder ID out of it so
+// we keep storing the ID (what the backend expects). Handles the common shapes
+// (/folders/<id>, ?id=<id>, /d/<id>) and falls back to the raw input when it's
+// already just an ID.
+function extractDriveFolderId(input: string): string {
+  const value = input.trim();
+  if (!value) return "";
+  const patterns = [
+    /\/folders\/([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+  ];
+  for (const re of patterns) {
+    const match = value.match(re);
+    if (match) return match[1];
+  }
+  return value;
 }
 
 export function ActiveProjectsAppComponent({
@@ -718,10 +737,12 @@ function ProjectDetailView({
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      drive_parent_folder_id: e.target.value,
+                      drive_parent_folder_id: extractDriveFolderId(
+                        e.target.value
+                      ),
                     })
                   }
-                  placeholder="Google Drive folder ID"
+                  placeholder="Paste a Google Drive folder link"
                 />
                 {form.drive_parent_folder_id && (
                   <a
