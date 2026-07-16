@@ -27,9 +27,14 @@ export default defineConfig(({ mode }) => ({
     // through Vite to the gateway's `/api/*` so requests are same-origin. The
     // client base URL switches to `/greenroom-api` in dev (see
     // src/config/greenroomApi.ts).
+    // To develop against a LOCAL backend instead of prod, set
+    // GREENROOM_API_TARGET=http://localhost:8000 (run the Django API there).
+    // Unset → defaults to the prod AWS gateway (unchanged behaviour).
     proxy: {
       "/greenroom-api": {
-        target: "https://jzre02jvh9.execute-api.eu-west-2.amazonaws.com",
+        target:
+          process.env.GREENROOM_API_TARGET ||
+          "https://jzre02jvh9.execute-api.eu-west-2.amazonaws.com",
         changeOrigin: true,
         secure: true,
         rewrite: (p) => p.replace(/^\/greenroom-api/, "/api"),

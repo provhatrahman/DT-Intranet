@@ -18,7 +18,12 @@ import {
   formatBudget,
   toDateInputValue,
 } from "../data";
-import type { ProjectDetail, ProjectMember } from "@/lib/api/projects";
+import type {
+  ProjectDetail,
+  ProjectMember,
+  ProjectStatusHistoryEntry,
+} from "@/lib/api/projects";
+import { getProjectStatusHistory } from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
 import { CardContent } from "@/components/ui/card";
 import {
@@ -61,7 +66,15 @@ import {
   ListChecks,
   Plus,
   X,
+  FolderOpen,
+  ExternalLink,
+  History,
 } from "lucide-react";
+
+// Greenroom stores a Google Drive folder ID; build the folder URL from it.
+function driveFolderUrl(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}
 
 export function ActiveProjectsAppComponent({
   isWindowOpen,
@@ -378,16 +391,37 @@ function ProjectDetailView({
     country: p.country ?? "",
     promoter_name: p.promoter_name ?? "",
     gig_size_id: p.gig_size_id,
+    drive_parent_folder_id: p.drive_parent_folder_id ?? "",
     feedback: p.feedback ?? "",
   });
 
   const [form, setForm] = useState(() => projectToForm(project));
   const [isSaving, setIsSaving] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<
+    ProjectStatusHistoryEntry[]
+  >([]);
 
   // Reset the form when switching projects.
   useEffect(() => {
     setForm(projectToForm(project));
   }, [project]);
+
+  // Read-only status-change log. Re-fetch when the project changes or its
+  // status changes (a status update writes a new history row).
+  useEffect(() => {
+    let cancelled = false;
+    getProjectStatusHistory(project.id)
+      .then((history) => {
+        if (!cancelled) setStatusHistory(history);
+      })
+      .catch((err) => {
+        console.error("Failed to load status history:", err);
+        if (!cancelled) setStatusHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.status]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -406,6 +440,7 @@ function ProjectDetailView({
         country: form.country || undefined,
         promoter_name: form.promoter_name || undefined,
         gig_size_id: form.gig_size_id ?? undefined,
+        drive_parent_folder_id: form.drive_parent_folder_id || undefined,
         feedback: form.feedback || undefined,
       });
       toast.success("Project saved");
@@ -718,6 +753,34 @@ function ProjectDetailView({
               </div>
 
               <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  Google Drive Folder
+                </Label>
+                <Input
+                  value={form.drive_parent_folder_id}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      drive_parent_folder_id: e.target.value,
+                    })
+                  }
+                  placeholder="Google Drive folder ID"
+                />
+                {form.drive_parent_folder_id && (
+                  <a
+                    href={driveFolderUrl(form.drive_parent_folder_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open in Google Drive
+                  </a>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">Feedback</Label>
                 <Textarea
                   value={form.feedback}
@@ -727,6 +790,62 @@ function ProjectDetailView({
                   placeholder="Feedback collected on this project..."
                   className="min-h-[60px]"
                 />
+              </div>
+
+              {/* Read-only status-change history (backend audit log; not a
+                  free-text update feed — see FUNCTIONALITY_AUDIT.md). */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5" />
+                  Status History
+                </Label>
+                {statusHistory.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    No status changes recorded yet.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {[...statusHistory]
+                      .sort((a, b) =>
+                        b.changed_at.localeCompare(a.changed_at)
+                      )
+                      .map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs"
+                        >
+                          <span className="text-muted-foreground shrink-0 tabular-nums">
+                            {new Date(entry.changed_at).toLocaleDateString(
+                              undefined,
+                              { year: "numeric", month: "short", day: "numeric" }
+                            )}
+                          </span>
+                          <span>
+                            {entry.old_status && (
+                              <>
+                                {formatProjectStatus(entry.old_status)}
+                                <span className="text-muted-foreground"> → </span>
+                              </>
+                            )}
+                            <span className="font-medium">
+                              {formatProjectStatus(entry.new_status)}
+                            </span>
+                            {entry.changed_by_username && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                · {entry.changed_by_username}
+                              </span>
+                            )}
+                          </span>
+                          {entry.notes && (
+                            <span className="text-muted-foreground">
+                              — {entry.notes}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">

@@ -2,6 +2,10 @@ import { useMemo } from "react";
 import { useAuth } from "./useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
+import {
+  isGreenroomAdminUserId,
+  KNOWN_GREENROOM_USERS,
+} from "@/config/greenroomAdmins";
 
 interface EffectiveGreenroomAccount {
   userId: number | null;
@@ -17,7 +21,7 @@ interface EffectiveGreenroomAccount {
 export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const { username } = useAuth();
   const { getAccount } = useGreenroomAccountStore();
-  const { getUseDevGreenroomAccount } = useDevOverridesStore();
+  const { getUseDevGreenroomAccount, viewAsUserId } = useDevOverridesStore();
 
   const isDev = import.meta.env.DEV;
   const devUserIdStr = import.meta.env.VITE_DEV_GREENROOM_USER_ID;
@@ -32,7 +36,18 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const currentAccount = getAccount(username);
   const useDevAccount = isDev && validDevUserId && getUseDevGreenroomAccount(username);
 
+  const viewAs = isDev && viewAsUserId != null ? viewAsUserId : null;
+
   return useMemo(() => {
+    // Dev/demo "view as" wins over everything else.
+    if (viewAs != null) {
+      return {
+        userId: viewAs,
+        displayName: KNOWN_GREENROOM_USERS[viewAs] ?? `User ${viewAs}`,
+        source: "dev" as const,
+      };
+    }
+
     if (useDevAccount && validDevUserId) {
       return {
         userId: validDevUserId,
@@ -54,6 +69,16 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
       displayName: undefined,
       source: "none" as const,
     };
-  }, [useDevAccount, validDevUserId, devDisplayName, currentAccount]);
+  }, [viewAs, useDevAccount, validDevUserId, devDisplayName, currentAccount]);
+}
+
+/**
+ * Whether the effective Greenroom account is a (frontend-designated) admin.
+ * See src/config/greenroomAdmins.ts — this gates admin-only UI actions such as
+ * declining a pitch. NOT enforced server-side (the Greenroom API is anonymous).
+ */
+export function useIsGreenroomAdmin(): boolean {
+  const { userId } = useEffectiveGreenroomAccount();
+  return isGreenroomAdminUserId(userId);
 }
 

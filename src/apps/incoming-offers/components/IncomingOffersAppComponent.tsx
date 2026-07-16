@@ -14,11 +14,19 @@ import {
 } from "./ProjectDetailsFormDialog";
 import { LogOfferDialog, LogOfferFormValues } from "./LogOfferDialog";
 import { helpItems, appMetadata } from "..";
-import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
+import {
+  useEffectiveGreenroomAccount,
+  useIsGreenroomAdmin,
+} from "@/hooks/useGreenroomAccount";
 import { usePitchesStore } from "@/stores/usePitchesStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useBookingsStore } from "@/stores/useBookingsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
+import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
+import {
+  DEMO_ADMIN_USER_ID,
+  DEMO_NON_ADMIN_USER_ID,
+} from "@/config/greenroomAdmins";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { toDateInputValue } from "../../active-projects/data";
 import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
@@ -40,6 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AquaCard,
   AppToolbar,
@@ -117,6 +127,13 @@ export function IncomingOffersAppComponent({
 
   const effectiveAccount = useEffectiveGreenroomAccount();
   const greenroomUserId = effectiveAccount.userId;
+  // Declining/rejecting is an admin-only action (frontend-gated; see
+  // src/config/greenroomAdmins.ts). Non-admins can only support (Yes / Approve).
+  const isAdmin = useIsGreenroomAdmin();
+
+  // Dev-only "view as" switch to preview admin vs non-admin gating.
+  const isDev = import.meta.env.DEV;
+  const { viewAsUserId, setViewAsUserId } = useDevOverridesStore();
 
   const {
     pitches,
@@ -324,6 +341,10 @@ export function IncomingOffersAppComponent({
       toast.error("Please set up your Greenroom account first");
       return;
     }
+    if (!isAdmin) {
+      toast.error("Only admins can reject pitches");
+      return;
+    }
     setFeedbackMode("reject-pitch");
     setPendingFeedbackOfferId(offer.id);
     setFeedbackText("");
@@ -331,13 +352,17 @@ export function IncomingOffersAppComponent({
   };
 
   const handleApproveClick = (offerId: string) => {
+    if (!isAdmin) {
+      toast.error("Only admins can approve offers");
+      return;
+    }
     setPendingApproveOfferId(offerId);
     setIsApproveDialogOpen(true);
   };
 
   const handleApproveConfirm = async () => {
     const offer = offers.find((o) => o.id === pendingApproveOfferId);
-    if (!offer) {
+    if (!offer || !isAdmin) {
       setIsApproveDialogOpen(false);
       setPendingApproveOfferId(null);
       return;
@@ -419,6 +444,11 @@ export function IncomingOffersAppComponent({
 
   const handleDeclineBookingConfirm = async () => {
     if (pendingDeclineBookingId === null) return;
+    if (!isAdmin) {
+      toast.error("Only admins can decline offers");
+      setPendingDeclineBookingId(null);
+      return;
+    }
     try {
       await setBookingStatus(pendingDeclineBookingId, "declined");
       toast.success("Offer declined");
@@ -565,6 +595,34 @@ export function IncomingOffersAppComponent({
             <Button variant="default" onClick={() => setIsLogOfferOpen(true)}>
               <span>Log Offer</span>
             </Button>
+            {isDev && (
+              <div
+                className="flex items-center gap-2 ml-auto shrink-0"
+                title="Dev only: preview the UI as an admin vs a non-admin user"
+              >
+                <Switch
+                  id="view-as-admin"
+                  checked={isAdmin}
+                  onCheckedChange={(checked) =>
+                    setViewAsUserId(
+                      checked ? DEMO_ADMIN_USER_ID : DEMO_NON_ADMIN_USER_ID
+                    )
+                  }
+                />
+                <Label
+                  htmlFor="view-as-admin"
+                  className="text-xs whitespace-nowrap cursor-pointer"
+                >
+                  View as: {isAdmin ? "Admin" : "Non-admin"}
+                  {viewAsUserId != null && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      (#{viewAsUserId})
+                    </span>
+                  )}
+                </Label>
+              </div>
+            )}
           </AppToolbar>
 
           {/* Card grid; container queries make columns track the window
@@ -589,6 +647,7 @@ export function IncomingOffersAppComponent({
                   <OfferCard
                     key={offer.id}
                     offer={offer}
+                    isAdmin={isAdmin}
                     userVote={
                       offer.pitchId ? getUserVote(offer.pitchId) : null
                     }
@@ -695,6 +754,7 @@ export function IncomingOffersAppComponent({
 
 function OfferCard({
   offer,
+  isAdmin,
   userVote,
   counts,
   onVote,
@@ -702,6 +762,7 @@ function OfferCard({
   onReject,
 }: {
   offer: Offer;
+  isAdmin: boolean;
   userVote: PitchVoteChoice | null;
   counts?: PitchVoteCounts;
   onVote: (choice: PitchVoteChoice) => void;
@@ -778,24 +839,36 @@ function OfferCard({
           )}
         </div>
       </CardContent>
+      {/* Footer only renders when there's an action to show: pitches always
+          have the Yes vote; bookings expose actions only to admins. Avoids an
+          empty bordered bar for non-admins viewing bookings. */}
+      {(isPitch || isAdmin) && (
       <CardFooter
         className={cn(
           "pt-3 border-t flex flex-col gap-2",
           isMacTheme ? "border-black/10" : "bg-muted/5"
         )}
       >
-        <Button
-          variant="default"
-          onClick={onApprove}
-          className="w-full min-h-[36px] touch-manipulation"
-          title="Approve and move to Active Projects"
-        >
-          <span className="font-semibold">
-            Approve &amp; Move to Active Projects
-          </span>
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="default"
+            onClick={onApprove}
+            className="w-full min-h-[36px] touch-manipulation"
+            title="Approve and move to Active Projects"
+          >
+            <span className="font-semibold">
+              Approve &amp; Move to Active Projects
+            </span>
+          </Button>
+        )}
         {isPitch ? (
-          <div className="w-full grid grid-cols-3 gap-2">
+          // Everyone can vote Yes/No; only admins get the terminal Reject action.
+          <div
+            className={cn(
+              "w-full grid gap-2",
+              isAdmin ? "grid-cols-3" : "grid-cols-2"
+            )}
+          >
             <VoteButton
               active={userVote === "yes"}
               count={counts?.yes ?? 0}
@@ -812,26 +885,31 @@ function OfferCard({
             >
               No
             </VoteButton>
+            {isAdmin && (
+              <Button
+                variant={isMacTheme ? "secondary" : "outline"}
+                onClick={onReject}
+                className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
+              >
+                <span className="text-[10px] font-semibold leading-tight">
+                  Reject Pitch
+                </span>
+              </Button>
+            )}
+          </div>
+        ) : (
+          isAdmin && (
             <Button
               variant={isMacTheme ? "secondary" : "outline"}
               onClick={onReject}
-              className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
+              className="w-full min-h-[36px] touch-manipulation"
             >
-              <span className="text-[10px] font-semibold leading-tight">
-                Reject Pitch
-              </span>
+              <span>Decline Offer</span>
             </Button>
-          </div>
-        ) : (
-          <Button
-            variant={isMacTheme ? "secondary" : "outline"}
-            onClick={onReject}
-            className="w-full min-h-[36px] touch-manipulation"
-          >
-            <span>Decline Offer</span>
-          </Button>
+          )
         )}
       </CardFooter>
+      )}
     </AquaCard>
   );
 }

@@ -82,10 +82,12 @@ export function PitchAppComponent({
   const shouldShowDevToggle = isDevMode && devUserIdEnv && String(devUserIdEnv).trim() !== "";
 
   const {
+    pitches,
     pitchDetails,
     isLoading,
     error,
     fetchPitches,
+    refreshPitch,
     createPitch,
     deletePitch,
     closePitch,
@@ -106,6 +108,25 @@ export function PitchAppComponent({
       });
     }
   }, [isWindowOpen, fetchPitches]);
+
+  // Load details (votes + comments) for the current user's pitches. The list
+  // endpoint only returns summary fields, so without this the comment block on
+  // each card would never populate. Mirrors the Incoming Offers app.
+  useEffect(() => {
+    if (!greenroomUserId) return;
+    const missingDetailIds = pitchDetails
+      ? userPitches.map((p) => p.id).filter((id) => !pitchDetails[id])
+      : userPitches.map((p) => p.id);
+    if (missingDetailIds.length === 0) return;
+    Promise.all(
+      missingDetailIds.map((id) =>
+        refreshPitch(id).catch((err) =>
+          console.error(`Failed to load pitch ${id}:`, err)
+        )
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pitches, pitchDetails, greenroomUserId, refreshPitch]);
 
   useEffect(() => {
     if (error) {
