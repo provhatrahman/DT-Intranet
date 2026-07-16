@@ -26,6 +26,20 @@ export interface BookingListItem {
   status: BookingStatus;
   agreed_fee: string | null;
   notes: string | null;
+  // Vote rollups, mirroring the pitch list. Present once the backend booking
+  // vote endpoints are live; treated as 0 when absent.
+  total_votes?: number;
+  yes_votes?: number;
+}
+
+// One vote per user on a booking, mirroring PitchVote exactly.
+export interface BookingVote {
+  user_id: number;
+  username: string;
+  vote_value: number;
+  comment: string | null;
+  // Independent of vote_value: this voter wants to be personally involved.
+  wants_involvement?: boolean;
 }
 
 export interface BookingDetail {
@@ -44,6 +58,19 @@ export interface BookingDetail {
   status: BookingStatus;
   agreed_fee: string | null;
   notes: string | null;
+  votes: BookingVote[];
+}
+
+// One vote per user, upserted: voting again REPLACES the previous vote.
+// vote_value is 1 (yes), -1 (no), or 0 (abstain / clear). The backend
+// validates the value and rejects anything else with 400.
+export interface BookingVotePayload {
+  user_id: number;
+  vote_value: 1 | -1 | 0;
+  comment?: string;
+  // Optional; omitted keys are left unchanged by the backend. Sent to flag
+  // (or clear) that the voter wants to be personally involved.
+  wants_involvement?: boolean;
 }
 
 // artist_id + project_id are the only required fields.
@@ -138,6 +165,22 @@ export async function deleteBooking(
   );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to delete booking"));
+  }
+  return await response.json();
+}
+
+// Mirror of voteOnPitch. One vote per user per booking, upserted on re-vote.
+export async function voteOnBooking(
+  id: number,
+  payload: BookingVotePayload
+): Promise<{ message: string; vote_id: number; vote_value: number }> {
+  const response = await fetch(`${GREENROOM_API_BASE}/bookings/${id}/vote/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to vote on booking"));
   }
   return await response.json();
 }

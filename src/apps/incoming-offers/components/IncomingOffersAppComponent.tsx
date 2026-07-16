@@ -142,9 +142,12 @@ export function IncomingOffersAppComponent({
   } = useProjectsStore();
   const {
     bookings,
+    bookingDetails,
     fetchBookings,
+    refreshBooking,
     setBookingStatus,
     createBooking,
+    voteOnBooking,
   } = useBookingsStore();
   const { artists, fetchArtists } = useArtistsStore();
 
@@ -180,6 +183,22 @@ export function IncomingOffersAppComponent({
       )
     );
   }, [pitches, pitchDetails, refreshPitch]);
+
+  // Same for pending bookings ("Offers") — load their vote details.
+  useEffect(() => {
+    const inboxBookingIds = bookings
+      .filter((b) => b.status === "pending")
+      .map((b) => b.booking_id)
+      .filter((id) => !bookingDetails[id]);
+    if (inboxBookingIds.length === 0) return;
+    Promise.all(
+      inboxBookingIds.map((id) =>
+        refreshBooking(id).catch((err) =>
+          console.error(`Failed to load booking ${id}:`, err)
+        )
+      )
+    );
+  }, [bookings, bookingDetails, refreshBooking]);
 
   const offers = useMemo(() => {
     const pitchOffers: Offer[] = pitches
@@ -223,44 +242,81 @@ export function IncomingOffersAppComponent({
     return [...bookingOffers, ...pitchOffers];
   }, [pitches, bookings]);
 
-  // Real vote rollups per pitch offer, from the backend's one-vote-per-user
-  // model (1 = yes, -1 = no, 0 = abstain).
+  // The votes on an offer, from whichever backend backs it. Pitches and
+  // bookings share the same one-vote-per-user model and vote shape.
+  const getOfferVotes = useCallback(
+    (
+      offer: Offer
+    ): {
+      user_id: number;
+      vote_value: number;
+      comment: string | null;
+      wants_involvement?: boolean;
+    }[] => {
+      if (offer.source === "pitch" && offer.pitchId) {
+        return pitchDetails[offer.pitchId]?.votes ?? [];
+      }
+      if (offer.source === "booking" && offer.bookingId) {
+        return bookingDetails[offer.bookingId]?.votes ?? [];
+      }
+      return [];
+    },
+    [pitchDetails, bookingDetails]
+  );
+
+  // Real vote rollups per offer, from the backend's one-vote-per-user model
+  // (1 = yes, -1 = no, 0 = abstain).
   const voteCounts = useMemo(() => {
     const counts: Record<string, PitchVoteCounts> = {};
     offers.forEach((offer) => {
-      if (offer.source !== "pitch" || !offer.pitchId) return;
-      const detail = pitchDetails[offer.pitchId];
-      const rollup: PitchVoteCounts = { yes: 0, no: 0, abstain: 0 };
-      detail?.votes?.forEach((vote) => {
+      const rollup: PitchVoteCounts = { yes: 0, no: 0, abstain: 0, involved: 0 };
+      getOfferVotes(offer).forEach((vote) => {
         if (vote.vote_value === 1) rollup.yes++;
         else if (vote.vote_value === -1) rollup.no++;
         else rollup.abstain++;
+        if (vote.wants_involvement) rollup.involved++;
       });
       counts[offer.id] = rollup;
     });
     return counts;
-  }, [offers, pitchDetails]);
+  }, [offers, getOfferVotes]);
 
   const getUserVote = useCallback(
-    (pitchId: number): PitchVoteChoice | null => {
+    (offer: Offer): PitchVoteChoice | null => {
       if (!greenroomUserId) return null;
-      const detail = pitchDetails[pitchId];
-      const vote = detail?.votes?.find((v) => v.user_id === greenroomUserId);
+      const vote = getOfferVotes(offer).find(
+        (v) => v.user_id === greenroomUserId
+      );
       if (!vote) return null;
       if (vote.vote_value === 1) return "yes";
       if (vote.vote_value === -1) return "no";
       return "abstain";
     },
-    [pitchDetails, greenroomUserId]
+    [getOfferVotes, greenroomUserId]
+  );
+
+  // Whether the current user has flagged that they want to be personally
+  // involved. Independent of how (or whether) they voted.
+  const getUserInvolvement = useCallback(
+    (offer: Offer): boolean => {
+      if (!greenroomUserId) return false;
+      const vote = getOfferVotes(offer).find(
+        (v) => v.user_id === greenroomUserId
+      );
+      return vote?.wants_involvement ?? false;
+    },
+    [getOfferVotes, greenroomUserId]
   );
 
   const handleVote = async (offer: Offer, choice: PitchVoteChoice) => {
-    if (!offer.pitchId) return;
+    const votableId =
+      offer.source === "pitch" ? offer.pitchId : offer.bookingId;
+    if (!votableId) return;
     if (!greenroomUserId) {
-      toast.error("Please set up your Greenroom account to vote on pitches");
+      toast.error("Please set up your Greenroom account to vote");
       return;
     }
-    const current = getUserVote(offer.pitchId);
+    const current = getUserVote(offer);
 
     // Voting "no" collects an optional comment first.
     if (choice === "no" && current !== "no") {
@@ -277,14 +333,69 @@ export function IncomingOffersAppComponent({
       current === choice ? 0 : choice === "yes" ? 1 : choice === "no" ? -1 : 0;
 
     try {
-      await voteOnPitch(offer.pitchId, {
-        user_id: greenroomUserId,
-        vote_value: voteValue,
-        comment: "",
-      });
+      if (offer.source === "pitch" && offer.pitchId) {
+        await voteOnPitch(offer.pitchId, {
+          user_id: greenroomUserId,
+          vote_value: voteValue,
+          comment: "",
+        });
+      } else if (offer.source === "booking" && offer.bookingId) {
+        await voteOnBooking(offer.bookingId, {
+          user_id: greenroomUserId,
+          vote_value: voteValue,
+          comment: "",
+        });
+      }
       toast.success("Vote recorded");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to vote";
+      toast.error(message);
+    }
+  };
+
+  // Toggle "I'd like to be personally involved". This is a separate flag on the
+  // user's vote row, independent of the yes/no/abstain value — so we preserve
+  // whatever they've voted (default abstain if they haven't) and just flip the
+  // involvement flag. Preserving the comment keeps any "no" reason intact.
+  const handleToggleInvolvement = async (offer: Offer) => {
+    const votableId =
+      offer.source === "pitch" ? offer.pitchId : offer.bookingId;
+    if (!votableId) return;
+    if (!greenroomUserId) {
+      toast.error("Please set up your Greenroom account to register interest");
+      return;
+    }
+
+    const existing = getOfferVotes(offer).find(
+      (v) => v.user_id === greenroomUserId
+    );
+    const voteValue = (existing?.vote_value ?? 0) as 1 | -1 | 0;
+    const nextInvolvement = !(existing?.wants_involvement ?? false);
+
+    try {
+      if (offer.source === "pitch" && offer.pitchId) {
+        await voteOnPitch(offer.pitchId, {
+          user_id: greenroomUserId,
+          vote_value: voteValue,
+          comment: existing?.comment ?? "",
+          wants_involvement: nextInvolvement,
+        });
+      } else if (offer.source === "booking" && offer.bookingId) {
+        await voteOnBooking(offer.bookingId, {
+          user_id: greenroomUserId,
+          vote_value: voteValue,
+          comment: existing?.comment ?? "",
+          wants_involvement: nextInvolvement,
+        });
+      }
+      toast.success(
+        nextInvolvement
+          ? "You're flagged as wanting to be involved"
+          : "Removed your interest"
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update interest";
       toast.error(message);
     }
   };
@@ -294,17 +405,26 @@ export function IncomingOffersAppComponent({
     setIsFeedbackDialogOpen(false);
     setFeedbackText("");
     setPendingFeedbackOfferId(null);
-    if (!offer?.pitchId || !greenroomUserId) return;
+    if (!offer || !greenroomUserId) return;
 
     try {
       if (feedbackMode === "vote-no") {
-        await voteOnPitch(offer.pitchId, {
-          user_id: greenroomUserId,
-          vote_value: -1,
-          comment: feedback,
-        });
+        // "No" vote with an optional reason — route to the right backend.
+        if (offer.source === "pitch" && offer.pitchId) {
+          await voteOnPitch(offer.pitchId, {
+            user_id: greenroomUserId,
+            vote_value: -1,
+            comment: feedback,
+          });
+        } else if (offer.source === "booking" && offer.bookingId) {
+          await voteOnBooking(offer.bookingId, {
+            user_id: greenroomUserId,
+            vote_value: -1,
+            comment: feedback,
+          });
+        }
         toast.success("Vote recorded");
-      } else {
+      } else if (offer.pitchId) {
         // Reject the pitch outright: record the reason as a comment (visible
         // to the submitter in the Pitch app) and set status to rejected.
         if (feedback.trim()) {
@@ -601,11 +721,11 @@ export function IncomingOffersAppComponent({
                     key={offer.id}
                     offer={offer}
                     isAdmin={isAdmin}
-                    userVote={
-                      offer.pitchId ? getUserVote(offer.pitchId) : null
-                    }
+                    userVote={getUserVote(offer)}
+                    userInvolved={getUserInvolvement(offer)}
                     counts={voteCounts[offer.id]}
                     onVote={(choice) => handleVote(offer, choice)}
+                    onToggleInvolvement={() => handleToggleInvolvement(offer)}
                     onApprove={() => handleApproveClick(offer.id)}
                     onReject={() =>
                       offer.source === "pitch"
@@ -709,16 +829,20 @@ function OfferCard({
   offer,
   isAdmin,
   userVote,
+  userInvolved,
   counts,
   onVote,
+  onToggleInvolvement,
   onApprove,
   onReject,
 }: {
   offer: Offer;
   isAdmin: boolean;
   userVote: PitchVoteChoice | null;
+  userInvolved: boolean;
   counts?: PitchVoteCounts;
   onVote: (choice: PitchVoteChoice) => void;
+  onToggleInvolvement: () => void;
   onApprove: () => void;
   onReject: () => void;
 }) {
@@ -792,10 +916,8 @@ function OfferCard({
           )}
         </div>
       </CardContent>
-      {/* Footer only renders when there's an action to show: pitches always
-          have the Yes vote; bookings expose actions only to admins. Avoids an
-          empty bordered bar for non-admins viewing bookings. */}
-      {(isPitch || isAdmin) && (
+      {/* Both pitches and bookings are voted on Yes/No by everyone; only admins
+          get the terminal action (Reject Pitch / Decline Offer) and Approve. */}
       <CardFooter
         className={cn(
           "pt-3 border-t flex flex-col gap-2",
@@ -814,55 +936,49 @@ function OfferCard({
             </span>
           </Button>
         )}
-        {isPitch ? (
-          // Everyone can vote Yes/No; only admins get the terminal Reject action.
-          <div
-            className={cn(
-              "w-full grid gap-2",
-              isAdmin ? "grid-cols-3" : "grid-cols-2"
-            )}
+        <div
+          className={cn(
+            "w-full grid gap-2",
+            isAdmin ? "grid-cols-3" : "grid-cols-2"
+          )}
+        >
+          <VoteButton
+            active={userVote === "yes"}
+            count={counts?.yes ?? 0}
+            onClick={() => onVote("yes")}
+            color="green"
           >
-            <VoteButton
-              active={userVote === "yes"}
-              count={counts?.yes ?? 0}
-              onClick={() => onVote("yes")}
-              color="green"
-            >
-              Yes
-            </VoteButton>
-            <VoteButton
-              active={userVote === "no"}
-              count={counts?.no ?? 0}
-              onClick={() => onVote("no")}
-              color="red"
-            >
-              No
-            </VoteButton>
-            {isAdmin && (
-              <Button
-                variant={isMacTheme ? "secondary" : "outline"}
-                onClick={onReject}
-                className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
-              >
-                <span className="text-[10px] font-semibold leading-tight">
-                  Reject Pitch
-                </span>
-              </Button>
-            )}
-          </div>
-        ) : (
-          isAdmin && (
+            Yes
+          </VoteButton>
+          <VoteButton
+            active={userVote === "no"}
+            count={counts?.no ?? 0}
+            onClick={() => onVote("no")}
+            color="red"
+          >
+            No
+          </VoteButton>
+          {isAdmin && (
             <Button
               variant={isMacTheme ? "secondary" : "outline"}
               onClick={onReject}
-              className="w-full min-h-[36px] touch-manipulation"
+              className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
             >
-              <span>Decline Offer</span>
+              <span className="text-[10px] font-semibold leading-tight">
+                {isPitch ? "Reject Pitch" : "Decline Offer"}
+              </span>
             </Button>
-          )
-        )}
+          )}
+        </div>
+        {/* Separate from the yes/no vote: register personal interest in working
+            on this project. A voter can flag this whether they voted yes, no,
+            or not at all. */}
+        <InvolvementButton
+          active={userInvolved}
+          count={counts?.involved ?? 0}
+          onClick={onToggleInvolvement}
+        />
       </CardFooter>
-      )}
     </AquaCard>
   );
 }
@@ -929,6 +1045,63 @@ function VoteButton({
         {children}
       </span>
       <span className="text-[9px] opacity-80 relative z-10">({count})</span>
+    </Button>
+  );
+}
+
+// A full-width toggle, distinct from the Yes/No vote, letting the user raise
+// their hand to be personally involved. Active state uses the warm "orange"
+// gel (mac) / amber overlay (retro) so it reads apart from the green/red votes.
+function InvolvementButton({
+  active,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  const { isMacTheme } = useOsTheme();
+  const label = active ? "★ Count me in" : "☆ I'm interested";
+
+  if (isMacTheme) {
+    return (
+      <Button
+        variant="secondary"
+        onClick={onClick}
+        aria-pressed={active}
+        title="Flag that you'd like to be personally involved in this project"
+        className={cn(
+          "w-full h-auto min-h-[36px] py-1.5 px-2 flex items-center justify-center gap-1.5 touch-manipulation",
+          active && "orange"
+        )}
+      >
+        <span className="font-semibold text-[11px] leading-tight">{label}</span>
+        <span className="text-[10px] opacity-90">({count})</span>
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="retro"
+      onClick={onClick}
+      aria-pressed={active}
+      title="Flag that you'd like to be personally involved in this project"
+      className={cn(
+        "w-full h-auto min-h-[36px] py-1.5 px-2 text-xs flex items-center justify-center gap-1.5 focus:outline-none focus:ring-0 relative overflow-hidden touch-manipulation",
+        active && "[border-image:url('/assets/button-default.svg')_60_stretch]"
+      )}
+      style={{
+        backgroundColor: active
+          ? "rgba(245, 158, 11, 0.95)"
+          : "rgba(245, 158, 11, 0.2)",
+      }}
+    >
+      <span className="font-semibold text-[11px] leading-tight relative z-10">
+        {label}
+      </span>
+      <span className="text-[10px] opacity-80 relative z-10">({count})</span>
     </Button>
   );
 }

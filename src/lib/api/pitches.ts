@@ -31,6 +31,8 @@ export interface PitchVote {
   username: string;
   vote_value: number;
   comment: string | null;
+  // Independent of vote_value: this voter wants to be personally involved.
+  wants_involvement?: boolean;
 }
 
 export interface PitchComment {
@@ -65,6 +67,9 @@ export interface VotePayload {
   user_id: number;
   vote_value: 1 | -1 | 0;
   comment?: string;
+  // Optional; omitted keys are left unchanged by the backend. Sent to flag
+  // (or clear) that the voter wants to be personally involved.
+  wants_involvement?: boolean;
 }
 
 export interface CommentPayload {

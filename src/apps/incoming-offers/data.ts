@@ -5,9 +5,10 @@
 //    plus an optional comment. Approving calls POST /pitches/{id}/approve/.
 //
 //  - "booking" offers: bookings with status "pending" — an external offer for
-//    an artist to appear on a project. Bookings have no voting; the actions
-//    are confirm (approve) or decline. Event data (date, city, venue) is
-//    denormalized from the linked project.
+//    an artist to appear on a project. Bookings now use the same yes/no/abstain
+//    vote model as pitches (backend booking_votes); admins additionally confirm
+//    (approve) or decline. Event data (date, city, venue) is denormalized from
+//    the linked project.
 
 export interface Offer {
   id: string; // "pitch-{id}" | "booking-{id}"
@@ -34,6 +35,9 @@ export interface PitchVoteCounts {
   yes: number;
   no: number;
   abstain: number;
+  // How many voters flagged that they want to be personally involved. This is
+  // independent of the yes/no/abstain tally (a voter can want in either way).
+  involved: number;
 }
 
 export type PitchVoteChoice = "yes" | "no" | "abstain";

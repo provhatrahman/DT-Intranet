@@ -1,32 +1,40 @@
 import { create } from "zustand";
 import {
   BookingListItem,
+  BookingDetail,
   BookingStatus,
+  BookingVotePayload,
   CreateBookingPayload,
   UpdateBookingPayload,
   getBookings as apiGetBookings,
+  getBookingById as apiGetBookingById,
   createBooking as apiCreateBooking,
   updateBooking as apiUpdateBooking,
   deleteBooking as apiDeleteBooking,
+  voteOnBooking as apiVoteOnBooking,
 } from "@/lib/api/bookings";
 
 interface BookingsState {
   bookings: BookingListItem[];
+  bookingDetails: Record<number, BookingDetail>;
   isLoading: boolean;
   error: string | null;
   lastFetch: number | null;
 
   fetchBookings: () => Promise<void>;
+  refreshBooking: (id: number) => Promise<void>;
   createBooking: (payload: CreateBookingPayload) => Promise<number>;
   updateBooking: (id: number, payload: UpdateBookingPayload) => Promise<void>;
   setBookingStatus: (id: number, status: BookingStatus) => Promise<void>;
   deleteBooking: (id: number) => Promise<void>;
+  voteOnBooking: (id: number, payload: BookingVotePayload) => Promise<void>;
   getPendingBookings: () => BookingListItem[];
   clearError: () => void;
 }
 
 export const useBookingsStore = create<BookingsState>((set, get) => ({
   bookings: [],
+  bookingDetails: {},
   isLoading: false,
   error: null,
   lastFetch: null,
@@ -40,6 +48,20 @@ export const useBookingsStore = create<BookingsState>((set, get) => ({
       const message =
         error instanceof Error ? error.message : "Failed to fetch bookings";
       set({ error: message, isLoading: false });
+      throw error;
+    }
+  },
+
+  refreshBooking: async (id: number) => {
+    try {
+      const detail = await apiGetBookingById(id);
+      set((state) => ({
+        bookingDetails: { ...state.bookingDetails, [id]: detail },
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : `Failed to fetch booking ${id}`;
+      set({ error: message });
       throw error;
     }
   },
@@ -73,6 +95,19 @@ export const useBookingsStore = create<BookingsState>((set, get) => ({
 
   setBookingStatus: async (id: number, status: BookingStatus) => {
     await get().updateBooking(id, { status });
+  },
+
+  voteOnBooking: async (id: number, payload: BookingVotePayload) => {
+    try {
+      await apiVoteOnBooking(id, payload);
+      await get().refreshBooking(id);
+      await get().fetchBookings();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to vote on booking";
+      set({ error: message });
+      throw error;
+    }
   },
 
   deleteBooking: async (id: number) => {
