@@ -489,13 +489,13 @@ export function PitchAppComponent({
                         // (detail.comments) and the optional comments voters
                         // attach to their yes/no vote in the Inbox
                         // (detail.votes[].comment). Vote comments carry a
-                        // sentiment badge so the submitter sees who voted which
-                        // way and why.
+                        // sentiment badge so the submitter sees which way each
+                        // reviewer voted and why.
                         const voteComments = (detail?.votes || [])
                           .filter((v) => v.comment && v.comment.trim())
                           .map((v) => ({
                             key: `vote-${v.user_id}`,
-                            username: v.username,
+                            userId: v.user_id,
                             text: v.comment as string,
                             sentiment:
                               v.vote_value === 1
@@ -507,12 +507,31 @@ export function PitchAppComponent({
                         const plainComments = (detail?.comments || []).map(
                           (c) => ({
                             key: `comment-${c.id}`,
-                            username: c.username,
+                            userId: c.user_id,
                             text: c.comment,
                             sentiment: null,
                           })
                         );
-                        const feedback = [...voteComments, ...plainComments];
+                        // Anonymise feedback for the submitter — they see the
+                        // comment and the vote sentiment, but never who left
+                        // it. Each distinct reviewer gets a stable "Anonymous N"
+                        // label (first-seen order) so multiple comments stay
+                        // distinguishable without revealing identity.
+                        const anonLabels = new Map<number, string>();
+                        const feedback = [...voteComments, ...plainComments].map(
+                          (item) => {
+                            if (!anonLabels.has(item.userId)) {
+                              anonLabels.set(
+                                item.userId,
+                                `Anonymous ${anonLabels.size + 1}`
+                              );
+                            }
+                            return {
+                              ...item,
+                              displayName: anonLabels.get(item.userId)!,
+                            };
+                          }
+                        );
 
                         return (
                           <AquaCard key={pitch.id} className="group overflow-hidden">
@@ -637,7 +656,7 @@ export function PitchAppComponent({
                                       >
                                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                                           <span className="font-medium">
-                                            {item.username}
+                                            {item.displayName}
                                           </span>
                                           {item.sentiment && (
                                             <span
