@@ -52,7 +52,10 @@ export function FormDialog({
         <p className="text-sm text-muted-foreground mb-3">{description}</p>
       )}
       <ScrollArea className="max-h-[60dvh] pr-3 overscroll-contain">
-        {children}
+        {/* px-1 keeps outset control shadows (e.g. the aqua Select ring/glow,
+            which sit outside the element box) from being clipped by the
+            ScrollArea viewport's horizontal overflow. */}
+        <div className="px-1">{children}</div>
       </ScrollArea>
       {footer && <DialogFooter className="mt-4 gap-1.5">{footer}</DialogFooter>}
     </div>
