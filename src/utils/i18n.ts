@@ -20,8 +20,7 @@ export type AppId =
   | "incoming-offers"
   | "active-projects"
   | "pitch"
-  | "archive"
-  | "api-tester";
+  | "archive";
 
 /**
  * Get translated app name
@@ -130,7 +129,6 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
     "incoming-offers": [],
     "active-projects": [],
     archive: [],
-    "api-tester": [],
   };
 
   const keys = helpKeys[appId] || [];

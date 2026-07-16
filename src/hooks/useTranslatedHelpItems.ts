@@ -33,7 +33,6 @@ export function useTranslatedHelpItems(
     "incoming-offers": [],
     "active-projects": [],
     archive: [],
-    "api-tester": [],
   };
 
   return useMemo(() => {
