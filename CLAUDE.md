@@ -100,3 +100,21 @@ Four OS themes: `system7`, `macosx` (Aqua), `xp`, `win98`. Current theme is in `
 ## Resetting local data
 
 ryOS state lives in localStorage (keys prefixed `ryos:`, `dock-`, `app_`, `_usr_`, `_auth_`) and an IndexedDB database named `ryOS`. The README has a console snippet to clear both; refresh afterward to reinitialize defaults.
+
+## Greenroom development & operations (CLI)
+
+Operational source of truth for developing and shipping Greenroom. Full walkthrough: `DEVELOPMENT.md`. Step-by-step procedures are packaged as skills in `.claude/skills/` (`greenroom-local-dev`, `greenroom-deploy-frontend`, `greenroom-deploy-backend`, `greenroom-db-change`) — prefer invoking those for the actual moves.
+
+**Repos & branch.** Frontend = this repo (`ryos`). Backend = `c:\Projects\backend` (Django split into per-domain AWS Lambdas; github.com/arronS22/greenroom-backend). Active dev branch on both = **`greenroom-develop`**.
+
+**AWS.** Account `471028617262`, region `eu-west-2`, CLI profile **`greenroom-cli`** (admin). Always pass `--profile greenroom-cli`. NOTE: the SSO profile `AdministratorAccess-471028617262` is **MFA-locked/unusable** — any doc (e.g. the older `DEVELOPMENT_WORKFLOW.md`) that uses it for deploys is stale; use `greenroom-cli` instead.
+
+**Local dev loop** (isolated, safe): backend `cd c:\Projects\backend && .venv\Scripts\python manage.py runserver 8000` (serves all `/api/<domain>/` from the dev DB); frontend `GREENROOM_API_TARGET=http://localhost:8000 bun dev` (env-driven proxy in `vite.config.ts`; unset → prod). `bun run dev:vercel` runs the frontend against the **prod** Greenroom API (needed for ryOS AI `/api` routes).
+
+**Databases** (one RDS `prod-postgres…eu-west-2`): **dev** = `greenroom_dev` as `devuser` (what `.env` points at — an isolated clone, cannot touch prod); **prod** = `DT-Test` as `appdaytimers` (real data). Domain-table schema is **hand-run SQL** (`backend/scripts/sql/*.sql`), NOT Django migrations. Postgres client at `C:\Program Files\PostgreSQL\18\bin`.
+
+**Deploy.** Frontend → `AWS_PROFILE=greenroom-cli .\deploy.ps1` (build → S3 `daytimers-intranet-prod-471028617262` → CloudFront `E3OF10QS7S5YPV`; live at greenroom.daytimers.org). Backend → push to `main` (GitHub Actions builds + uploads `*-service.zip` to S3), then `aws lambda update-function-code --function-name prod-<domain>-service --s3-bucket prod-lambda-artifacts-471028617262 --s3-key <domain>-service.zip`. Do NOT build Lambda zips locally (Windows/Py3.13 ≠ Lambda Linux/Py3.11).
+
+**Safety.** Prod RDS: deletion protection ON, 7-day backups, restore snapshot `prod-postgres-predev-20260716`. Take a fresh snapshot before any prod schema change. Each prod Lambda has published version `1` as a rollback point. `DEBUG=False` in prod (SSM `/prod/app/debug=false`); `DEBUG=True` locally.
+
+**Known limitation:** the Greenroom API has **no authentication** — all gateway routes are open and writes are anonymous. Frontend "admin" (`src/config/greenroomAdmins.ts`) is UI-only, not enforced. To be addressed later via development; do not treat it as access control.

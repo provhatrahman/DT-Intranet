@@ -1,5 +1,10 @@
 # Development & Deployment Workflow Guide
 
+> ⚠️ **Partly superseded.** For the current full-stack (frontend + backend + DB) workflow,
+> see **`DEVELOPMENT.md`** and the skills in `.claude/skills/`. In particular, deploy with
+> AWS profile **`greenroom-cli`** — the `AdministratorAccess-471028617262` SSO profile
+> referenced below is MFA-locked and unusable. The frontend guidance here is still valid.
+
 This guide covers the complete workflow for developing, testing, and deploying ryOS to your AWS-hosted custom domain.
 
 ## Table of Contents
