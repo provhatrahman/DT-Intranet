@@ -23,6 +23,7 @@ import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useBookingsStore } from "@/stores/useBookingsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
+import { createArtist } from "@/lib/api/artists";
 import { toDateInputValue } from "../../active-projects/data";
 import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
 import { toast } from "sonner";
@@ -55,6 +56,12 @@ import * as React from "react";
 
 // Pitch statuses that count as "awaiting a decision" and belong in the Inbox.
 const INBOX_PITCH_STATUSES = ["submitted", "under_review"];
+
+// Incoming offers are for the collective as a whole, not an individual artist,
+// but the backend requires every booking to name an artist. We attach these
+// offers to a single stand-in "collective" artist, created lazily the first
+// time an offer is logged.
+const COLLECTIVE_ARTIST_NAME = "DAYTIMERS";
 
 // Extracts an ISO date from free-text pitch metadata if there is one, so the
 // details form can be prefilled; otherwise the user fills it in.
@@ -149,7 +156,7 @@ export function IncomingOffersAppComponent({
     createBooking,
     voteOnBooking,
   } = useBookingsStore();
-  const { artists, fetchArtists } = useArtistsStore();
+  const { artists, fetchArtists, findByName } = useArtistsStore();
 
   const { isMacTheme, isXpTheme } = useOsTheme();
 
@@ -228,7 +235,7 @@ export function IncomingOffersAppComponent({
         id: `booking-${b.booking_id}`,
         source: "booking" as const,
         name: b.project_name,
-        description: b.notes || `Offer for ${b.artist_name}`,
+        description: b.notes || "Incoming offer",
         promoter: [b.city, b.country].filter(Boolean).join(", ") || "Unknown",
         venue: [b.city, b.country].filter(Boolean).join(", ") || "TBD",
         date: b.event_date || "TBD",
@@ -569,10 +576,29 @@ export function IncomingOffersAppComponent({
     }
   };
 
+  // Offers belong to the collective, so they're all attached to a single
+  // stand-in artist. Reuse the existing one if it's already loaded or the
+  // backend knows it; otherwise create it once.
+  const resolveCollectiveArtistId = useCallback(async (): Promise<number> => {
+    const loaded = artists.find(
+      (a) =>
+        a.artist_name.toLowerCase() === COLLECTIVE_ARTIST_NAME.toLowerCase()
+    );
+    if (loaded) return loaded.id;
+    const found = await findByName(COLLECTIVE_ARTIST_NAME);
+    if (found !== null) return found;
+    const created = await createArtist({
+      artist_name: COLLECTIVE_ARTIST_NAME,
+      is_collective_member: true,
+    });
+    fetchArtists().catch(() => {});
+    return created.id;
+  }, [artists, findByName, fetchArtists]);
+
   const handleLogOffer = async (values: LogOfferFormValues) => {
-    if (values.artist_id === null) return;
     setIsLoggingOffer(true);
     try {
+      const artistId = await resolveCollectiveArtistId();
       // The project holds the event data and starts on_hold; approving the
       // offer later confirms the booking and activates the project.
       const projectId = await createProject({
@@ -587,7 +613,7 @@ export function IncomingOffersAppComponent({
         promoter_name: values.promoter_name.trim() || undefined,
       });
       await createBooking({
-        artist_id: values.artist_id,
+        artist_id: artistId,
         project_id: projectId,
         status: "pending",
         agreed_fee: values.agreed_fee.trim() || undefined,
@@ -815,7 +841,6 @@ export function IncomingOffersAppComponent({
         />
         <LogOfferDialog
           isOpen={isLogOfferOpen}
-          artists={artists}
           isSaving={isLoggingOffer}
           onClose={() => setIsLogOfferOpen(false)}
           onSubmit={handleLogOffer}
@@ -857,9 +882,9 @@ function OfferCard({
             <CardTitle className="text-lg leading-tight">
               {offer.name}
             </CardTitle>
-            <CardDescription>
-              {isPitch ? offer.promoter : offer.artistName ?? offer.promoter}
-            </CardDescription>
+            {isPitch && (
+              <CardDescription>{offer.promoter}</CardDescription>
+            )}
           </div>
           <StatusBadge
             status={offer.source}
@@ -889,15 +914,10 @@ function OfferCard({
             </span>
             <span className="break-words">{offer.venue}</span>
           </div>
-          {isPitch ? (
+          {isPitch && (
             <div className="flex flex-col">
               <span className="text-muted-foreground font-medium">Time</span>
               <span>{offer.timings}</span>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              <span className="text-muted-foreground font-medium">Artist</span>
-              <span className="break-words">{offer.artistName}</span>
             </div>
           )}
           {offer.submittedAt && (

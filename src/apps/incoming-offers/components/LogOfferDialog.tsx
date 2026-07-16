@@ -10,12 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field, FormDialog, useOsTheme } from "@/components/greenroom";
-import type { ArtistListItem } from "@/lib/api/artists";
 
 export interface LogOfferFormValues {
   name: string;
   description: string;
-  artist_id: number | null;
   event_date: string;
   venue_name: string;
   city: string;
@@ -29,7 +27,6 @@ export interface LogOfferFormValues {
 const EMPTY: LogOfferFormValues = {
   name: "",
   description: "",
-  artist_id: null,
   event_date: "",
   venue_name: "",
   city: "",
@@ -41,17 +38,17 @@ const EMPTY: LogOfferFormValues = {
 };
 
 // Records an external (non-pitch) offer as real backend data: a project
-// (created on_hold until the offer is approved) plus a pending booking for
-// the offered artist. Name and artist are the backend's required fields.
+// (created on_hold until the offer is approved) plus a pending booking.
+// Incoming offers are for the collective as a whole rather than a specific
+// artist, so no artist is chosen here — the booking is attached to a stand-in
+// collective artist by the caller. Only the offer name is required.
 export function LogOfferDialog({
   isOpen,
-  artists,
   isSaving,
   onClose,
   onSubmit,
 }: {
   isOpen: boolean;
-  artists: ArtistListItem[];
   isSaving: boolean;
   onClose: () => void;
   onSubmit: (values: LogOfferFormValues) => void;
@@ -68,7 +65,7 @@ export function LogOfferDialog({
     value: LogOfferFormValues[K]
   ) => setValues((prev) => ({ ...prev, [key]: value }));
 
-  const canSubmit = values.name.trim() !== "" && values.artist_id !== null;
+  const canSubmit = values.name.trim() !== "";
 
   return (
     <FormDialog
@@ -106,25 +103,6 @@ export function LogOfferDialog({
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="e.g. Warehouse Project Opening"
               />
-            </Field>
-            <Field label="Artist" required>
-              <Select
-                value={
-                  values.artist_id !== null ? String(values.artist_id) : ""
-                }
-                onValueChange={(v) => set("artist_id", Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Who is the offer for?" />
-                </SelectTrigger>
-                <SelectContent>
-                  {artists.map((a) => (
-                    <SelectItem key={a.id} value={String(a.id)}>
-                      {a.artist_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </Field>
             <Field label="Description">
               <Textarea
