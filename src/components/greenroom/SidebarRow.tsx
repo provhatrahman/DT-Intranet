@@ -26,10 +26,10 @@ export const SidebarRow = React.forwardRef<
         isMacTheme
           ? cn("aqua-row", selected && "aqua-row-selected")
           : cn(
-              "border",
+              "border shadow-sm",
               selected
                 ? "bg-muted border-primary/40"
-                : "hover:bg-muted/50 border-transparent"
+                : "bg-card border-border hover:bg-muted/50 hover:border-border/80"
             ),
         className
       )}
