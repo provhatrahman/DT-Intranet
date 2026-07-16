@@ -11,6 +11,28 @@ account (`471028617262`, region `eu-west-2`).
 
 ---
 
+## Daily workflow (the loop)
+
+Two environments: **dev = your local machine** (local API + the isolated `greenroom_dev` DB —
+there is **no** separately-deployed dev site) and **prod = the live system**. The flow is always
+**build & test locally → deploy to prod.**
+
+1. **Branch:** `git checkout greenroom-develop && git pull` (both repos; optional `feat/<name>`).
+2. **Run the local stack** (§1B): backend `runserver 8000` + frontend with `GREENROOM_API_TARGET=http://localhost:8000`.
+3. **Make changes:** frontend `src/…`; backend `api/views/<domain>.py` + `lambdas/<domain>/urls.py`;
+   DB via idempotent SQL applied to `greenroom_dev` (§3). Everything hot-reloads.
+4. **Test on dev:** exercise it in the browser, `curl` the local API, and gate the frontend with
+   `bun run lint` + `bun run build`.
+5. **Commit:** `git add -A && git commit -m "…"`.
+6. **Deploy only what changed** (§4): frontend → `.\deploy.ps1`; backend → push to `main` → CI →
+   `update-function-code`; DB → snapshot then run the *same tested SQL* against `DT-Test`.
+   **Apply DB changes before** the backend code that depends on them.
+
+Rollback: frontend → redeploy previous commit; backend → Lambda version `1` or previous S3 zip;
+DB → restore snapshot.
+
+---
+
 ## 0. One-time prerequisites
 
 - **AWS CLI** logged in as profile `greenroom-cli` (admin). Check:
