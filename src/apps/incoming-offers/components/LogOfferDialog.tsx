@@ -15,6 +15,7 @@ export interface LogOfferFormValues {
   name: string;
   description: string;
   event_date: string;
+  timings: string;
   venue_name: string;
   city: string;
   country: string;
@@ -28,6 +29,7 @@ const EMPTY: LogOfferFormValues = {
   name: "",
   description: "",
   event_date: "",
+  timings: "",
   venue_name: "",
   city: "",
   country: "",
@@ -125,6 +127,13 @@ export function LogOfferDialog({
                   onChange={(e) => set("agreed_fee", e.target.value)}
                   placeholder="e.g. 1500"
                   inputMode="decimal"
+                />
+              </Field>
+              <Field label="Time" className="sm:col-span-2">
+                <Input
+                  value={values.timings}
+                  onChange={(e) => set("timings", e.target.value)}
+                  placeholder="e.g. Doors 7pm, on stage 9pm"
                 />
               </Field>
               <Field label="Venue" className="sm:col-span-2">

@@ -123,6 +123,11 @@ export async function findArtistByName(
   const response = await fetch(
     `${GREENROOM_API_BASE}/artists/find/?name=${encodeURIComponent(name)}`
   );
+  // The endpoint answers 404 with { found: false } when there's no match —
+  // that's a valid "no such artist" result, not a transport error.
+  if (response.status === 404) {
+    return { id: 0, artist_name: name, found: false };
+  }
   if (!response.ok) {
     throw new Error(`Failed to find artist: ${response.statusText}`);
   }

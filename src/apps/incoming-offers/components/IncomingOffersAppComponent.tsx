@@ -236,11 +236,14 @@ export function IncomingOffersAppComponent({
         source: "booking" as const,
         name: b.project_name,
         description: b.notes || "Incoming offer",
+        // Header subtitle shows the location (city/country); the grid's Venue
+        // row uses the real venue name.
         promoter: [b.city, b.country].filter(Boolean).join(", ") || "Unknown",
-        venue: [b.city, b.country].filter(Boolean).join(", ") || "TBD",
+        venue: b.venue_name || "TBD",
         date: b.event_date || "TBD",
         fee: b.agreed_fee || "TBD",
-        timings: "TBD",
+        timings: b.timings || "TBD",
+        submittedAt: b.date_created ?? undefined,
         bookingId: b.booking_id,
         projectId: b.project_id,
         artistName: b.artist_name,
@@ -618,6 +621,7 @@ export function IncomingOffersAppComponent({
         status: "pending",
         agreed_fee: values.agreed_fee.trim() || undefined,
         notes: values.notes.trim() || undefined,
+        timings: values.timings.trim() || undefined,
       });
       toast.success("Offer logged");
       setIsLogOfferOpen(false);
@@ -882,9 +886,7 @@ function OfferCard({
             <CardTitle className="text-lg leading-tight">
               {offer.name}
             </CardTitle>
-            {isPitch && (
-              <CardDescription>{offer.promoter}</CardDescription>
-            )}
+            <CardDescription>{offer.promoter}</CardDescription>
           </div>
           <StatusBadge
             status={offer.source}
@@ -909,17 +911,13 @@ function OfferCard({
             <span>{offer.fee}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-muted-foreground font-medium">
-              {isPitch ? "Venue" : "Location"}
-            </span>
+            <span className="text-muted-foreground font-medium">Venue</span>
             <span className="break-words">{offer.venue}</span>
           </div>
-          {isPitch && (
-            <div className="flex flex-col">
-              <span className="text-muted-foreground font-medium">Time</span>
-              <span>{offer.timings}</span>
-            </div>
-          )}
+          <div className="flex flex-col">
+            <span className="text-muted-foreground font-medium">Time</span>
+            <span>{offer.timings}</span>
+          </div>
           {offer.submittedAt && (
             <div className="flex flex-col col-span-2">
               <span className="text-muted-foreground font-medium">

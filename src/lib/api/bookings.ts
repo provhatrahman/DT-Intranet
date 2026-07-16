@@ -23,9 +23,17 @@ export interface BookingListItem {
   city: string | null;
   country: string | null;
   location_id: number | null;
+  // Event venue, denormalized from the linked project (shown as "Venue" on
+  // Inbox offer cards, distinct from the city/country "location").
+  venue_name: string | null;
   status: BookingStatus;
   agreed_fee: string | null;
   notes: string | null;
+  // Free-text event timings shown as "Time" on offer cards (e.g. "Doors 7pm").
+  timings: string | null;
+  // When the booking (offer) was logged — shown as "Submitted", mirroring a
+  // pitch's date_submitted.
+  date_created: string | null;
   // Vote rollups, mirroring the pitch list. Present once the backend booking
   // vote endpoints are live; treated as 0 when absent.
   total_votes?: number;
@@ -58,6 +66,8 @@ export interface BookingDetail {
   status: BookingStatus;
   agreed_fee: string | null;
   notes: string | null;
+  timings: string | null;
+  date_created: string | null;
   votes: BookingVote[];
 }
 
@@ -80,6 +90,7 @@ export interface CreateBookingPayload {
   status?: BookingStatus;
   agreed_fee?: string | number;
   notes?: string;
+  timings?: string;
 }
 
 export interface UpdateBookingPayload {
@@ -88,6 +99,7 @@ export interface UpdateBookingPayload {
   status?: BookingStatus;
   agreed_fee?: string | number;
   notes?: string;
+  timings?: string;
 }
 
 interface BookingsListResponse {
