@@ -22,8 +22,10 @@ import { usePitchesStore } from "@/stores/usePitchesStore";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useBookingsStore } from "@/stores/useBookingsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
+import { useLoggedOffersStore } from "@/stores/useLoggedOffersStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { createArtist } from "@/lib/api/artists";
+import { deleteProject } from "@/lib/api/projects";
 import { toDateInputValue } from "../../active-projects/data";
 import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
 import { toast } from "sonner";
@@ -50,7 +52,7 @@ import {
   StatusBadge,
   useOsTheme,
 } from "@/components/greenroom";
-import { Inbox } from "lucide-react";
+import { Inbox, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -120,6 +122,12 @@ export function IncomingOffersAppComponent({
     number | null
   >(null);
 
+  // Delete logged offer confirm (removes the booking + its stand-in project)
+  const [pendingDeleteOfferId, setPendingDeleteOfferId] = useState<
+    string | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Log external offer
   const [isLogOfferOpen, setIsLogOfferOpen] = useState(false);
   const [isLoggingOffer, setIsLoggingOffer] = useState(false);
@@ -154,9 +162,12 @@ export function IncomingOffersAppComponent({
     refreshBooking,
     setBookingStatus,
     createBooking,
+    deleteBooking,
     voteOnBooking,
   } = useBookingsStore();
   const { artists, fetchArtists, findByName } = useArtistsStore();
+  const { recordOwnedBooking, forgetOwnedBooking, ownsBooking } =
+    useLoggedOffersStore();
 
   const { isMacTheme, isXpTheme } = useOsTheme();
 
@@ -591,6 +602,57 @@ export function IncomingOffersAppComponent({
     }
   };
 
+  // Whether the current user is allowed to delete a given offer card. Only
+  // logged (booking) offers are deletable — pitches come from the Pitch app and
+  // have their own reject flow. Admins can delete any logged offer; everyone
+  // else can only delete offers they logged themselves (tracked client-side).
+  const canDeleteOffer = useCallback(
+    (offer: Offer): boolean => {
+      if (offer.source !== "booking" || !offer.bookingId) return false;
+      return isAdmin || ownsBooking(greenroomUserId, offer.bookingId);
+    },
+    [isAdmin, ownsBooking, greenroomUserId]
+  );
+
+  const handleDeleteConfirm = async () => {
+    const offer = offers.find((o) => o.id === pendingDeleteOfferId);
+    if (!offer || !offer.bookingId || !canDeleteOffer(offer)) {
+      setPendingDeleteOfferId(null);
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      // Delete the booking first — the project delete is blocked by the backend
+      // while a booking is still attached to it.
+      await deleteBooking(offer.bookingId);
+      if (greenroomUserId) {
+        forgetOwnedBooking(greenroomUserId, offer.bookingId);
+      }
+      // Best-effort: also remove the stand-in project the log-offer flow created.
+      // It can legitimately fail (e.g. the project has since gained other linked
+      // records), in which case we still consider the card deleted.
+      if (offer.projectId != null) {
+        try {
+          await deleteProject(offer.projectId);
+          await fetchActiveProjects();
+        } catch (projectError) {
+          console.warn(
+            `Deleted booking ${offer.bookingId} but could not delete project ${offer.projectId}:`,
+            projectError
+          );
+        }
+      }
+      toast.success(`"${offer.name}" deleted`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete offer";
+      toast.error(message);
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteOfferId(null);
+    }
+  };
+
   // Offers belong to the collective, so they're all attached to a single
   // stand-in artist. Reuse the existing one if it's already loaded or the
   // backend knows it; otherwise create it once.
@@ -627,7 +689,7 @@ export function IncomingOffersAppComponent({
         country: values.country.trim() || undefined,
         promoter_name: values.promoter_name.trim() || undefined,
       });
-      await createBooking({
+      const bookingId = await createBooking({
         artist_id: artistId,
         project_id: projectId,
         status: "pending",
@@ -635,6 +697,11 @@ export function IncomingOffersAppComponent({
         notes: values.notes.trim() || undefined,
         timings: values.timings.trim() || undefined,
       });
+      // Remember that this user logged this offer so they can delete their own
+      // card later even without admin rights (ownership is client-side only).
+      if (greenroomUserId) {
+        recordOwnedBooking(greenroomUserId, bookingId);
+      }
       toast.success("Offer logged");
       setIsLogOfferOpen(false);
     } catch (error) {
@@ -763,12 +830,14 @@ export function IncomingOffersAppComponent({
                     key={offer.id}
                     offer={offer}
                     isAdmin={isAdmin}
+                    canDelete={canDeleteOffer(offer)}
                     userVote={getUserVote(offer)}
                     userInvolved={getUserInvolvement(offer)}
                     counts={voteCounts[offer.id]}
                     onVote={(choice) => handleVote(offer, choice)}
                     onToggleInvolvement={() => handleToggleInvolvement(offer)}
                     onApprove={() => handleApproveClick(offer.id)}
+                    onDelete={() => setPendingDeleteOfferId(offer.id)}
                     onReject={() =>
                       offer.source === "pitch"
                         ? handleRejectClick(offer)
@@ -856,6 +925,15 @@ export function IncomingOffersAppComponent({
           title="Decline Offer"
           description="Decline this offer? The booking will be marked as declined in the backend."
         />
+        <ConfirmDialog
+          isOpen={pendingDeleteOfferId !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDeleting) setPendingDeleteOfferId(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Offer"
+          description="Permanently delete this logged offer? The booking and the project it created will be removed. This can't be undone."
+        />
         <ProjectDetailsFormDialog
           isOpen={detailsProjectId !== null}
           title="Complete Project Details"
@@ -879,22 +957,26 @@ export function IncomingOffersAppComponent({
 function OfferCard({
   offer,
   isAdmin,
+  canDelete,
   userVote,
   userInvolved,
   counts,
   onVote,
   onToggleInvolvement,
   onApprove,
+  onDelete,
   onReject,
 }: {
   offer: Offer;
   isAdmin: boolean;
+  canDelete: boolean;
   userVote: PitchVoteChoice | null;
   userInvolved: boolean;
   counts?: PitchVoteCounts;
   onVote: (choice: PitchVoteChoice) => void;
   onToggleInvolvement: () => void;
   onApprove: () => void;
+  onDelete: () => void;
   onReject: () => void;
 }) {
   const { isMacTheme } = useOsTheme();
@@ -910,12 +992,26 @@ function OfferCard({
             </CardTitle>
             <CardDescription>{offer.promoter}</CardDescription>
           </div>
-          <StatusBadge
-            status={offer.source}
-            label={isPitch ? "Pitch" : "Offer"}
-            tone={isPitch ? "purple" : "blue"}
-            className="shrink-0 uppercase tracking-wide"
-          />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <StatusBadge
+              status={offer.source}
+              label={isPitch ? "Pitch" : "Offer"}
+              tone={isPitch ? "purple" : "blue"}
+              className="uppercase tracking-wide"
+            />
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                title="Delete this offer"
+                aria-label="Delete this offer"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive touch-manipulation"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 py-4 space-y-4 text-sm">
