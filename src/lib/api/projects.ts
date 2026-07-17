@@ -71,6 +71,14 @@ export interface ProjectStatusHistoryEntry {
   changed_at: string;
 }
 
+export interface ProjectUpdate {
+  id: number;
+  user_id: number | null;
+  username: string | null;
+  body: string;
+  created_at: string;
+}
+
 export interface ProjectDetail extends ProjectListItem {
   // `lineup` exists on detail responses but is empty on every project in the
   // live DB, so its item shape is unverified. Members is the populated list.
@@ -282,6 +290,43 @@ export async function getProjectStatusHistory(
   }
   const data = await response.json();
   return data.status_history ?? [];
+}
+
+// Free-text progress updates posted on a project, newest first. Distinct from
+// status-history (which only records status transitions).
+export async function getProjectUpdates(
+  id: number
+): Promise<ProjectUpdate[]> {
+  const response = await fetch(
+    `${GREENROOM_API_BASE}/projects/${id}/updates/`
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to fetch updates"));
+  }
+  const data = await response.json();
+  return data.updates ?? [];
+}
+
+// The Greenroom API has no auth, so the author's user_id is sent in the body
+// (as votes/comments do) so the update shows the real author.
+export async function addProjectUpdate(
+  id: number,
+  body: string,
+  userId: number | null
+): Promise<ProjectUpdate> {
+  const response = await fetch(
+    `${GREENROOM_API_BASE}/projects/${id}/updates/add/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body, user_id: userId ?? undefined }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to post update"));
+  }
+  const data = await response.json();
+  return data.update;
 }
 
 // Blocked (400) while the project has any members, tasks, wrapups, files,

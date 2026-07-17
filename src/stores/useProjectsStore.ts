@@ -4,6 +4,7 @@ import {
   ProjectDetail,
   ProjectStatus,
   ProjectWrapup,
+  ProjectUpdate,
   CreateProjectPayload,
   UpdateProjectPayload,
   TeamMemberPayload,
@@ -18,6 +19,8 @@ import {
   getProjectWrapup as apiGetProjectWrapup,
   createWrapup as apiCreateWrapup,
   updateWrapup as apiUpdateWrapup,
+  getProjectUpdates as apiGetProjectUpdates,
+  addProjectUpdate as apiAddProjectUpdate,
 } from "@/lib/api/projects";
 
 // Statuses shown in the Archive app. "archived" is the explicit filing status
@@ -55,6 +58,12 @@ interface ProjectsState {
     payload: WrapupPayload,
     hasExisting: boolean
   ) => Promise<void>;
+  fetchUpdates: (id: number) => Promise<ProjectUpdate[]>;
+  postUpdate: (
+    id: number,
+    body: string,
+    userId: number | null
+  ) => Promise<ProjectUpdate>;
   clearError: () => void;
 }
 
@@ -226,6 +235,28 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to save wrapup";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  fetchUpdates: async (id: number) => {
+    try {
+      return await apiGetProjectUpdates(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch updates";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  postUpdate: async (id: number, body: string, userId: number | null) => {
+    try {
+      return await apiAddProjectUpdate(id, body, userId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to post update";
       set({ error: message });
       throw error;
     }

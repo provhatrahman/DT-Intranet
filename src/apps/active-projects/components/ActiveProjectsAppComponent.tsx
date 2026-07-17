@@ -16,8 +16,13 @@ import {
   formatProjectStatus,
   toDateInputValue,
 } from "../data";
-import type { ProjectDetail, ProjectMember } from "@/lib/api/projects";
+import type {
+  ProjectDetail,
+  ProjectMember,
+  ProjectUpdate,
+} from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
+import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { CardContent } from "@/components/ui/card";
 import {
   AquaCard,
@@ -61,6 +66,7 @@ import {
   X,
   FolderOpen,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 
 // Greenroom stores a bare Google Drive folder ID; build the folder URL from it.
@@ -767,6 +773,10 @@ function ProjectDetailView({
                   <span>{isSaving ? "Saving..." : "Save Changes"}</span>
                 </Button>
               </div>
+
+              <div className="border-t pt-6">
+                <ProjectUpdatesCard projectId={project.id} />
+              </div>
             </div>
           </ScrollArea>
         </TabsContent>
@@ -835,6 +845,133 @@ function ProjectDetailView({
           </ScrollArea>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// Relative-ish timestamp for the update timeline: a short absolute date/time.
+function formatUpdateTime(iso: string): string {
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// A simple chronological log of free-text progress updates, shown at the bottom
+// of the Overview tab. Anyone can post; the author is the effective Greenroom
+// account (the API has no auth, so we send user_id in the body).
+function ProjectUpdatesCard({ projectId }: { projectId: number }) {
+  const { fetchUpdates, postUpdate } = useProjectsStore();
+  const { userId } = useEffectiveGreenroomAccount();
+  const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchUpdates(projectId)
+      .then((rows) => {
+        if (!cancelled) setUpdates(rows);
+      })
+      .catch(() => {
+        // error surfaced via store toast
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, fetchUpdates]);
+
+  const handlePost = async () => {
+    const body = draft.trim();
+    if (!body || isPosting) return;
+    setIsPosting(true);
+    try {
+      const created = await postUpdate(projectId, body, userId);
+      // POST returns the created row (newest first), so prepend it.
+      setUpdates((prev) => [created, ...prev]);
+      setDraft("");
+    } catch {
+      // error surfaced via store toast
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Status Updates</h3>
+      </div>
+
+      <div className="space-y-2">
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Post a quick status update…"
+          className="min-h-[72px]"
+          onKeyDown={(e) => {
+            // Cmd/Ctrl+Enter posts, matching common comment-box behaviour.
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              handlePost();
+            }
+          }}
+        />
+        <div className="flex justify-end">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handlePost}
+            disabled={!draft.trim() || isPosting}
+            className="min-h-[32px] touch-manipulation"
+          >
+            <span>{isPosting ? "Posting…" : "Post Update"}</span>
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground py-2">
+          Loading updates…
+        </div>
+      ) : updates.length === 0 ? (
+        <EmptyState
+          title="No status updates yet"
+          hint="Post the first one above."
+          className="py-6"
+        />
+      ) : (
+        <div className="space-y-2">
+          {updates.map((update) => (
+            <AquaCard key={update.id}>
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-medium">
+                    {update.username ?? "Unknown"}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {formatUpdateTime(update.created_at)}
+                  </span>
+                </div>
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {update.body}
+                </p>
+              </CardContent>
+            </AquaCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
