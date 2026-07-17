@@ -22,7 +22,10 @@ import type {
   ProjectUpdate,
 } from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
-import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
+import {
+  useEffectiveGreenroomAccount,
+  useIsGreenroomAdmin,
+} from "@/hooks/useGreenroomAccount";
 import { CardContent } from "@/components/ui/card";
 import {
   AquaCard,
@@ -387,6 +390,10 @@ function ProjectDetailView({
   onMarkComplete: (projectId: number) => void;
 }) {
   const { updateProject, updateStatus, assignTeam } = useProjectsStore();
+  // Only (frontend-designated) admins can complete/archive a project.
+  // See src/config/greenroomAdmins.ts — this gates the UI only; the Greenroom
+  // API is anonymous and does not enforce it server-side.
+  const isAdmin = useIsGreenroomAdmin();
 
   const projectToForm = (p: ProjectDetail) => ({
     name: p.name,
@@ -534,13 +541,15 @@ function ProjectDetailView({
                   />
                 </div>
                 <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
-                  <Button
-                    variant="default"
-                    onClick={() => onMarkComplete(project.id)}
-                    className="min-h-[32px] touch-manipulation"
-                  >
-                    <span>Mark Complete</span>
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="default"
+                      onClick={() => onMarkComplete(project.id)}
+                      className="min-h-[32px] touch-manipulation"
+                    >
+                      <span>Mark Complete</span>
+                    </Button>
+                  )}
                   <Select value={project.status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="w-[140px]">
                       <SelectValue />
@@ -549,7 +558,11 @@ function ProjectDetailView({
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="on_hold">On Hold</SelectItem>
                       <SelectItem value="cancelled">Cancelled</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
+                      {/* Completing archives the project — admins only, matching
+                          the Mark Complete button gate above. */}
+                      {(isAdmin || project.status === "completed") && (
+                        <SelectItem value="completed">Completed</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
