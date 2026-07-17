@@ -44,6 +44,14 @@ export const ARCHIVE_VIEW_STATUSES: ProjectStatus[] = [
   "archived",
 ];
 
+// Statuses shown in the Active Projects app. "active" is the normal working
+// status; "on_hold" projects are parked but still live, so they stay in the
+// list rather than disappearing into a status no app displays. (The Active
+// Projects app itself still hides on_hold projects that are a *pending* offer
+// in the Inbox, so a logged offer isn't shown in two places at once — see
+// ActiveProjectsAppComponent.)
+export const ACTIVE_VIEW_STATUSES: ProjectStatus[] = ["active", "on_hold"];
+
 // Wrap-up is a two-section forum. A "went" comment is stored in the row's
 // `summary`; a "lessons" comment in `lessons_learned`.
 export type WrapupSection = "went" | "lessons";
@@ -132,7 +140,13 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   fetchActiveProjects: async () => {
     set({ isLoading: true, error: null });
     try {
-      const activeProjects = await apiGetProjects("active");
+      // The list endpoint returns only active projects unless a ?status= is
+      // given, so on_hold projects are fetched separately and merged (active
+      // first). Mirrors fetchArchivedProjects.
+      const lists = await Promise.all(
+        ACTIVE_VIEW_STATUSES.map((status) => apiGetProjects(status))
+      );
+      const activeProjects = lists.flat();
       set({
         activeProjects,
         isLoading: false,
@@ -215,12 +229,15 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     try {
       await apiUpdateProjectStatus(id, status);
       await get().refreshProject(id);
-      // A project leaving "active" drops out of the Active Projects view.
+      // The Active Projects view shows active + on_hold. Staying within those
+      // statuses keeps the project in the list (with its badge updated);
+      // moving to a terminal/archive status drops it out.
       set((state) => ({
-        activeProjects:
-          status !== "active"
-            ? state.activeProjects.filter((p) => p.id !== id)
-            : state.activeProjects,
+        activeProjects: ACTIVE_VIEW_STATUSES.includes(status)
+          ? state.activeProjects.map((p) =>
+              p.id === id ? { ...p, status } : p
+            )
+          : state.activeProjects.filter((p) => p.id !== id),
       }));
     } catch (error) {
       const message =

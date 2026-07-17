@@ -9,6 +9,7 @@ import { helpItems, appMetadata } from "..";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { useUsersStore } from "@/stores/useUsersStore";
+import { useBookingsStore } from "@/stores/useBookingsStore";
 import {
   PROJECT_LEAD_ROLE,
   TEAM_MEMBER_ROLE,
@@ -171,8 +172,11 @@ export function ActiveProjectsAppComponent({
   } = useProjectsStore();
   const { fetchArtists } = useArtistsStore();
   const { fetchUsers } = useUsersStore();
+  // Bookings are needed only to tell which on_hold projects are still an open
+  // (pending) offer living in the Inbox, so we can keep those out of here.
+  const { bookings, fetchBookings } = useBookingsStore();
 
-  // Fetch projects, artists, and staff users when the window opens.
+  // Fetch projects, artists, staff users, and bookings when the window opens.
   useEffect(() => {
     if (isWindowOpen) {
       fetchActiveProjects().catch((err) => {
@@ -184,8 +188,33 @@ export function ActiveProjectsAppComponent({
       fetchUsers().catch((err) => {
         console.error("Failed to fetch users:", err);
       });
+      fetchBookings().catch((err) => {
+        console.error("Failed to fetch bookings:", err);
+      });
     }
-  }, [isWindowOpen, fetchActiveProjects, fetchArtists, fetchUsers]);
+  }, [isWindowOpen, fetchActiveProjects, fetchArtists, fetchUsers, fetchBookings]);
+
+  // A logged offer's backing project sits on_hold. A pending offer lives in
+  // the Inbox and a declined offer is dead, so neither should surface here —
+  // hide any on_hold project whose booking is pending or declined. on_hold
+  // projects with no such offer (e.g. a live project the team parked) still
+  // show.
+  const unacceptedOfferProjectIds = useMemo(
+    () =>
+      new Set(
+        bookings
+          .filter((b) => b.status === "pending" || b.status === "declined")
+          .map((b) => b.project_id)
+      ),
+    [bookings]
+  );
+  const visibleProjects = useMemo(
+    () =>
+      activeProjects.filter(
+        (p) => p.status === "active" || !unacceptedOfferProjectIds.has(p.id)
+      ),
+    [activeProjects, unacceptedOfferProjectIds]
+  );
 
   useEffect(() => {
     if (error) {
@@ -196,10 +225,10 @@ export function ActiveProjectsAppComponent({
 
   // Default selection on desktop.
   useEffect(() => {
-    if (!isMobile && activeProjects.length > 0 && selectedProjectId === null) {
-      setSelectedProjectId(activeProjects[0].id);
+    if (!isMobile && visibleProjects.length > 0 && selectedProjectId === null) {
+      setSelectedProjectId(visibleProjects[0].id);
     }
-  }, [activeProjects, selectedProjectId, isMobile]);
+  }, [visibleProjects, selectedProjectId, isMobile]);
 
   // Load detail whenever a project is selected.
   useEffect(() => {
@@ -287,16 +316,16 @@ export function ActiveProjectsAppComponent({
                   the fixed sidebar width. */}
               <ScrollArea className="flex-1 min-h-0 [&_[data-radix-scroll-area-viewport]>div]:block!">
                 <div className="space-y-2">
-                  {isLoading && activeProjects.length === 0 ? (
+                  {isLoading && visibleProjects.length === 0 ? (
                     <EmptyState title="Loading projects..." className="py-6" />
-                  ) : activeProjects.length === 0 ? (
+                  ) : visibleProjects.length === 0 ? (
                     <EmptyState
                       title="No active projects"
                       hint="Approve offers from the Inbox to create projects."
                       className="py-6"
                     />
                   ) : (
-                    activeProjects.map((project) => {
+                    visibleProjects.map((project) => {
                       const isSelected = selectedProjectId === project.id;
                       return (
                         <SidebarRow
@@ -361,7 +390,7 @@ export function ActiveProjectsAppComponent({
                 isMacTheme ? "bg-transparent" : "bg-background"
               )}
             >
-              {activeProjects.length === 0 ? (
+              {visibleProjects.length === 0 ? (
                 <EmptyState title="No active projects" className="flex-1" />
               ) : selectedProject ? (
                 <ProjectDetailView
@@ -408,7 +437,7 @@ export function ActiveProjectsAppComponent({
           onConfirm={handleCompleteConfirm}
           title="Mark Project as Complete"
           description={`Are you sure you want to mark "${
-            activeProjects.find((p) => p.id === pendingCompleteProjectId)?.name ||
+            visibleProjects.find((p) => p.id === pendingCompleteProjectId)?.name ||
             "this project"
           }" as complete? It will move to the Archive.`}
         />
