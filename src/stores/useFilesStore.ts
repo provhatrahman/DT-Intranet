@@ -192,6 +192,7 @@ const DEFAULT_HIDDEN_FOLDERS = [
   "/Applets",
   "/Images",
   "/Videos",
+  "/Sites",
   // Add more folder paths here to hide them by default
 ];
 
