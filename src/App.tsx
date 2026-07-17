@@ -6,6 +6,7 @@ import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { BootScreen } from "./components/dialogs/BootScreen";
+import { LoginScreen } from "./components/dialogs/LoginScreen";
 import { getNextBootMessage, clearNextBootMessage } from "./utils/bootMessage";
 import { AnyApp } from "./apps/base/types";
 import { useThemeStore } from "./stores/useThemeStore";
@@ -72,10 +73,29 @@ export function App() {
     null
   );
   const [showBootScreen, setShowBootScreen] = useState(false);
+  const [showLoginScreen, setShowLoginScreen] = useState(false);
 
   useEffect(() => {
     applyDisplayMode(displayMode);
   }, [displayMode]);
+
+  // Preview trigger for the (dummy) Aqua login screen. Fired from Control
+  // Panels (Debug), or by navigating straight to #login.
+  useEffect(() => {
+    const syncFromHash = () => {
+      if (window.location.hash.replace(/^#\/?/, "") === "login") {
+        setShowLoginScreen(true);
+      }
+    };
+    const show = () => setShowLoginScreen(true);
+    syncFromHash();
+    window.addEventListener("ryos:show-login", show);
+    window.addEventListener("hashchange", syncFromHash);
+    return () => {
+      window.removeEventListener("ryos:show-login", show);
+      window.removeEventListener("hashchange", syncFromHash);
+    };
+  }, []);
 
   useEffect(() => {
     // Only show boot screen for system operations (reset/restore/format/debug)
@@ -177,6 +197,17 @@ export function App() {
       <AppManager apps={apps} />
       <Toaster position={toastConfig.position} offset={toastConfig.offset} />
       <ScreenSaverOverlay />
+      <LoginScreen
+        isOpen={showLoginScreen}
+        onLogin={() => {
+          setShowLoginScreen(false);
+          if (window.location.hash) history.replaceState(null, "", " ");
+        }}
+        onCancel={() => {
+          setShowLoginScreen(false);
+          if (window.location.hash) history.replaceState(null, "", " ");
+        }}
+      />
     </>
   );
 }

@@ -2114,6 +2114,26 @@ export function ControlPanelsAppComponent({
                     </Button>
                   </div>
                 )}
+
+                {debugMode && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                      <Label>{t("apps.control-panels.loginScreen")}</Label>
+                      <Label className="text-[11px] text-gray-600 font-geneva-12">
+                        {t("apps.control-panels.loginScreenDescription")}
+                      </Label>
+                    </div>
+                    <Button
+                      variant="retro"
+                      onClick={() => {
+                        window.dispatchEvent(new Event("ryos:show-login"));
+                      }}
+                      className="w-fit"
+                    >
+                      {t("apps.control-panels.show")}
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
