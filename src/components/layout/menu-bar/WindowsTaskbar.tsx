@@ -15,6 +15,7 @@ import { StartMenu } from "../StartMenu";
 import { Clock } from "./MenuBarClock";
 import { VolumeControl } from "./VolumeControl";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { MenuBarAccount } from "./MenuBarAccount";
 import { getAppName } from "./menuBarUtils";
 import { getAppletDisplayInfo } from "./getAppletDisplayInfo";
 import { useTaskbarOverflow } from "./useTaskbarOverflow";
@@ -335,6 +336,7 @@ export function WindowsTaskbar({
             paddingTop: isWinXp ? "1px" : "0px",
           }}
         >
+          <MenuBarAccount />
           <OfflineIndicator />
           <div className="hidden sm:flex">
             <VolumeControl />

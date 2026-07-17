@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Menubar } from "@/components/ui/menubar";
 import { AppleMenu } from "../AppleMenu";
-import { DevMenu } from "../DevMenu";
 import { useAppContext } from "@/contexts/AppContext";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { useDisplaySettingsStore } from "@/stores/useDisplaySettingsStore";
@@ -15,6 +14,7 @@ import { DefaultMenuItems } from "./DefaultMenuItems";
 import { Clock } from "./MenuBarClock";
 import { VolumeControl } from "./VolumeControl";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { MenuBarAccount } from "./MenuBarAccount";
 import { ExposeButton } from "./ExposeButton";
 import { useDesktopFullscreen } from "./useDesktopFullscreen";
 import { shouldShowDesktopDragDebugZone } from "./desktopDragDebug";
@@ -103,7 +103,6 @@ export function MacTopMenuBar({ children }: MacTopMenuBarProps) {
       <ScrollableMenuWrapper style={noDragRegionStyle}>
         <Menubar className="flex items-stretch border-none bg-transparent space-x-0 p-0 rounded-none h-full">
           <AppleMenu apps={apps} />
-          <DevMenu />
           {isMacOSTheme && !hasActiveApp && <FinderAppMenu />}
           {hasActiveApp && children ? children : <DefaultMenuItems />}
         </Menubar>
@@ -135,6 +134,7 @@ export function MacTopMenuBar({ children }: MacTopMenuBarProps) {
         className={`menubar-status-controls ${isPhone ? "flex-shrink-0 pl-1 pr-0.5" : "ml-auto"} flex items-center h-full`}
         style={noDragRegionStyle}
       >
+        <MenuBarAccount />
         <OfflineIndicator />
         <ExposeButton />
         <div className="hidden sm:flex">

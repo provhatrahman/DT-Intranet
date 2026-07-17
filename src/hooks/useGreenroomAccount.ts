@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAuth } from "./useAuth";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
 import { useDevViewAsStore } from "@/stores/useDevViewAsStore";
@@ -25,6 +26,19 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const { getAccount } = useGreenroomAccountStore();
   const { getUseDevGreenroomAccount } = useDevOverridesStore();
   const viewAsRole = useDevViewAsStore((s) => s.viewAs);
+
+  // The authenticated Google identity IS the Greenroom account: the backend's
+  // auth exchange returns the user's numeric `users.id`, so a logged-in user
+  // never has to manually link. See useAuthStore.
+  const authUser = useAuthStore((s) => s.user);
+  const authStatus = useAuthStore((s) => s.status);
+  const authExpiresAt = useAuthStore((s) => s.expiresAt);
+  const authAccount =
+    authStatus === "authenticated" &&
+    authUser?.id &&
+    (!authExpiresAt || Date.now() < authExpiresAt)
+      ? authUser
+      : null;
 
   const isDev = import.meta.env.DEV;
   const devUserIdStr = import.meta.env.VITE_DEV_GREENROOM_USER_ID;
@@ -60,6 +74,16 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
       };
     }
 
+    // A logged-in Google user is auto-linked to their Greenroom account — no
+    // manual linking needed. Wins over the legacy manual link below.
+    if (authAccount) {
+      return {
+        userId: authAccount.id,
+        displayName: authAccount.username || authAccount.email,
+        source: "linked" as const,
+      };
+    }
+
     if (currentAccount?.greenroomUserId) {
       return {
         userId: currentAccount.greenroomUserId,
@@ -73,7 +97,14 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
       displayName: undefined,
       source: "none" as const,
     };
-  }, [viewAs, useDevAccount, validDevUserId, devDisplayName, currentAccount]);
+  }, [
+    viewAs,
+    useDevAccount,
+    validDevUserId,
+    devDisplayName,
+    authAccount,
+    currentAccount,
+  ]);
 }
 
 /**
