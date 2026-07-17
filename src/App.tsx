@@ -1,6 +1,6 @@
 import { AppManager } from "./apps/base/AppManager";
 import { appRegistry } from "./config/appRegistry";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { applyDisplayMode } from "./utils/displayMode";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
@@ -93,20 +93,20 @@ export function App() {
     (!authExpiresAt || Date.now() < authExpiresAt);
 
   // Complete the OAuth redirect: exchange ?code, verify, then restore the URL.
+  // The ref guard makes this run exactly once per page load — without it,
+  // React StrictMode's double-invoke fires handleCallback twice: the first call
+  // consumes the single-use PKCE verifier (and succeeds), the second finds it
+  // gone and clobbers the result with an "invalid_callback" error.
+  const callbackHandledRef = useRef(false);
   useEffect(() => {
-    if (!AUTH_ENABLED || !isOnCallback) return;
-    let cancelled = false;
+    if (!AUTH_ENABLED || !isOnCallback || callbackHandledRef.current) return;
+    callbackHandledRef.current = true;
     (async () => {
       await handleCallback(window.location.search);
-      if (cancelled) return;
-      const returnTo =
-        sessionStorage.getItem("greenroom:return_to") || "/";
+      const returnTo = sessionStorage.getItem("greenroom:return_to") || "/";
       sessionStorage.removeItem("greenroom:return_to");
       history.replaceState(null, "", returnTo);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [isOnCallback, handleCallback]);
 
   useEffect(() => {
