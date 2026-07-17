@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
@@ -11,8 +11,17 @@ import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_LABELS,
 } from "../data";
-import { formatProjectStatus, formatBudget } from "../../active-projects/data";
-import type { ProjectDetail, ProjectListItem } from "@/lib/api/projects";
+import {
+  formatProjectStatus,
+  formatBudget,
+  toDateInputValue,
+  PROJECT_LEAD_ROLE,
+} from "../../active-projects/data";
+import type {
+  ProjectDetail,
+  ProjectListItem,
+  ProjectUpdate,
+} from "@/lib/api/projects";
 import type { Payment, PaymentStatus } from "@/lib/api/payments";
 import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +29,6 @@ import { Label } from "@/components/ui/label";
 import {
   AquaCard,
   EmptyState,
-  InfoTile,
   SidebarRow,
   StatusBadge,
   useOsTheme,
@@ -44,10 +52,100 @@ import {
   Users,
   Calendar,
   DollarSign,
-  Building2,
-  Target,
+  FileText,
+  FolderOpen,
+  MapPin,
+  MessageSquare,
+  ListChecks,
   User,
+  ExternalLink,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+// Greenroom stores a bare Google Drive folder ID; build the folder URL from it.
+function driveFolderUrl(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+// Short absolute date/time for the read-only status timeline (mirrors the
+// live Overview page's formatter).
+function formatUpdateTime(iso: string): string {
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// Titled section panel — the read-only twin of Active Projects' Overview
+// SectionCard. A glossy Aqua card (plain shadcn Card elsewhere) with an
+// icon + heading row; declares itself a container so inner grids respond to
+// the card's own width rather than the viewport.
+function SectionCard({
+  icon: Icon,
+  title,
+  children,
+  className,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <AquaCard className={className}>
+      <CardContent className="p-4 @container">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+          <h3 className="text-sm font-semibold truncate">{title}</h3>
+        </div>
+        <div className="space-y-4">{children}</div>
+      </CardContent>
+    </AquaCard>
+  );
+}
+
+// A solidified, unchangeable field: the same label the Overview form uses,
+// but the value is rendered as a locked well instead of an editable control.
+function ReadOnlyField({
+  label,
+  value,
+  multiline,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  multiline?: boolean;
+  className?: string;
+}) {
+  const { isMacTheme } = useOsTheme();
+  const isEmpty =
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "");
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label className="text-sm">{label}</Label>
+      <div
+        className={cn(
+          "text-sm px-3 py-2 rounded-md break-words",
+          multiline ? "min-h-[64px] whitespace-pre-wrap" : "min-h-[36px] flex items-center",
+          isMacTheme ? "aqua-well" : "bg-muted/40 border"
+        )}
+      >
+        {isEmpty ? (
+          <span className="text-muted-foreground">Not set</span>
+        ) : (
+          value
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function ArchiveAppComponent({
   isWindowOpen,
@@ -268,7 +366,6 @@ function ProjectDetailView({
     useProjectsStore();
   const { paymentsByProject, fetchPaymentsForProject, updatePayment } =
     usePaymentsStore();
-  const { isMacTheme } = useOsTheme();
 
   const [summary, setSummary] = useState("");
   const [lessons, setLessons] = useState("");
@@ -374,7 +471,9 @@ function ProjectDetailView({
           </TabsTrigger>
         </TabsList>
 
-        {/* Summary */}
+        {/* Summary — a solidified, read-only twin of the Active Projects
+            Overview page: the same field cards, but the values are locked
+            (the project is archived), followed by the printed Final Lineup. */}
         <TabsContent
           value="summary"
           className={cn(
@@ -383,138 +482,12 @@ function ProjectDetailView({
           )}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-4 pr-6 @container">
-              {/* Actions sit beside the title on wide windows and wrap below
-                  it on narrow ones/phones */}
-              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                <div className="flex-1 min-w-[14rem] space-y-1">
-                  <h1 className="text-2xl font-semibold break-words">
-                    {project.name}
-                  </h1>
-                  {project.description && (
-                    <p className="text-base text-muted-foreground">
-                      {project.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
-                  <StatusBadge
-                    status={project.status}
-                    label={formatProjectStatus(project.status)}
-                  />
-                  {canArchive && (
-                    <Button
-                      size="sm"
-                      variant={isMacTheme ? "secondary" : "outline"}
-                      onClick={handleArchive}
-                      disabled={isArchiving}
-                      className="min-h-[32px] touch-manipulation"
-                    >
-                      <span>{isArchiving ? "Archiving..." : "File to Archive"}</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Two columns when the window is wide enough, one when narrow
-                  (container query = window width, not viewport) */}
-              <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-4 pt-4 border-t">
-                <InfoTile icon={Calendar} label="Start Date">
-                  {project.start_date || "Not set"}
-                </InfoTile>
-                <InfoTile icon={Calendar} label="End Date">
-                  {project.end_date || "Not set"}
-                </InfoTile>
-                <InfoTile icon={DollarSign} label="Budget">
-                  {formatBudget(project.budget)}
-                </InfoTile>
-                <InfoTile icon={Building2} label="Project Type">
-                  {project.project_type || "Not set"}
-                </InfoTile>
-                <InfoTile icon={Calendar} label="Event Date">
-                  {project.event_date || "Not set"}
-                </InfoTile>
-                <InfoTile icon={Building2} label="Venue / Location">
-                  {[project.venue_name, project.city, project.country]
-                    .filter(Boolean)
-                    .join(", ") || "Not set"}
-                </InfoTile>
-                <InfoTile icon={User} label="Promoter">
-                  {project.promoter_name || "Not set"}
-                </InfoTile>
-                <InfoTile icon={Target} label="Source / Gig Size">
-                  {[project.source, project.gig_size_code]
-                    .filter(Boolean)
-                    .join(" / ") || "Not set"}
-                </InfoTile>
-              </div>
-
-              {project.feedback && (
-                <div className="space-y-2 pt-4 border-t">
-                  <h2 className="text-lg font-semibold">Feedback</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {project.feedback}
-                  </p>
-                </div>
-              )}
-
-              {/* Final Lineup */}
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-lg font-semibold">Final Lineup</h2>
-                </div>
-                {project.members.length === 0 ? (
-                  <div className="text-muted-foreground text-sm py-2">
-                    No artists assigned to this project.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 gap-3">
-                    {project.members.map((member) => (
-                      <AquaCard key={member.artist_id}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start gap-2">
-                            <User className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <div className="font-medium text-sm truncate">
-                                {member.artist_name}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {member.role_in_project}
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </AquaCard>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Tasks */}
-              {project.tasks.length > 0 && (
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-lg font-semibold">Tasks</h2>
-                  </div>
-                  <div className="space-y-2">
-                    {project.tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={cn(
-                          "flex items-center justify-between gap-2 p-2 rounded-md",
-                          isMacTheme ? "aqua-well" : "bg-muted/30"
-                        )}
-                      >
-                        <span className="text-sm truncate">{task.title}</span>
-                        <StatusBadge status={task.status} className="shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <ProjectSummary
+              project={project}
+              canArchive={canArchive}
+              isArchiving={isArchiving}
+              onArchive={handleArchive}
+            />
           </ScrollArea>
         </TabsContent>
 
@@ -643,5 +616,333 @@ function ProjectDetailView({
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// The solidified Overview: read-only field cards mirroring the Active Projects
+// Overview page, then the printed Final Lineup. Nothing here is editable — an
+// archived project is a fixed record.
+function ProjectSummary({
+  project,
+  canArchive,
+  isArchiving,
+  onArchive,
+}: {
+  project: ProjectDetail;
+  canArchive: boolean;
+  isArchiving: boolean;
+  onArchive: () => void;
+}) {
+  const { isMacTheme } = useOsTheme();
+
+  const gigSize = project.gig_size_code ?? "";
+
+  const lead =
+    project.team.find((m) => m.role === PROJECT_LEAD_ROLE) ?? null;
+  const teamMembers = project.team.filter((m) => m.role !== PROJECT_LEAD_ROLE);
+
+  return (
+    <div className="space-y-4 p-4 pr-6 @container">
+      {/* Actions sit beside the title on wide windows and wrap below it on
+          narrow ones/phones */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex-1 min-w-[14rem] space-y-1.5">
+          <h1 className="text-2xl font-semibold break-words">{project.name}</h1>
+          <StatusBadge
+            status={project.status}
+            label={formatProjectStatus(project.status)}
+          />
+        </div>
+        {canArchive && (
+          <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant={isMacTheme ? "secondary" : "outline"}
+              onClick={onArchive}
+              disabled={isArchiving}
+              className="min-h-[32px] touch-manipulation"
+            >
+              <span>{isArchiving ? "Archiving..." : "File to Archive"}</span>
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <SectionCard icon={FileText} title="Details">
+        <ReadOnlyField label="Name" value={project.name} />
+        <ReadOnlyField
+          label="Description"
+          value={project.description}
+          multiline
+        />
+        <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+          <ReadOnlyField label="Project Type" value={project.project_type} />
+          <ReadOnlyField label="Gig Size" value={gigSize} />
+          <ReadOnlyField label="Budget" value={formatBudget(project.budget)} />
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={Calendar} title="Schedule">
+        <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+          <ReadOnlyField
+            label="Start Date"
+            value={toDateInputValue(project.start_date)}
+          />
+          <ReadOnlyField
+            label="End Date"
+            value={toDateInputValue(project.end_date)}
+          />
+          <ReadOnlyField
+            label="Event Date"
+            value={toDateInputValue(project.event_date)}
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={MapPin} title="Venue & Promoter">
+        <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
+          <ReadOnlyField label="Venue" value={project.venue_name} />
+          <ReadOnlyField label="City" value={project.city} />
+          <ReadOnlyField label="Country" value={project.country} />
+          <ReadOnlyField label="Promoter" value={project.promoter_name} />
+        </div>
+      </SectionCard>
+
+      {project.drive_parent_folder_id && (
+        <SectionCard icon={FolderOpen} title="Files">
+          <div className="flex flex-col @md:flex-row @md:items-center gap-2">
+            <div
+              className={cn(
+                "flex-1 text-sm px-3 py-2 rounded-md min-h-[36px] flex items-center break-all",
+                isMacTheme ? "aqua-well" : "bg-muted/40 border"
+              )}
+            >
+              {project.drive_parent_folder_id}
+            </div>
+            <Button
+              asChild
+              variant="secondary"
+              className="shrink-0 min-h-[32px] touch-manipulation"
+            >
+              <a
+                href={driveFolderUrl(project.drive_parent_folder_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="inline-flex items-center">
+                  <ExternalLink className="h-4 w-4 mr-1.5" />
+                  Open in Drive
+                </span>
+              </a>
+            </Button>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Team is short and Updates grow long — sit them side by side once the
+          pane is wide enough to spare the columns. Both are read-only here. */}
+      <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-4 items-start">
+        <SectionCard icon={Users} title="Project Team">
+          <ReadOnlyField
+            label="Project Lead"
+            value={lead?.username ?? (lead ? `User ${lead.user_id}` : "")}
+          />
+          <div className="space-y-1">
+            <Label className="text-sm">Team Members</Label>
+            {teamMembers.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-1">
+                No team members were assigned.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 @lg:grid-cols-2 gap-2">
+                {teamMembers.map((member) => (
+                  <div
+                    key={member.user_id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-md text-sm font-medium",
+                      isMacTheme ? "aqua-well" : "border"
+                    )}
+                  >
+                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate">
+                      {member.username ?? `User ${member.user_id}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+        <SectionCard icon={MessageSquare} title="Status Updates">
+          <ArchivedUpdates projectId={project.id} />
+        </SectionCard>
+      </div>
+
+      {project.feedback && (
+        <SectionCard icon={MessageSquare} title="Feedback">
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {project.feedback}
+          </p>
+        </SectionCard>
+      )}
+
+      {/* Printed Final Lineup — a fixed, presentation-style rendering of the
+          confirmed bill (the running order the project shipped with). */}
+      <PrintedLineup project={project} />
+    </div>
+  );
+}
+
+// Read-only status timeline for an archived project: the same updates as the
+// live Overview page, minus the posting box (nothing new gets posted to a
+// filed project).
+function ArchivedUpdates({ projectId }: { projectId: number }) {
+  const { fetchUpdates } = useProjectsStore();
+  const { isMacTheme } = useOsTheme();
+  const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchUpdates(projectId)
+      .then((rows) => {
+        if (!cancelled) setUpdates(rows);
+      })
+      .catch(() => {
+        // store records error
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, fetchUpdates]);
+
+  if (isLoading) {
+    return (
+      <div className="text-xs text-muted-foreground py-2">Loading updates…</div>
+    );
+  }
+  if (updates.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground py-1">
+        No status updates were posted.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {updates.map((update) => (
+        <div
+          key={update.id}
+          className={cn(
+            "p-3 rounded-lg",
+            isMacTheme ? "aqua-well" : "bg-muted/30"
+          )}
+        >
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-xs font-medium">
+              {update.username ?? "Unknown"}
+            </span>
+            <span className="text-xs text-muted-foreground shrink-0">
+              {formatUpdateTime(update.created_at)}
+            </span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {update.body}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The printed Final Lineup: the confirmed bill as a fixed document. Prefers
+// project.lineup (the real project_lineup rows the Active Projects app now
+// manages); falls back to the legacy `members` list for projects archived
+// before the lineup feature existed.
+function PrintedLineup({ project }: { project: ProjectDetail }) {
+  const entries = useMemo(() => {
+    if (project.lineup.length > 0) {
+      return [...project.lineup]
+        .sort((a, b) => {
+          const ao = a.display_order ?? Number.MAX_SAFE_INTEGER;
+          const bo = b.display_order ?? Number.MAX_SAFE_INTEGER;
+          return ao - bo;
+        })
+        .map((e) => ({ key: `l-${e.artist_id}`, name: e.artist_name, role: "" }));
+    }
+    return project.members.map((m) => ({
+      key: `m-${m.artist_id}`,
+      name: m.artist_name,
+      role: m.role_in_project,
+    }));
+  }, [project.lineup, project.members]);
+
+  const eventDate = toDateInputValue(project.event_date);
+  const venueLine =
+    [project.venue_name, project.city, project.country]
+      .filter(Boolean)
+      .join(", ") || "";
+  const subheading = [eventDate, venueLine].filter(Boolean).join("  ·  ");
+
+  return (
+    <AquaCard>
+      <CardContent className="p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ListChecks className="h-4 w-4 text-muted-foreground shrink-0" />
+          <h3 className="text-sm font-semibold">Final Lineup</h3>
+        </div>
+
+        {entries.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No artists were on the final lineup."
+            className="py-6"
+          />
+        ) : (
+          // A document-style bill: centred header, then the numbered running
+          // order in the confirmed sequence.
+          <div className="mx-auto max-w-xl">
+            <div className="text-center space-y-1 pb-4 mb-4 border-b">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                Final Lineup
+              </div>
+              <div className="text-lg font-semibold break-words">
+                {project.name}
+              </div>
+              {subheading && (
+                <div className="text-sm text-muted-foreground">{subheading}</div>
+              )}
+            </div>
+            <ol className="space-y-2.5">
+              {entries.map((entry, i) => (
+                <li
+                  key={entry.key}
+                  className="flex items-baseline gap-3 leading-snug"
+                >
+                  <span className="w-6 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                    {i + 1}.
+                  </span>
+                  <span className="min-w-0">
+                    <span className="text-base font-medium break-words">
+                      {entry.name}
+                    </span>
+                    {entry.role && (
+                      <span className="text-xs text-muted-foreground">
+                        {" "}
+                        — {entry.role}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </CardContent>
+    </AquaCard>
   );
 }
