@@ -186,7 +186,8 @@
     { "source": "/synth", "destination": "/" },
     { "source": "/pc", "destination": "/" },
     { "source": "/terminal", "destination": "/" },
-    { "source": "/control-panels", "destination": "/" }
+    { "source": "/control-panels", "destination": "/" },
+    { "source": "/auth/callback", "destination": "/" }
   ],
   "redirects": [{ "source": "/404", "destination": "/", "permanent": false }]
 }

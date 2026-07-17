@@ -4,11 +4,32 @@ interface LoginScreenProps {
   isOpen: boolean;
   /** Called when the user successfully "logs in" (dummy — any password works). */
   onLogin?: (name: string) => void;
-  /** Optional dismiss handler (e.g. Sleep / Restart / Shut Down). */
+  /** Optional dismiss handler (e.g. Escape). */
   onCancel?: () => void;
   /** Default account name shown in the Name field. */
   userName?: string;
+  /**
+   * Real-auth mode. When true the dummy Name/Password path is hidden and only
+   * "Sign in with Google" is offered, wired to onGoogleLogin.
+   */
+  authEnabled?: boolean;
+  /** Kicks off the real Google OAuth flow (authEnabled mode). */
+  onGoogleLogin?: () => void;
+  /** Show an in-progress state (exchanging code / verifying). */
+  busy?: boolean;
+  /** Error code/message to surface under the button. */
+  errorMessage?: string | null;
 }
+
+// Human-friendly copy for the auth error codes from useAuthStore.
+const ERROR_LABELS: Record<string, string> = {
+  not_allowlisted: "This Google account isn't allowed access.",
+  verify_failed: "Couldn't verify your account. Please try again.",
+  token_exchange_failed: "Sign-in failed. Please try again.",
+  invalid_callback: "Sign-in was interrupted. Please try again.",
+  no_id_token: "Sign-in failed. Please try again.",
+  login_required: "Please sign in to continue.",
+};
 
 // Aqua-authentic font stack, forced regardless of the active OS theme so the
 // login screen always reads as Mac OS X.
@@ -58,6 +79,10 @@ export function LoginScreen({
   onLogin,
   onCancel,
   userName = "Greenroom",
+  authEnabled = false,
+  onGoogleLogin,
+  busy = false,
+  errorMessage = null,
 }: LoginScreenProps) {
   const [name, setName] = useState(userName);
   const [password, setPassword] = useState("");
@@ -93,7 +118,13 @@ export function LoginScreen({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleLogin();
+    if (e.key === "Enter") {
+      if (authEnabled) {
+        if (!busy) onGoogleLogin?.();
+      } else {
+        handleLogin();
+      }
+    }
     if (e.key === "Escape") onCancel?.();
   };
 
@@ -143,11 +174,14 @@ export function LoginScreen({
             Greenroom
           </h1>
           <p className="text-[11px] text-neutral-500">
-            Log in to your Greenroom account
+            {authEnabled
+              ? "Sign in to continue"
+              : "Log in to your Greenroom account"}
           </p>
         </div>
 
-        {/* Form rows with right-aligned labels, Tiger style */}
+        {/* Form rows with right-aligned labels, Tiger style (dummy mode only) */}
+        {!authEnabled && (
         <div className="flex flex-col gap-2.5 px-10 pb-5">
           {(
             [
@@ -198,6 +232,7 @@ export function LoginScreen({
             </div>
           ))}
         </div>
+        )}
 
         {/* Divider */}
         <div
@@ -208,50 +243,73 @@ export function LoginScreen({
           }}
         />
 
-        {/* Bottom actions: pulsating Log In, then Log in with Google */}
+        {/* Bottom actions: dummy mode = Log In + Google; auth mode = Google only */}
         <div className="flex flex-col items-stretch gap-2.5 px-10 py-4">
+          {!authEnabled && (
+            <>
+              <button
+                type="button"
+                onClick={handleLogin}
+                className="aqua-button primary w-full"
+                style={{
+                  fontSize: 13,
+                  animation:
+                    "aqua-login-pulse 1.2s ease-in-out infinite alternate",
+                }}
+              >
+                <span>Log In</span>
+              </button>
+
+              {/* "or" separator */}
+              <div className="flex items-center gap-2 py-0.5">
+                <div
+                  className="h-px flex-1"
+                  style={{
+                    background:
+                      "linear-gradient(to right, transparent, rgba(0,0,0,0.18))",
+                  }}
+                />
+                <span className="text-[10px] uppercase tracking-wide text-neutral-500">
+                  or
+                </span>
+                <div
+                  className="h-px flex-1"
+                  style={{
+                    background:
+                      "linear-gradient(to left, transparent, rgba(0,0,0,0.18))",
+                  }}
+                />
+              </div>
+            </>
+          )}
+
           <button
             type="button"
-            onClick={handleLogin}
-            className="aqua-button primary w-full"
+            disabled={busy}
+            onClick={() => (authEnabled ? onGoogleLogin?.() : onLogin?.(name))}
+            className={`aqua-button ${
+              authEnabled ? "primary" : "secondary"
+            } w-full`}
             style={{
               fontSize: 13,
-              animation: "aqua-login-pulse 1.2s ease-in-out infinite alternate",
+              gap: 8,
+              opacity: busy ? 0.6 : 1,
+              cursor: busy ? "default" : "pointer",
+              animation:
+                authEnabled && !busy
+                  ? "aqua-login-pulse 1.2s ease-in-out infinite alternate"
+                  : undefined,
             }}
           >
-            <span>Log In</span>
-          </button>
-
-          {/* "or" separator */}
-          <div className="flex items-center gap-2 py-0.5">
-            <div
-              className="h-px flex-1"
-              style={{
-                background:
-                  "linear-gradient(to right, transparent, rgba(0,0,0,0.18))",
-              }}
-            />
-            <span className="text-[10px] uppercase tracking-wide text-neutral-500">
-              or
-            </span>
-            <div
-              className="h-px flex-1"
-              style={{
-                background:
-                  "linear-gradient(to left, transparent, rgba(0,0,0,0.18))",
-              }}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onLogin?.(name)}
-            className="aqua-button secondary w-full"
-            style={{ fontSize: 13, gap: 8 }}
-          >
             <GoogleIcon />
-            <span>Log in with Google</span>
+            <span>{busy ? "Signing in…" : "Sign in with Google"}</span>
           </button>
+
+          {errorMessage && (
+            <p className="text-center text-[11px] text-red-700">
+              {ERROR_LABELS[errorMessage] || "Sign-in failed. Please try again."}
+            </p>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
+import { greenroomFetch } from "@/lib/api/client";
 
 export interface ArtistListItem {
   id: number;
@@ -90,7 +91,7 @@ export async function getArtists(
   const url = queryString
     ? `${GREENROOM_API_BASE}/artists/?${queryString}`
     : `${GREENROOM_API_BASE}/artists/`;
-  const response = await fetch(url);
+  const response = await greenroomFetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch artists: ${response.statusText}`);
   }
@@ -99,7 +100,7 @@ export async function getArtists(
 }
 
 export async function getArtistById(id: number): Promise<ArtistDetail> {
-  const response = await fetch(`${GREENROOM_API_BASE}/artists/${id}/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/artists/${id}/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch artist ${id}: ${response.statusText}`);
   }
@@ -120,7 +121,7 @@ export interface FindArtistResult {
 export async function findArtistByName(
   name: string
 ): Promise<FindArtistResult> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/artists/find/?name=${encodeURIComponent(name)}`
   );
   // The endpoint answers 404 with { found: false } when there's no match —
@@ -137,7 +138,7 @@ export async function findArtistByName(
 export async function createArtist(
   payload: CreateArtistPayload
 ): Promise<{ id: number; artist_name: string; message: string }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/artists/create/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/artists/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

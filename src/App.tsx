@@ -17,6 +17,8 @@ import { isTauri } from "./utils/platform";
 import { checkDesktopUpdate, onDesktopUpdate, DesktopUpdateResult } from "./utils/prefetch";
 import { Download } from "lucide-react";
 import { ScreenSaverOverlay } from "./components/screensavers/ScreenSaverOverlay";
+import { useAuthStore } from "./stores/useAuthStore";
+import { AUTH_ENABLED, AUTH_CALLBACK_PATH } from "./config/auth";
 
 // Convert registry to array, filtering out hidden apps
 const apps: AnyApp[] = Object.values(appRegistry).filter(
@@ -74,6 +76,38 @@ export function App() {
   );
   const [showBootScreen, setShowBootScreen] = useState(false);
   const [showLoginScreen, setShowLoginScreen] = useState(false);
+
+  // Auth (gated behind AUTH_ENABLED; no-op otherwise).
+  const authStatus = useAuthStore((s) => s.status);
+  const authUser = useAuthStore((s) => s.user);
+  const authExpiresAt = useAuthStore((s) => s.expiresAt);
+  const authError = useAuthStore((s) => s.error);
+  const startLogin = useAuthStore((s) => s.startLogin);
+  const handleCallback = useAuthStore((s) => s.handleCallback);
+  const isOnCallback =
+    typeof window !== "undefined" &&
+    window.location.pathname === AUTH_CALLBACK_PATH;
+  const isAuthed =
+    authStatus === "authenticated" &&
+    !!authUser &&
+    (!authExpiresAt || Date.now() < authExpiresAt);
+
+  // Complete the OAuth redirect: exchange ?code, verify, then restore the URL.
+  useEffect(() => {
+    if (!AUTH_ENABLED || !isOnCallback) return;
+    let cancelled = false;
+    (async () => {
+      await handleCallback(window.location.search);
+      if (cancelled) return;
+      const returnTo =
+        sessionStorage.getItem("greenroom:return_to") || "/";
+      sessionStorage.removeItem("greenroom:return_to");
+      history.replaceState(null, "", returnTo);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnCallback, handleCallback]);
 
   useEffect(() => {
     applyDisplayMode(displayMode);
@@ -188,6 +222,21 @@ export function App() {
           clearNextBootMessage();
           setShowBootScreen(false);
         }}
+      />
+    );
+  }
+
+  // Auth gate: when enabled, require a verified session before the desktop.
+  // The Aqua LoginScreen doubles as the gate (real Google flow) and, when auth
+  // is off, as the dummy #login / Control Panels preview overlay.
+  if (AUTH_ENABLED && !isAuthed) {
+    return (
+      <LoginScreen
+        isOpen={true}
+        authEnabled
+        busy={authStatus === "authenticating" || isOnCallback}
+        errorMessage={authError}
+        onGoogleLogin={startLogin}
       />
     );
   }

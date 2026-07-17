@@ -1,4 +1,5 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
+import { greenroomFetch } from "@/lib/api/client";
 
 export type PaymentStatus =
   | "pending"
@@ -84,7 +85,7 @@ export async function getPayments(
   const url = queryString
     ? `${GREENROOM_API_BASE}/payments/?${queryString}`
     : `${GREENROOM_API_BASE}/payments/`;
-  const response = await fetch(url);
+  const response = await greenroomFetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch payments: ${response.statusText}`);
   }
@@ -93,7 +94,7 @@ export async function getPayments(
 }
 
 export async function getPaymentById(id: number): Promise<Payment> {
-  const response = await fetch(`${GREENROOM_API_BASE}/payments/${id}/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/payments/${id}/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch payment ${id}: ${response.statusText}`);
   }
@@ -103,7 +104,7 @@ export async function getPaymentById(id: number): Promise<Payment> {
 export async function createPayment(
   payload: CreatePaymentPayload
 ): Promise<{ id: number; message: string }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/payments/create/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/payments/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -118,7 +119,7 @@ export async function updatePayment(
   id: number,
   payload: UpdatePaymentPayload
 ): Promise<{ message: string; payment_id: number }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/payments/${id}/update/`,
     {
       method: "PATCH",

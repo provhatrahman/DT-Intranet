@@ -1,4 +1,5 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
+import { greenroomFetch } from "@/lib/api/client";
 
 // Verified against the live backend on 2026-07-06 — see BACKEND_STATE.md.
 // The pitch table stores ONLY the fields below; budget/venue/dates sent to
@@ -150,7 +151,7 @@ export function parsePitchDescription(
 }
 
 export async function getPitches(): Promise<Pitch[]> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch pitches: ${response.statusText}`);
   }
@@ -159,7 +160,7 @@ export async function getPitches(): Promise<Pitch[]> {
 }
 
 export async function getPitchById(id: number): Promise<PitchDetail> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch pitch ${id}: ${response.statusText}`);
   }
@@ -174,7 +175,7 @@ export async function getPitchById(id: number): Promise<PitchDetail> {
 export async function createPitch(
   payload: CreatePitchPayload
 ): Promise<CreatePitchResponse> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/create/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/create/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -193,7 +194,7 @@ export async function updatePitch(
   id: number,
   payload: UpdatePitchPayload
 ): Promise<{ message: string; pitch_id: number }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/update/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/update/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -218,7 +219,7 @@ export async function approvePitch(id: number): Promise<{
   project_name?: string;
   project_status?: string;
 }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/approve/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/approve/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
@@ -234,7 +235,7 @@ export async function approvePitch(id: number): Promise<{
 export async function closePitch(
   id: number
 ): Promise<{ message: string; pitch_id: number; status: string }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/close/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/close/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
@@ -249,7 +250,7 @@ export async function closePitch(
 // Blocked (400) once the pitch has any votes or comments — the API exposes no
 // way to remove those, so deletion is only possible for untouched pitches.
 export async function deletePitch(id: number): Promise<{ message: string }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/delete/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/delete/`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -263,7 +264,7 @@ export async function voteOnPitch(
   id: number,
   payload: VotePayload
 ): Promise<{ message: string; vote_id: number; vote_value: number }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/vote/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/vote/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -281,7 +282,7 @@ export async function addComment(
   id: number,
   payload: CommentPayload
 ): Promise<{ message: string; comment_id: number }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/pitches/${id}/comments/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/pitches/${id}/comments/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

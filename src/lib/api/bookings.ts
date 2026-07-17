@@ -1,4 +1,5 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
+import { greenroomFetch } from "@/lib/api/client";
 
 // LIVE — verified against the running backend on 2026-07-06 (BACKEND_STATE.md).
 // The bookings service is project-centric: a booking links an artist to a
@@ -115,7 +116,7 @@ async function parseError(response: Response, fallback: string): Promise<string>
 
 // The list endpoint takes no verified query params; filter client-side.
 export async function getBookings(): Promise<BookingListItem[]> {
-  const response = await fetch(`${GREENROOM_API_BASE}/bookings/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/bookings/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch bookings: ${response.statusText}`);
   }
@@ -124,7 +125,7 @@ export async function getBookings(): Promise<BookingListItem[]> {
 }
 
 export async function getBookingById(id: number): Promise<BookingDetail> {
-  const response = await fetch(`${GREENROOM_API_BASE}/bookings/${id}/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/bookings/${id}/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch booking ${id}: ${response.statusText}`);
   }
@@ -139,7 +140,7 @@ export async function createBooking(
   project_name: string;
   message: string;
 }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/bookings/create/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/bookings/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -154,7 +155,7 @@ export async function updateBooking(
   id: number,
   payload: UpdateBookingPayload
 ): Promise<{ message: string; booking_id: number }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/bookings/${id}/update/`,
     {
       method: "PATCH",
@@ -171,7 +172,7 @@ export async function updateBooking(
 export async function deleteBooking(
   id: number
 ): Promise<{ message: string }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/bookings/${id}/delete/`,
     { method: "DELETE" }
   );
@@ -186,7 +187,7 @@ export async function voteOnBooking(
   id: number,
   payload: BookingVotePayload
 ): Promise<{ message: string; vote_id: number; vote_value: number }> {
-  const response = await fetch(`${GREENROOM_API_BASE}/bookings/${id}/vote/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/bookings/${id}/vote/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
