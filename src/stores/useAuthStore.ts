@@ -4,7 +4,6 @@ import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 import {
   AUTH_MODE,
   GOOGLE_AUTH_ENDPOINT,
-  GOOGLE_TOKEN_ENDPOINT,
   GOOGLE_CLIENT_ID,
   GOOGLE_SCOPES,
   getRedirectUri,
@@ -53,6 +52,7 @@ interface AuthState {
 }
 
 const VERIFY_URL = `${GREENROOM_API_BASE}/users/auth/verify`;
+const EXCHANGE_URL = `${GREENROOM_API_BASE}/users/auth/exchange`;
 
 function expiryFromIdToken(idToken: string, fallbackSeconds = 3600): number {
   const exp = decodeJwtPayload(idToken)?.exp;
@@ -143,33 +143,46 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
+        // The code->token exchange happens SERVER-SIDE: Google "Web application"
+        // clients require the client secret, which must never reach the browser.
+        // We hand the backend the code + PKCE verifier; it exchanges, verifies
+        // the id_token, confirms allowlist access, and returns {user, id_token}.
         try {
-          const body = new URLSearchParams({
-            client_id: GOOGLE_CLIENT_ID,
-            code,
-            code_verifier: verifier,
-            grant_type: "authorization_code",
-            redirect_uri: getRedirectUri(),
-          });
-          const res = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+          const res = await fetch(EXCHANGE_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code,
+              code_verifier: verifier,
+              redirect_uri: getRedirectUri(),
+            }),
           });
+          if (res.status === 403) {
+            set({ status: "error", error: "not_allowlisted", user: null });
+            return;
+          }
           if (!res.ok) {
+            const code =
+              (await res.json().catch(() => null))?.error ||
+              "token_exchange_failed";
+            set({ status: "error", error: code });
+            return;
+          }
+          const data = (await res.json()) as {
+            user: GreenroomAuthUser;
+            id_token: string;
+          };
+          if (!data.id_token || !data.user) {
             set({ status: "error", error: "token_exchange_failed" });
             return;
           }
-          const tokens = (await res.json()) as { id_token?: string };
-          if (!tokens.id_token) {
-            set({ status: "error", error: "no_id_token" });
-            return;
-          }
           set({
-            idToken: tokens.id_token,
-            expiresAt: expiryFromIdToken(tokens.id_token),
+            idToken: data.id_token,
+            expiresAt: expiryFromIdToken(data.id_token),
+            user: data.user,
+            status: "authenticated",
+            error: null,
           });
-          await get().verify();
         } catch {
           set({ status: "error", error: "token_exchange_failed" });
         }
