@@ -7,7 +7,7 @@ import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IpodMenuBar } from "./IpodMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
-import { InputDialog } from "@/components/dialogs/InputDialog";
+import { IpodAddDialog } from "./IpodAddDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useTranslatedHelpItems } from "@/hooks/useTranslatedHelpItems";
@@ -1165,7 +1165,6 @@ export function IpodAppComponent({
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
-  const [urlInput, setUrlInput] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
@@ -1791,15 +1790,17 @@ export function IpodAppComponent({
   ]);
 
   const handleAddTrack = useCallback(
-    async (url: string) => {
+    async (
+      url: string,
+      overrides?: { title?: string; artist?: string }
+    ) => {
       setIsAddingTrack(true);
       try {
         const addedTrack = await useIpodStore
           .getState()
-          .addTrackFromVideoId(url);
+          .addTrackFromVideoId(url, true, overrides);
         if (addedTrack) {
           showStatus(t("apps.ipod.status.added"));
-          setUrlInput("");
           setIsAddDialogOpen(false);
         } else {
           throw new Error("Failed to add track");
@@ -2973,14 +2974,12 @@ export function IpodAppComponent({
           description={t("apps.ipod.dialogs.removeFromLibraryDescription")}
         />
 
-        <InputDialog
+        <IpodAddDialog
           isOpen={isAddDialogOpen}
           onOpenChange={setIsAddDialogOpen}
-          onSubmit={handleAddTrack}
-          title={t("apps.ipod.dialogs.addSongTitle")}
-          description={t("apps.ipod.dialogs.addSongDescription")}
-          value={urlInput}
-          onChange={setUrlInput}
+          onSubmit={({ url, title, artist }) =>
+            handleAddTrack(url, { title, artist })
+          }
           isLoading={isAddingTrack}
         />
         <ShareItemDialog

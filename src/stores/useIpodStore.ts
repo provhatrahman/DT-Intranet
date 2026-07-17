@@ -219,8 +219,17 @@ export interface IpodState extends IpodData {
   importLibrary: (json: string) => void;
   /** Export library to JSON string */
   exportLibrary: () => string;
-  /** Adds a track from a YouTube video ID or URL, fetching metadata automatically */
-  addTrackFromVideoId: (urlOrId: string, autoPlay?: boolean) => Promise<Track | null>;
+  /**
+   * Adds a track from a YouTube video ID or URL. Metadata is fetched
+   * automatically (oEmbed + AI title parsing) unless `overrides.title` is
+   * provided, in which case the caller-supplied title/artist/album are used
+   * verbatim and the network lookups are skipped.
+   */
+  addTrackFromVideoId: (
+    urlOrId: string,
+    autoPlay?: boolean,
+    overrides?: { title?: string; artist?: string; album?: string }
+  ) => Promise<Track | null>;
   /** Load the collective library from the server (falls back to defaults if offline) */
   initializeLibrary: () => Promise<void>;
 
@@ -793,7 +802,11 @@ export const useIpodStore = create<IpodState>()(
           totalTracks: serverTracks.length,
         };
       },
-      addTrackFromVideoId: async (urlOrId: string, autoPlay: boolean = true): Promise<Track | null> => {
+      addTrackFromVideoId: async (
+        urlOrId: string,
+        autoPlay: boolean = true,
+        overrides?: { title?: string; artist?: string; album?: string }
+      ): Promise<Track | null> => {
         // Extract video ID from various URL formats
         const extractVideoId = (input: string): string | null => {
           // If it's already a video ID (11 characters, alphanumeric + hyphens/underscores)
@@ -855,59 +868,71 @@ export const useIpodStore = create<IpodState>()(
         }
 
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        let rawTitle = `Video ID: ${videoId}`; // Default title
-        let authorName: string | undefined = undefined; // Store author_name
-
-        try {
-          // Fetch oEmbed data
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
-            youtubeUrl
-          )}&format=json`;
-          const oembedResponse = await fetch(oembedUrl);
-
-          if (oembedResponse.ok) {
-            const oembedData = await oembedResponse.json();
-            rawTitle = oembedData.title || rawTitle;
-            authorName = oembedData.author_name; // Extract author_name
-          } else {
-            throw new Error(
-              `Failed to fetch video info (${oembedResponse.status}). Please check the YouTube URL.`
-            );
-          }
-        } catch (error) {
-          console.error(`Error fetching oEmbed data for ${urlOrId}:`, error);
-          throw error; // Re-throw to be handled by caller
-        }
 
         const trackInfo = {
-          title: rawTitle,
+          title: `Video ID: ${videoId}`,
           artist: undefined as string | undefined,
           album: undefined as string | undefined,
         };
 
-        try {
-          // Call /api/parse-title
-          const parseResponse = await fetch(getApiUrl("/api/parse-title"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: rawTitle,
-              author_name: authorName,
-            }),
-          });
+        const manualTitle = overrides?.title?.trim();
+        if (manualTitle) {
+          // Caller supplied metadata (manual Add Song form): use it verbatim and
+          // skip the oEmbed + AI title lookups entirely.
+          trackInfo.title = manualTitle;
+          trackInfo.artist = overrides?.artist?.trim() || undefined;
+          trackInfo.album = overrides?.album?.trim() || undefined;
+        } else {
+          let rawTitle = trackInfo.title; // Default title
+          let authorName: string | undefined = undefined; // Store author_name
 
-          if (parseResponse.ok) {
-            const parsedData = await parseResponse.json();
-            trackInfo.title = parsedData.title || rawTitle;
-            trackInfo.artist = parsedData.artist;
-            trackInfo.album = parsedData.album;
-          } else {
-            console.warn(
-              `Failed to parse title with AI (status: ${parseResponse.status}), using raw title from oEmbed/default.`
-            );
+          try {
+            // Fetch oEmbed data
+            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+              youtubeUrl
+            )}&format=json`;
+            const oembedResponse = await fetch(oembedUrl);
+
+            if (oembedResponse.ok) {
+              const oembedData = await oembedResponse.json();
+              rawTitle = oembedData.title || rawTitle;
+              authorName = oembedData.author_name; // Extract author_name
+            } else {
+              throw new Error(
+                `Failed to fetch video info (${oembedResponse.status}). Please check the YouTube URL.`
+              );
+            }
+          } catch (error) {
+            console.error(`Error fetching oEmbed data for ${urlOrId}:`, error);
+            throw error; // Re-throw to be handled by caller
           }
-        } catch (error) {
-          console.error("Error calling /api/parse-title:", error);
+
+          trackInfo.title = rawTitle;
+
+          try {
+            // Call /api/parse-title
+            const parseResponse = await fetch(getApiUrl("/api/parse-title"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: rawTitle,
+                author_name: authorName,
+              }),
+            });
+
+            if (parseResponse.ok) {
+              const parsedData = await parseResponse.json();
+              trackInfo.title = parsedData.title || rawTitle;
+              trackInfo.artist = parsedData.artist;
+              trackInfo.album = parsedData.album;
+            } else {
+              console.warn(
+                `Failed to parse title with AI (status: ${parseResponse.status}), using raw title from oEmbed/default.`
+              );
+            }
+          } catch (error) {
+            console.error("Error calling /api/parse-title:", error);
+          }
         }
 
         const newTrack: Track = {
