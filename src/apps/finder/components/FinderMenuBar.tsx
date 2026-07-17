@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { MenuBar } from "@/components/layout/MenuBar";
 import {
   MenubarMenu,
@@ -9,11 +8,8 @@ import {
   MenubarCheckboxItem,
 } from "@/components/ui/menubar";
 import { FileItem } from "./FileList";
-import { generateAppShareUrl } from "@/utils/sharedUrl";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
-import { ShareItemDialog } from "@/components/dialogs/ShareItemDialog";
-import { appRegistry } from "@/config/appRegistry";
 import { useTranslation } from "react-i18next";
 
 export type ViewType = "small" | "large" | "list";
@@ -75,9 +71,6 @@ export function FinderMenuBar({
   onNewWindow,
 }: FinderMenuBarProps) {
   const { t } = useTranslation();
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const appId = "finder";
-  const appName = appRegistry[appId as keyof typeof appRegistry]?.name || appId;
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
 
@@ -341,12 +334,6 @@ export function FinderMenuBar({
           >
             {t("apps.finder.menu.finderHelp")}
           </MenubarItem>
-          <MenubarItem
-            onSelect={() => setIsShareDialogOpen(true)}
-            className="text-md h-6 px-3"
-          >
-            {t("common.menu.shareApp")}
-          </MenubarItem>
           <MenubarSeparator className="h-[2px] bg-black my-1" />
           <MenubarItem
             onClick={onShowAbout}
@@ -356,14 +343,6 @@ export function FinderMenuBar({
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
-      <ShareItemDialog
-        isOpen={isShareDialogOpen}
-        onClose={() => setIsShareDialogOpen(false)}
-        itemType="App"
-        itemIdentifier={appId}
-        title={appName}
-        generateShareUrl={generateAppShareUrl}
-      />
     </MenuBar>
   );
 }

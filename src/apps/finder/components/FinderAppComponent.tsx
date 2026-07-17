@@ -1265,7 +1265,6 @@ export function FinderAppComponent({
         isOpen={isAboutDialogOpen}
         onOpenChange={setIsAboutDialogOpen}
         metadata={appMetadata}
-        appId="finder"
       />
       <ConfirmDialog
         isOpen={isEmptyTrashDialogOpen}

@@ -2,13 +2,13 @@ import { BaseApp } from "../base/types";
 import { FinderAppComponent } from "./components/FinderAppComponent";
 
 export const appMetadata = {
-  name: "Finder",
+  name: "DAYTIMERS greenroom",
   version: "1.0.0",
   creator: {
-    name: "Ryo Lu",
-    url: "https://ryo.lu",
+    name: "DAYTIMERS",
+    url: "https://daytimers.org",
   },
-  github: "https://github.com/ryokun6/ryos",
+  github: "",
   icon: "/icons/mac.png",
 };
 
