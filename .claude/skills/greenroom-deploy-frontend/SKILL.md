@@ -30,3 +30,13 @@ CloudFront cache. `deploy-quick.ps1` also works but defaults to the SSO profile 
 
 ## Rollback
 Check out the last-good commit, rebuild, and re-run `deploy.ps1` (S3 sync replaces the site).
+
+## Auth (currently OFF in prod)
+A normal deploy ships auth **disabled** — no change to current behaviour. To **enable**
+Google login in prod you must, in addition to deploying:
+- Build with `VITE_AUTH_ENABLED=true` (Vite bakes env at build time — set it in the
+  `deploy.ps1` build env / `.env.production`, else the bundle has auth off).
+- Add a **CloudFront SPA fallback** so `/auth/callback` serves `index.html` (403/404 →
+  `/index.html`, 200) — otherwise the OAuth callback URL 404s.
+- The backend must be enabled too (see `greenroom-deploy-backend`).
+Full checklist: `AUTH_SETUP.md`.

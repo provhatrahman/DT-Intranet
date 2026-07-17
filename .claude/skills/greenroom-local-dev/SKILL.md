@@ -29,6 +29,14 @@ Runs the whole app against the isolated **`greenroom_dev`** database — never p
    App runs at http://localhost:5173 and reads/writes `greenroom_dev` only.
 
 ## Notes
+- **Auth is off by default** (app is ungated; `:5173` is fine). To develop/test the
+  Google **login gate**, run the frontend on **`:3000`** (the registered OAuth redirect
+  URI) with `VITE_AUTH_ENABLED=true`, and set `GOOGLE_CLIENT_SECRET` in the backend
+  `.env` (then restart the backend). Full procedure + flags: `AUTH_SETUP.md`.
+  ```
+  # PowerShell:
+  $env:PORT="3000"; $env:GREENROOM_API_TARGET="http://localhost:8000"; $env:VITE_AUTH_ENABLED="true"; bun dev
+  ```
 - Unset `GREENROOM_API_TARGET` (new terminal) → frontend hits the **prod** Greenroom API.
 - Use `bun run dev:vercel` instead of `bun dev` if you need ryOS AI/chat (`/api/*`) routes —
   but that mode calls the prod Greenroom API, not local.

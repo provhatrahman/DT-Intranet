@@ -77,6 +77,13 @@ $env:PGPASSWORD = "<appdaytimers password>"
 > Note: `--no-owner` restores objects as the connecting role (`appdaytimers`), which
 > is why cloned tables end up owned by `appdaytimers` and trip the ownership gotcha.
 
+## Auth allowlist = the `users` table
+The `users` table doubles as the Google-login **allowlist**: a person can sign in only if
+their **real Google email** is in `users.email` (case-insensitive), and `is_admin` derives
+from `users.role` (`admin`/`manager`). "Allowlist someone" = INSERT/UPDATE their real email
+on a `users` row (dev now; prod after a snapshot). See `AUTH_SETUP.md`. Note: dev `users`
+id 8's email was set to a real Google address for local login testing (`greenroom_dev` only).
+
 ## Guardrails
 - Never run untested SQL directly on `DT-Test`. Dev-first, snapshot, then prod.
 - Prod has deletion protection + 7-day backups; the dev clone holds real PII — treat it as sensitive.

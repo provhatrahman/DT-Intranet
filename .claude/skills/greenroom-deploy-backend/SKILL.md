@@ -33,6 +33,11 @@ compiled deps. Build via CI, then point the Lambda at the new artifact.
 ## Notes
 - Adding a route **under an existing domain** needs code only (gateway forwards `/api/<domain>/{proxy+}`).
   A brand-new top-level domain needs new infra (Terraform, separate repo) — flag it, don't improvise.
+- **Shared-code changes hit every domain.** Edits to `greenroom_backend/settings.py`, `shared/`,
+  or `requirements.txt` affect **all 9 Lambdas** — redeploy each `prod-<domain>-service`, not just one.
+  The Google-auth **bearer middleware lives in shared `settings.py`**, so enabling/altering auth is an
+  all-domain deploy. Enabling auth in prod also needs `GOOGLE_CLIENT_SECRET` on `prod-users-service`
+  (does the token exchange) and the `REQUIRE_AUTH` rollout. Full checklist: `AUTH_SETUP.md`.
 - If the change includes a **schema change**, apply it to the DB first — see `greenroom-db-change`.
 - **Rollback:** each Lambda has a published version `1` baseline; or re-deploy the previous
   S3 artifact by key. Take an RDS snapshot before schema-affecting deploys.
