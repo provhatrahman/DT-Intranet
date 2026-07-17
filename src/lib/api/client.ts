@@ -4,9 +4,9 @@ import { useAuthStore } from "@/stores/useAuthStore";
 // Drop-in replacement for `fetch` used by every Greenroom API module. It:
 //   1. attaches `Authorization: Bearer <id_token>` when auth is enabled and a
 //      session exists (no-op when AUTH_ENABLED is false — behaves like fetch);
-//   2. on a 401, attempts a silent re-auth and retries once. In google mode
-//      silentReauth navigates away (prompt=none redirect), so the retry only
-//      actually fires in mock mode or if renewal completed synchronously.
+//   2. on a 401, attempts a silent re-auth. silentReauth navigates away via a
+//      prompt=none redirect, so in practice the request is abandoned mid-flight
+//      and the retry below only runs if renewal ever resolves synchronously.
 //
 // Only Greenroom API calls go through here, so the bearer never leaks to Google
 // or to the ryOS /api routes.
@@ -34,8 +34,7 @@ export async function greenroomFetch(
 
   const reauthed = await useAuthStore.getState().silentReauth();
   if (!reauthed) {
-    // google mode: a redirect is in flight; nothing will consume this. mock
-    // mode always reauths, so reaching here means renewal genuinely failed.
+    // A prompt=none redirect is in flight; nothing will consume this response.
     return res;
   }
 

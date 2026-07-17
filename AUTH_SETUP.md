@@ -4,6 +4,11 @@ Google OAuth (Authorization Code + PKCE) login for the Greenroom desktop.
 This doc covers how it's wired, what still needs configuring by whoever owns
 the Google Cloud project, and the checklist for turning it on in production.
 
+**Status:** ✅ Verified working end-to-end in **local dev** (frontend `:3000` +
+local backend `:8000`) — real Google login lands on the desktop. Google Cloud
+OAuth client is configured and the client secret is in the local backend
+`.env`. Remaining work is **production enablement** (see the checklist below).
+
 ## How it works
 
 1. User clicks **Sign in with Google** on the Aqua login gate.
@@ -74,10 +79,12 @@ The frontend + backend code is done. These are the only things outside the code:
    - `http://localhost:3000/auth/callback` (local dev)
    - `https://greenroom.daytimers.org/auth/callback` (prod)
    - *(Authorized JavaScript origins are **not** needed — exchange is server-side.)*
-   - **Status: done** — both registered by the OAuth owner, secret provided.
+   - **Status: ✅ done** — both registered by the OAuth owner.
 2. **Provide the client secret** (`GOCSPX-…`) so it can be set as
    `GOOGLE_CLIENT_SECRET` in the backend env (dev `.env`; prod SSM / Lambda env
    on `prod-users-service`). It must never be committed or shipped to the browser.
+   - **Status: ✅ done for dev** — secret is in the local backend `.env`. Prod
+     still needs it set on `prod-users-service` (see checklist item 3).
 
 ---
 
@@ -85,10 +92,10 @@ The frontend + backend code is done. These are the only things outside the code:
 
 Deploying the current commits alone will **not** enable auth. Required steps:
 
-1. **Frontend build flags.** `VITE_AUTH_ENABLED=true` + `VITE_AUTH_MODE=google`
-   must be set **at build time** (Vite bakes `import.meta.env` into the bundle).
-   Add them to the `deploy.ps1` build env / `.env.production`. Without this the
-   prod bundle has auth off.
+1. **Frontend build flag.** `VITE_AUTH_ENABLED=true` must be set **at build
+   time** (Vite bakes `import.meta.env` into the bundle). Add it to the
+   `deploy.ps1` build env / `.env.production`. Without it the prod bundle has
+   auth off.
 2. **Backend redeploy — all domains.** The auth middleware lives in the shared
    `settings.py`, so it runs in **every** domain Lambda, not just users. Redeploy
    all `prod-<domain>-service` functions with the new code. `google-auth` +
