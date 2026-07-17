@@ -2,9 +2,11 @@ import { create } from "zustand";
 import {
   ArtistListItem,
   ArtistDetail,
+  CreateArtistPayload,
   getArtists as apiGetArtists,
   getArtistById as apiGetArtistById,
   findArtistByName as apiFindArtistByName,
+  createArtist as apiCreateArtist,
 } from "@/lib/api/artists";
 
 interface ArtistsState {
@@ -18,6 +20,8 @@ interface ArtistsState {
   getArtistDetail: (id: number) => Promise<ArtistDetail>;
   findByName: (name: string) => Promise<number | null>;
   getArtistById: (id: number) => ArtistListItem | undefined;
+  // Creates the artist then refreshes the cached list; returns the new id.
+  createArtist: (payload: CreateArtistPayload) => Promise<number>;
   clearError: () => void;
 }
 
@@ -74,6 +78,19 @@ export const useArtistsStore = create<ArtistsState>((set, get) => ({
 
   getArtistById: (id: number) => {
     return get().artists.find((a) => a.id === id);
+  },
+
+  createArtist: async (payload: CreateArtistPayload) => {
+    try {
+      const result = await apiCreateArtist(payload);
+      await get().fetchArtists();
+      return result.id;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create artist";
+      set({ error: message });
+      throw error;
+    }
   },
 
   clearError: () => set({ error: null }),

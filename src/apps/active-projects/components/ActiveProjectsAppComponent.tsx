@@ -19,10 +19,12 @@ import {
 } from "../data";
 import type {
   ProjectDetail,
+  ProjectLineupEntry,
   ProjectTeamMember,
   ProjectUpdate,
   ProjectSuggestion,
 } from "@/lib/api/projects";
+import type { ArtistListItem } from "@/lib/api/artists";
 import {
   useEffectiveGreenroomAccount,
   useIsGreenroomAdmin,
@@ -32,6 +34,7 @@ import {
   AquaCard,
   EmptyState,
   Field,
+  FormDialog,
   SidebarRow,
   StatusBadge,
   useOsTheme,
@@ -51,6 +54,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -71,6 +75,9 @@ import {
   ExternalLink,
   MessageSquare,
   Loader2,
+  Search,
+  Mic,
+  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -545,8 +552,8 @@ function ProjectDetailView({
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="curation">
             Curation
           </TabsTrigger>
-          <TabsTrigger className={tabStyles.tabTriggerClasses} value="tasks">
-            Tasks ({project.tasks.length})
+          <TabsTrigger className={tabStyles.tabTriggerClasses} value="lineup">
+            Final Lineup ({project.lineup.length})
           </TabsTrigger>
         </TabsList>
 
@@ -845,53 +852,15 @@ function ProjectDetailView({
           <CurationTab projectId={project.id} />
         </TabsContent>
 
-        {/* Tasks */}
+        {/* Final Lineup */}
         <TabsContent
-          value="tasks"
+          value="lineup"
           className={cn(
             tabStyles.tabContentClasses,
             "flex-1 flex flex-col min-w-0 min-h-0"
           )}
         >
-          <ScrollArea className="flex-1">
-            <div className="space-y-3 p-4 pr-6">
-              <div className="flex items-center gap-2 mb-1">
-                <ListChecks className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Tasks</h3>
-              </div>
-              {project.tasks.length === 0 ? (
-                <EmptyState title="No tasks for this project" className="py-6" />
-              ) : (
-                project.tasks.map((task) => (
-                  <AquaCard key={task.id}>
-                    <CardContent className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium text-sm">
-                            {task.title}
-                          </div>
-                          {task.description && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {task.description}
-                            </div>
-                          )}
-                          {task.due_date && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Due: {task.due_date}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <StatusBadge status={task.status} />
-                          <StatusBadge status={task.priority} tone="gray" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </AquaCard>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+          <FinalLineupTab project={project} />
         </TabsContent>
       </Tabs>
     </div>
@@ -1443,5 +1412,509 @@ function CurationTab({ projectId }: { projectId: number }) {
         description={`Remove "${pendingDelete?.artist_name ?? ""}" from the longlist? Its votes are removed too.`}
       />
     </div>
+  );
+}
+
+// Compact fact row for an artist: each datapoint prefixed with a small icon
+// (mic = type of act, note = genres, pin = city) instead of plain-text
+// separators, so rows scan at a glance.
+function ArtistFacts({ artist }: { artist: ArtistListItem }) {
+  const facts: { icon: LucideIcon; text: string; title?: string }[] = [];
+  if (artist.type_of_act) {
+    facts.push({ icon: Mic, text: artist.type_of_act });
+  }
+  if (artist.genres.length > 0) {
+    const shown = artist.genres.slice(0, 3).join(", ");
+    facts.push({
+      icon: Music,
+      text:
+        artist.genres.length > 3
+          ? `${shown} +${artist.genres.length - 3}`
+          : shown,
+      title: artist.genres.join(", "),
+    });
+  }
+  if (artist.locations.length > 0) {
+    facts.push({
+      icon: MapPin,
+      text: artist.locations[0].city,
+      title: artist.locations
+        .map((l) => `${l.city} (${l.country})`)
+        .join(", "),
+    });
+  }
+  if (facts.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-muted-foreground min-w-0">
+      {facts.map(({ icon: Icon, text, title }, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 min-w-0"
+          title={title ?? text}
+        >
+          <Icon className="h-3 w-3 shrink-0" />
+          <span className="truncate">{text}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Final Lineup: the confirmed artists on the bill (project_lineup rows — real
+// artists-table references, unlike the Curation longlist's free-text names).
+// Search the artist database to add, or create a new artist via the quick-add
+// dialog (which also drops them straight into the lineup). Changes persist
+// immediately via the store; removal is one click to restore, so no confirm.
+function FinalLineupTab({ project }: { project: ProjectDetail }) {
+  const { addToLineup, removeFromLineup } = useProjectsStore();
+  const {
+    artists,
+    fetchArtists,
+    createArtist,
+    isLoading: isLoadingArtists,
+  } = useArtistsStore();
+  const { userId } = useEffectiveGreenroomAccount();
+  const { isMacTheme } = useOsTheme();
+
+  const [search, setSearch] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  useEffect(() => {
+    fetchArtists().catch(() => {
+      // error surfaced via store state
+    });
+  }, [fetchArtists]);
+
+  const lineup = project.lineup;
+  const lineupArtistIds = useMemo(
+    () => new Set(lineup.map((e) => e.artist_id)),
+    [lineup]
+  );
+  const artistById = useMemo(
+    () => new Map(artists.map((a) => [a.id, a])),
+    [artists]
+  );
+
+  // Live client-side filter over the whole roster (a few hundred rows, so no
+  // debounce/server round-trip needed). Matches names and genres; an empty
+  // query shows the entire database so it's browsable without searching.
+  const query = search.trim().toLowerCase();
+  const results = useMemo(() => {
+    if (!query) return artists;
+    return artists.filter(
+      (a) =>
+        a.artist_name.toLowerCase().includes(query) ||
+        (a.preferred_name ?? "").toLowerCase().includes(query) ||
+        a.genres.some((g) => g.toLowerCase().includes(query))
+    );
+  }, [artists, query]);
+
+  // Both actions apply optimistically in the store (and roll back on error),
+  // so there is no per-row spinner or button lockout — rows move between the
+  // lists instantly and several adds can be fired in quick succession. Errors
+  // surface via the store's app-level toast.
+  const handleAdd = (artistId: number, artistName: string) => {
+    addToLineup(project.id, artistId, artistName, userId).catch(() => {});
+  };
+
+  const handleRemove = (entry: ProjectLineupEntry) => {
+    removeFromLineup(project.id, entry.artist_id).catch(() => {});
+  };
+
+  const rowClasses = cn(
+    "flex items-center gap-2 p-2 rounded-md",
+    isMacTheme ? "aqua-well" : "border"
+  );
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-4 p-4 pr-6 @container">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                Final Lineup{lineup.length > 0 ? ` (${lineup.length})` : ""}
+              </h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The confirmed artists on the bill. Add them from the artist
+              database below — or create a new artist if they're not in it yet.
+            </p>
+          </div>
+
+          {/* Confirmed lineup — rows animate in/out as artists are added and
+              removed (optimistic store updates make this effectively instant) */}
+          {lineup.length === 0 ? (
+            <EmptyState
+              title="No artists on the lineup yet"
+              hint="Add artists from the database below, or create a new one."
+              className="py-6"
+            />
+          ) : (
+            <div className="space-y-2">
+              <AnimatePresence initial={false}>
+                {lineup.map((entry) => {
+                  const artist = artistById.get(entry.artist_id);
+                  return (
+                    <motion.div
+                      key={entry.artist_id}
+                      layout
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96, height: 0, marginTop: 0 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className={cn(rowClasses, "overflow-hidden")}
+                    >
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="font-medium text-sm truncate">
+                          {entry.artist_name}
+                        </div>
+                        {artist && <ArtistFacts artist={artist} />}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemove(entry)}
+                        title="Remove from lineup"
+                        className="h-8 w-8 p-0 shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Artist database: always browsable; the search box filters it */}
+          <div className="space-y-1 pt-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                Artist Database
+                {artists.length > 0 ? ` (${artists.length})` : ""}
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex flex-col @md:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Filter by name or genre…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddDialogOpen(true)}
+              className="shrink-0 min-h-[32px] touch-manipulation"
+            >
+              <span className="inline-flex items-center">
+                <Plus className="h-4 w-4 mr-1" />
+                New Artist
+              </span>
+            </Button>
+          </div>
+
+          {isLoadingArtists && artists.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2">
+              Loading artist database…
+            </div>
+          ) : results.length === 0 ? (
+            query ? (
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-2 p-3 rounded-md",
+                  isMacTheme ? "aqua-well" : "border"
+                )}
+              >
+                <span className="text-sm text-muted-foreground">
+                  No artists match "{search.trim()}"
+                </span>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsAddDialogOpen(true)}
+                  className="shrink-0 touch-manipulation"
+                >
+                  <span className="inline-flex items-center">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create "{search.trim()}"
+                  </span>
+                </Button>
+              </div>
+            ) : (
+              <EmptyState title="No artists in the database yet" className="py-6" />
+            )
+          ) : (
+            <div className="space-y-2">
+              {query && (
+                <div className="text-xs text-muted-foreground">
+                  {results.length} match{results.length === 1 ? "" : "es"}
+                </div>
+              )}
+              {results.map((artist) => {
+                const inLineup = lineupArtistIds.has(artist.id);
+                return (
+                  <div key={artist.id} className={rowClasses}>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="font-medium text-sm truncate">
+                        {artist.artist_name}
+                        {artist.preferred_name && (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            ({artist.preferred_name})
+                          </span>
+                        )}
+                      </div>
+                      <ArtistFacts artist={artist} />
+                    </div>
+                    {inLineup ? (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.15 }}
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0 pr-1"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        In lineup
+                      </motion.span>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleAdd(artist.id, artist.artist_name)}
+                        className="shrink-0 touch-manipulation"
+                      >
+                        <span className="inline-flex items-center">
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </span>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      <QuickAddArtistDialog
+        isOpen={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        initialName={search.trim()}
+        onCreate={async (payload) => {
+          const newId = await createArtist(payload);
+          await addToLineup(project.id, newId, payload.artist_name, userId);
+          setSearch("");
+          toast.success(`${payload.artist_name} created and added to the lineup`);
+        }}
+      />
+    </div>
+  );
+}
+
+// Grouped fieldset for the quick-add form: an inset Aqua well on the macosx
+// theme (bordered panel elsewhere) with a small icon + title header, matching
+// the SectionCard language used across the app.
+function FormSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+}) {
+  const { isMacTheme } = useOsTheme();
+  return (
+    <div
+      className={cn(
+        "p-3 rounded-md space-y-3",
+        isMacTheme ? "aqua-well" : "border"
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {title}
+        </h4>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Quick-add form: the minimum needed to identify an artist mid-lineup-building.
+// The full profile (pronouns, heritage, remaining socials…) can be completed
+// later. Genres/locations are free text — the backend get-or-creates them
+// case-insensitively, so existing entries are reused rather than duplicated.
+function QuickAddArtistDialog({
+  isOpen,
+  onOpenChange,
+  initialName,
+  onCreate,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialName: string;
+  onCreate: (payload: {
+    artist_name: string;
+    type_of_act?: string;
+    primary_email?: string;
+    instagram?: string;
+    genres?: string[];
+    locations?: { city: string; country: string }[];
+  }) => Promise<void>;
+}) {
+  const emptyForm = {
+    artist_name: "",
+    type_of_act: "",
+    genres: "",
+    city: "",
+    country: "UK",
+    primary_email: "",
+    instagram: "",
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Seed the name from the lineup search box each time the dialog opens, so
+  // "no match → Create" carries the typed name over.
+  useEffect(() => {
+    if (isOpen) {
+      setForm({ ...emptyForm, artist_name: initialName });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  const canSubmit = form.artist_name.trim().length > 0 && !isSubmitting;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    try {
+      const genres = form.genres
+        .split(",")
+        .map((g) => g.trim())
+        .filter(Boolean);
+      const city = form.city.trim();
+      await onCreate({
+        artist_name: form.artist_name.trim(),
+        type_of_act: form.type_of_act.trim() || undefined,
+        primary_email: form.primary_email.trim() || undefined,
+        instagram: form.instagram.trim() || undefined,
+        genres: genres.length > 0 ? genres : undefined,
+        locations: city
+          ? [{ city, country: form.country.trim() || "UK" }]
+          : undefined,
+      });
+      onOpenChange(false);
+    } catch {
+      // error surfaced via store toast; keep the dialog open to retry
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <FormDialog
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      title="New Artist"
+      description="Add an artist to the database and this project's lineup. Only the name is required — the full profile can be completed later."
+      footer={
+        <>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button variant="default" onClick={handleSubmit} disabled={!canSubmit}>
+            <span className="inline-flex items-center">
+              {isSubmitting && (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              )}
+              {isSubmitting ? "Creating…" : "Create & Add to Lineup"}
+            </span>
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <FormSection icon={Mic} title="Artist">
+          <Field label="Artist name" required>
+            <Input
+              value={form.artist_name}
+              onChange={(e) =>
+                setForm({ ...form, artist_name: e.target.value })
+              }
+              placeholder="Stage name"
+              autoFocus
+            />
+          </Field>
+          <Field label="Type of act">
+            <Input
+              value={form.type_of_act}
+              onChange={(e) =>
+                setForm({ ...form, type_of_act: e.target.value })
+              }
+              placeholder="DJ, Live Act…"
+            />
+          </Field>
+          <Field label="Genres">
+            <Input
+              value={form.genres}
+              onChange={(e) => setForm({ ...form, genres: e.target.value })}
+              placeholder="Techno, House — comma-separated"
+            />
+          </Field>
+        </FormSection>
+        <FormSection icon={MapPin} title="Location">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="City">
+              <Input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                placeholder="London"
+              />
+            </Field>
+            <Field label="Country">
+              <Input
+                value={form.country}
+                onChange={(e) => setForm({ ...form, country: e.target.value })}
+              />
+            </Field>
+          </div>
+        </FormSection>
+        <FormSection icon={Mail} title="Contact">
+          <Field label="Email">
+            <Input
+              type="email"
+              value={form.primary_email}
+              onChange={(e) =>
+                setForm({ ...form, primary_email: e.target.value })
+              }
+              placeholder="artist@example.com"
+            />
+          </Field>
+          <Field label="Instagram">
+            <Input
+              value={form.instagram}
+              onChange={(e) => setForm({ ...form, instagram: e.target.value })}
+              placeholder="@handle or URL"
+            />
+          </Field>
+        </FormSection>
+      </div>
+    </FormDialog>
   );
 }

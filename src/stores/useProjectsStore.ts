@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   ProjectListItem,
   ProjectDetail,
+  ProjectLineupEntry,
   ProjectStatus,
   ProjectWrapup,
   ProjectUpdate,
@@ -17,6 +18,8 @@ import {
   updateProject as apiUpdateProject,
   updateProjectStatus as apiUpdateProjectStatus,
   assignTeam as apiAssignTeam,
+  addLineupArtist as apiAddLineupArtist,
+  removeLineupArtist as apiRemoveLineupArtist,
   addProjectTeamMember as apiAddProjectTeamMember,
   removeProjectTeamMember as apiRemoveProjectTeamMember,
   archiveProject as apiArchiveProject,
@@ -59,6 +62,17 @@ interface ProjectsState {
   updateProject: (id: number, payload: UpdateProjectPayload) => Promise<void>;
   updateStatus: (id: number, status: ProjectStatus) => Promise<void>;
   assignTeam: (id: number, members: TeamMemberPayload[]) => Promise<void>;
+  // Final lineup: confirmed artists (project_lineup rows), incremental
+  // add/remove. Both update the cached detail optimistically (and roll back on
+  // failure) so the UI reflects the change instantly, without waiting on a
+  // full project refetch.
+  addToLineup: (
+    id: number,
+    artistId: number,
+    artistName: string,
+    addedByUserId?: number | null
+  ) => Promise<void>;
+  removeFromLineup: (id: number, artistId: number) => Promise<void>;
   // Internal staff team (users), distinct from the artist `assignTeam` above.
   addTeamMember: (id: number, userId: number, role: string) => Promise<void>;
   removeTeamMember: (id: number, userId: number) => Promise<void>;
@@ -212,6 +226,115 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to assign team";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  addToLineup: async (
+    id: number,
+    artistId: number,
+    artistName: string,
+    addedByUserId?: number | null
+  ) => {
+    const detail = get().projectDetails[id];
+    const alreadyIn = detail?.lineup.some((e) => e.artist_id === artistId);
+    // Optimistic insert with a placeholder entry id (negative so it can't
+    // collide with a real row id); swapped for the server row on success.
+    if (detail && !alreadyIn) {
+      const optimistic: ProjectLineupEntry = {
+        id: -artistId,
+        artist_id: artistId,
+        artist_name: artistName,
+        display_order: null,
+        added_by_user_id: addedByUserId ?? null,
+        date_created: null,
+      };
+      set((state) => ({
+        projectDetails: {
+          ...state.projectDetails,
+          [id]: { ...detail, lineup: [...detail.lineup, optimistic] },
+        },
+      }));
+    }
+    try {
+      const result = await apiAddLineupArtist(id, {
+        artist_id: artistId,
+        ...(addedByUserId ? { added_by_user_id: addedByUserId } : {}),
+      });
+      set((state) => {
+        const current = state.projectDetails[id];
+        if (!current) return {};
+        return {
+          projectDetails: {
+            ...state.projectDetails,
+            [id]: {
+              ...current,
+              lineup: current.lineup.map((e) =>
+                e.artist_id === artistId ? result.lineup_entry : e
+              ),
+            },
+          },
+        };
+      });
+    } catch (error) {
+      // Roll the optimistic entry back out.
+      set((state) => {
+        const current = state.projectDetails[id];
+        if (!current) return {};
+        return {
+          projectDetails: {
+            ...state.projectDetails,
+            [id]: {
+              ...current,
+              lineup: current.lineup.filter((e) => e.artist_id !== artistId),
+            },
+          },
+        };
+      });
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to add artist to lineup";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  removeFromLineup: async (id: number, artistId: number) => {
+    // Optimistic removal; the stashed entry is restored on failure.
+    const detail = get().projectDetails[id];
+    const removed = detail?.lineup.find((e) => e.artist_id === artistId);
+    if (detail && removed) {
+      set((state) => ({
+        projectDetails: {
+          ...state.projectDetails,
+          [id]: {
+            ...detail,
+            lineup: detail.lineup.filter((e) => e.artist_id !== artistId),
+          },
+        },
+      }));
+    }
+    try {
+      await apiRemoveLineupArtist(id, artistId);
+    } catch (error) {
+      if (removed) {
+        set((state) => {
+          const current = state.projectDetails[id];
+          if (!current) return {};
+          return {
+            projectDetails: {
+              ...state.projectDetails,
+              [id]: { ...current, lineup: [...current.lineup, removed] },
+            },
+          };
+        });
+      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to remove artist from lineup";
       set({ error: message });
       throw error;
     }

@@ -1,17 +1,20 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 import { greenroomFetch } from "@/lib/api/client";
 
+export interface ArtistLocation {
+  city: string;
+  country: string;
+}
+
 export interface ArtistListItem {
   id: number;
   artist_name: string;
   preferred_name: string | null;
+  type_of_act: string | null;
   is_active: boolean;
   is_collective_member: boolean;
-}
-
-export interface ArtistLocation {
-  city: string;
-  country: string;
+  genres: string[];
+  locations: ArtistLocation[];
 }
 
 export interface ArtistDetail {
@@ -29,6 +32,9 @@ export interface ArtistDetail {
   soundcloud: string | null;
   tiktok: string | null;
   website: string | null;
+  outside_uk: string | null;
+  other_social_media: string | null;
+  previous_work_link: string | null;
   is_collective_member: boolean;
   is_active: boolean;
   date_of_birth: string | null;
@@ -49,10 +55,17 @@ export interface CreateArtistPayload {
   soundcloud?: string;
   tiktok?: string;
   website?: string;
+  outside_uk?: string;
+  other_social_media?: string;
+  previous_work_link?: string;
   is_collective_member?: boolean;
   is_active?: boolean;
   date_of_birth?: string;
   system_user_id?: number;
+  /** Genre names — the backend get-or-creates and links them. */
+  genres?: string[];
+  /** City names or {city, country} objects — country defaults to "UK". */
+  locations?: (string | ArtistLocation)[];
 }
 
 export interface GetArtistsParams {
@@ -137,7 +150,13 @@ export async function findArtistByName(
 
 export async function createArtist(
   payload: CreateArtistPayload
-): Promise<{ id: number; artist_name: string; message: string }> {
+): Promise<{
+  id: number;
+  artist_name: string;
+  genres?: string[];
+  locations?: ArtistLocation[];
+  message: string;
+}> {
   const response = await greenroomFetch(`${GREENROOM_API_BASE}/artists/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -147,4 +166,35 @@ export async function createArtist(
     throw new Error(await parseError(response, "Failed to create artist"));
   }
   return await response.json();
+}
+
+export interface GenreOption {
+  id: number;
+  name: string;
+}
+
+export interface LocationOption {
+  id: number;
+  city: string;
+  country: string;
+}
+
+export async function getGenres(): Promise<GenreOption[]> {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/artists/genres/`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch genres: ${response.statusText}`);
+  }
+  const data: { genres: GenreOption[] } = await response.json();
+  return data.genres;
+}
+
+export async function getLocations(): Promise<LocationOption[]> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/artists/locations/`
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch locations: ${response.statusText}`);
+  }
+  const data: { locations: LocationOption[] } = await response.json();
+  return data.locations;
 }

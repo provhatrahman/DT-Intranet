@@ -43,6 +43,17 @@ export interface ProjectMember {
   joined_at: string | null;
 }
 
+// A confirmed final-lineup artist (project_lineup row) — a real artists-table
+// reference, unlike the free-text Curation suggestions.
+export interface ProjectLineupEntry {
+  id: number;
+  artist_id: number;
+  artist_name: string;
+  display_order: number | null;
+  added_by_user_id: number | null;
+  date_created: string | null;
+}
+
 // Internal staff (a user working on the project), distinct from artist members.
 // The row with role "Project Lead" is the project lead; others are team members.
 export interface ProjectTeamMember {
@@ -117,9 +128,9 @@ export interface ProjectSuggestion {
 }
 
 export interface ProjectDetail extends ProjectListItem {
-  // `lineup` exists on detail responses but is empty on every project in the
-  // live DB, so its item shape is unverified. Members is the populated list.
-  lineup: ProjectMember[];
+  // Confirmed final-lineup artists (project_lineup rows), managed via the
+  // lineup endpoints below. `members` is the legacy assign-team list.
+  lineup: ProjectLineupEntry[];
   members: ProjectMember[];
   tasks: ProjectTask[];
   // Internal staff working on the project (users), separate from artist members.
@@ -173,7 +184,7 @@ interface ProjectsListResponse {
 
 interface ProjectDetailResponse {
   project: ProjectListItem;
-  lineup?: ProjectMember[];
+  lineup?: ProjectLineupEntry[];
   members?: ProjectMember[];
   tasks?: ProjectTask[];
   team?: ProjectTeamMember[];
@@ -295,6 +306,61 @@ export async function assignTeam(
   );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to assign team"));
+  }
+  return await response.json();
+}
+
+// --- Final lineup (project_lineup rows: confirmed artists on the bill) ---
+
+export async function getProjectLineup(
+  id: number
+): Promise<ProjectLineupEntry[]> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/lineup/`
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to fetch lineup"));
+  }
+  const data: { project_id: number; lineup: ProjectLineupEntry[] } =
+    await response.json();
+  return data.lineup;
+}
+
+// Idempotent server-side: re-adding an existing artist returns 200 instead of 201.
+export async function addLineupArtist(
+  id: number,
+  payload: {
+    artist_id: number;
+    display_order?: number;
+    added_by_user_id?: number;
+  }
+): Promise<{ message: string; lineup_entry: ProjectLineupEntry }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/lineup/add/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to add artist to lineup"));
+  }
+  return await response.json();
+}
+
+export async function removeLineupArtist(
+  id: number,
+  artistId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/lineup/${artistId}/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, "Failed to remove artist from lineup")
+    );
   }
   return await response.json();
 }
