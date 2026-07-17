@@ -49,25 +49,28 @@ and, separately, `REQUIRE_AUTH=true` (backend enforcement).
 
 ## Local development
 
+Local dev runs on **:5173** (the default Vite port), proxied to the local
+Django backend on `:8000`.
+
 **Mock mode (works today, no Google/secret needed)** — develop the gated app:
 ```bash
-PORT=3000 GREENROOM_API_TARGET=http://localhost:8000 \
+GREENROOM_API_TARGET=http://localhost:8000 \
   VITE_AUTH_ENABLED=true VITE_AUTH_MODE=mock bun dev
 ```
 "Sign in with Google" fakes a verified admin session (user id 8). Good for
-building/behaviour work behind the gate.
+building/behaviour work behind the gate. Port doesn't matter in mock mode (no
+Google redirect).
 
 **Real Google mode locally** — needs the two prerequisites below:
 ```bash
-PORT=3000 GREENROOM_API_TARGET=http://localhost:8000 \
+GREENROOM_API_TARGET=http://localhost:8000 \
   VITE_AUTH_ENABLED=true VITE_AUTH_MODE=google bun dev
 ```
-Port **3000** matters — it must match a registered redirect URI. Do **not** use
-`bun run dev:vercel` (also :3000 but points at the **prod** API).
-Prerequisites:
+Do **not** use `bun run dev:vercel` — it points at the **prod** API instead of
+the local `:8000` backend. Prerequisites:
 1. `GOOGLE_CLIENT_SECRET=…` in `c:\Projects\backend\.env`, then restart the
    Django server (`.venv\Scripts\python manage.py runserver 8000`).
-2. `http://localhost:3000/auth/callback` in the OAuth client's redirect URIs.
+2. `http://localhost:5173/auth/callback` in the OAuth client's redirect URIs.
 
 ---
 
@@ -77,7 +80,7 @@ The frontend + backend code is done. These are the only things outside the code:
 
 1. **Authorized redirect URIs** on OAuth client
    `407614724084-…apps.googleusercontent.com`:
-   - `http://localhost:3000/auth/callback` (local dev)
+   - `http://localhost:5173/auth/callback` (local dev — the Vite port we use)
    - `https://greenroom.daytimers.org/auth/callback` (prod)
    - *(Authorized JavaScript origins are **not** needed — exchange is server-side.)*
 2. **Provide the client secret** (`GOCSPX-…`) so it can be set as
