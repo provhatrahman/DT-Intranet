@@ -13,8 +13,14 @@ import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { useLaunchApp } from "@/hooks/useLaunchApp";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
-import { useTranslatedHelpItems } from "@/hooks/useTranslatedHelpItems";
-import { appMetadata as finderMetadata, helpItems as finderHelpItems } from "@/apps/finder";
+import { appMetadata as finderMetadata } from "@/apps/finder";
+import { appRegistry } from "@/config/appRegistry";
+import { getTranslatedAppName, type AppId } from "@/utils/i18n";
+import {
+  generalHelpItems,
+  GENERAL_HELP_APP_NAME,
+  HELP_GUIDE_APP_IDS,
+} from "@/config/helpGuides";
 
 /**
  * Placeholder Finder-style menu bar shown when no app window is in the
@@ -24,9 +30,8 @@ import { appMetadata as finderMetadata, helpItems as finderHelpItems } from "@/a
 export function DefaultMenuItems() {
   const { t } = useTranslation();
   const launchApp = useLaunchApp();
-  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [activeHelp, setActiveHelp] = useState<AppId | "general" | null>(null);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
-  const translatedHelpItems = useTranslatedHelpItems("finder", finderHelpItems);
 
   const handleLaunchFinder = (path: string) => {
     launchApp("finder", { initialPath: path });
@@ -223,11 +228,21 @@ export function DefaultMenuItems() {
         </MenubarTrigger>
         <MenubarContent align="start" sideOffset={1} className="px-0">
           <MenubarItem
-            onClick={() => setIsHelpDialogOpen(true)}
+            onClick={() => setActiveHelp("general")}
             className="text-md h-6 px-3"
           >
-            {t("apps.finder.menu.finderHelp")}
+            {t("common.menu.howToUseGreenroom", "How to use Greenroom")}
           </MenubarItem>
+          <MenubarSeparator className="h-[2px] bg-black my-1" />
+          {HELP_GUIDE_APP_IDS.map((id) => (
+            <MenubarItem
+              key={id}
+              onClick={() => setActiveHelp(id)}
+              className="text-md h-6 px-3"
+            >
+              {getTranslatedAppName(id)}
+            </MenubarItem>
+          ))}
           <MenubarSeparator className="h-[2px] bg-black my-1" />
           <MenubarItem
             onClick={() => setIsAboutDialogOpen(true)}
@@ -239,10 +254,19 @@ export function DefaultMenuItems() {
       </MenubarMenu>
 
       <HelpDialog
-        isOpen={isHelpDialogOpen}
-        onOpenChange={setIsHelpDialogOpen}
-        appId="finder"
-        helpItems={translatedHelpItems}
+        isOpen={activeHelp !== null}
+        onOpenChange={(open) => {
+          if (!open) setActiveHelp(null);
+        }}
+        appId={activeHelp && activeHelp !== "general" ? activeHelp : undefined}
+        appName={activeHelp === "general" ? GENERAL_HELP_APP_NAME : undefined}
+        helpItems={
+          activeHelp === "general"
+            ? generalHelpItems
+            : activeHelp
+            ? appRegistry[activeHelp].helpItems ?? []
+            : []
+        }
       />
       <AboutDialog
         isOpen={isAboutDialogOpen}
