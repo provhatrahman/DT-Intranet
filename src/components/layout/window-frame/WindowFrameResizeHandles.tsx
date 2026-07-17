@@ -6,6 +6,13 @@ export interface WindowFrameResizeHandlesProps {
   resizerZIndexClass: string;
   showResizers: boolean;
   isMobile: boolean;
+  /**
+   * Width-only "narrow screen" flag. Corner (diagonal) handles are hidden only
+   * on narrow screens — where windows are full-width and horizontal resize is
+   * disabled — NOT on any touch-capable device (`isMobile`), so large
+   * touchscreen displays still get corner resizers.
+   */
+  isNarrowScreen: boolean;
   isWindowsTheme: boolean;
   isMacOSTheme: boolean;
   resizeType: ResizeType | null;
@@ -20,6 +27,7 @@ export function WindowFrameResizeHandles({
   resizerZIndexClass,
   showResizers,
   isMobile,
+  isNarrowScreen,
   isWindowsTheme,
   isMacOSTheme,
   resizeType,
@@ -99,7 +107,7 @@ export function WindowFrameResizeHandles({
         className={cn(
           "absolute cursor-ne-resize pointer-events-auto transition-all select-none resize-handle",
           showResizers && "bg-red-500/50",
-          isMobile && "hidden",
+          isNarrowScreen && "hidden",
           resizeType === "ne"
             ? "top-[-100px] right-[-100px] size-[200px]"
             : "top-0 right-0 size-6"
@@ -112,7 +120,7 @@ export function WindowFrameResizeHandles({
         className={cn(
           "absolute cursor-sw-resize pointer-events-auto transition-all select-none resize-handle",
           showResizers && "bg-red-500/50",
-          isMobile && "hidden",
+          isNarrowScreen && "hidden",
           resizeType === "sw"
             ? "bottom-[-100px] left-[-100px] size-[200px]"
             : "bottom-0 left-0 size-6"
@@ -125,7 +133,7 @@ export function WindowFrameResizeHandles({
         className={cn(
           "absolute cursor-se-resize pointer-events-auto transition-all select-none resize-handle",
           showResizers && "bg-red-500/50",
-          isMobile && "hidden",
+          isNarrowScreen && "hidden",
           resizeType === "se"
             ? "bottom-[-100px] right-[-100px] size-[200px]"
             : "bottom-0 right-0 size-6"

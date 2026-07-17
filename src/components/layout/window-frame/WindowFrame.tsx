@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { useDisplaySettingsStore } from "@/stores/useDisplaySettingsStore";
 import { useThemeFlags } from "@/hooks/useThemeFlags";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useIsMobile, useIsNarrowScreen } from "@/hooks/useIsMobile";
 import { useIsPhone } from "@/hooks/useIsPhone";
 
 import type { WindowFrameProps } from "./windowFrameTypes";
@@ -135,6 +135,7 @@ export function WindowFrame({
   );
 
   const isMobile = useIsMobile();
+  const isNarrowScreen = useIsNarrowScreen();
   const isPhone = useIsPhone();
 
   const {
@@ -318,6 +319,7 @@ export function WindowFrame({
                   showResizers={debugMode}
                   resizeType={resizeType}
                   isMobile={isMobile}
+                  isNarrowScreen={isNarrowScreen}
                   isWindowsTheme={isWindowsTheme}
                   isMacOSTheme={isMacOSTheme}
                   handleResizeStartWithForeground={handleResizeStartWithForeground}
