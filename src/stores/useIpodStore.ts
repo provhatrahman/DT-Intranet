@@ -3,6 +3,33 @@ import { persist } from "zustand/middleware";
 import { LyricsAlignment, ChineseVariant, KoreanDisplay } from "@/types/lyrics";
 import { LyricLine } from "@/types/lyrics";
 import { getApiUrl } from "@/utils/platform";
+import * as musicApi from "@/lib/api/music";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { useChatsStore } from "@/stores/useChatsStore";
+import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
+
+/**
+ * Best-effort resolution of the current Greenroom user id for attributing an
+ * added track. Non-reactive (reads store snapshots). Attribution is optional —
+ * the backend silently drops an unknown id — so this never blocks an add.
+ */
+function resolveGreenroomUserId(): number | undefined {
+  try {
+    const auth = useAuthStore.getState();
+    if (
+      auth.status === "authenticated" &&
+      auth.user?.id &&
+      (!auth.expiresAt || Date.now() < auth.expiresAt)
+    ) {
+      return auth.user.id;
+    }
+    const username = useChatsStore.getState().username;
+    const account = useGreenroomAccountStore.getState().getAccount(username);
+    return account?.greenroomUserId ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // Define the Track type (can be shared or defined here)
 export interface Track {
@@ -163,6 +190,8 @@ export interface IpodState extends IpodData {
   setUiVariant: (uiVariant: "classic" | "modern") => void;
   toggleUiVariant: () => void;
   addTrack: (track: Track) => void;
+  /** Remove a track from the collective library (local + server). */
+  removeTrack: (id: string) => Promise<void>;
   clearLibrary: () => void;
   resetLibrary: () => Promise<void>;
   nextTrack: () => void;
@@ -192,10 +221,22 @@ export interface IpodState extends IpodData {
   exportLibrary: () => string;
   /** Adds a track from a YouTube video ID or URL, fetching metadata automatically */
   addTrackFromVideoId: (urlOrId: string, autoPlay?: boolean) => Promise<Track | null>;
-  /** Load the default library if no tracks exist */
+  /** Load the collective library from the server (falls back to defaults if offline) */
   initializeLibrary: () => Promise<void>;
 
-  /** Sync library with server - checks for updates and ensures all default tracks are present */
+  /**
+   * Fetch the collective library from the server and make it the source of
+   * truth for the local list (adds, updates, and removes propagate). Preserves
+   * the currently-playing track by id. Returns the diff counts.
+   */
+  fetchSharedLibrary: () => Promise<{
+    newTracksAdded: number;
+    tracksUpdated: number;
+    removed: number;
+    totalTracks: number;
+  }>;
+
+  /** Sync library with the collective server library (thin wrapper over fetchSharedLibrary) */
   syncLibrary: () => Promise<{
     newTracksAdded: number;
     tracksUpdated: number;
@@ -386,6 +427,43 @@ export const useIpodStore = create<IpodState>()(
           playbackHistory: [], // Clear playback history when adding new tracks
           historyPosition: -1,
         })),
+      removeTrack: async (id: string) => {
+        const current = get();
+        const idx = current.tracks.findIndex((t) => t.id === id);
+        if (idx === -1) return;
+
+        // Snapshot for rollback if the server delete fails.
+        const snapshotTracks = current.tracks;
+        const snapshotIndex = current.currentIndex;
+
+        // Optimistically remove locally, fixing up currentIndex/playback.
+        set((state) => {
+          const tracks = state.tracks.filter((t) => t.id !== id);
+          let currentIndex = state.currentIndex;
+          if (idx < state.currentIndex) {
+            currentIndex = state.currentIndex - 1;
+          } else if (idx === state.currentIndex) {
+            currentIndex =
+              tracks.length > 0
+                ? Math.min(state.currentIndex, tracks.length - 1)
+                : -1;
+          }
+          return {
+            tracks,
+            currentIndex,
+            isPlaying: tracks.length === 0 ? false : state.isPlaying,
+          };
+        });
+
+        try {
+          await musicApi.removeTrack(id);
+        } catch (error) {
+          console.error("Failed to remove track from shared library:", error);
+          // Roll back the optimistic removal.
+          set({ tracks: snapshotTracks, currentIndex: snapshotIndex });
+          throw error;
+        }
+      },
       clearLibrary: () =>
         set({
           tracks: [],
@@ -595,6 +673,23 @@ export const useIpodStore = create<IpodState>()(
             playbackHistory: [], // Clear playback history when importing library
             historyPosition: -1,
           });
+
+          // The library is collective (server = source of truth), so push the
+          // imported tracks up too — otherwise the next poll would drop any that
+          // aren't already on the server. Best-effort / fire-and-forget.
+          const addedBy = resolveGreenroomUserId();
+          void Promise.allSettled(
+            importedTracks.map((track) =>
+              musicApi.addTrack(musicApi.toAddPayload(track, addedBy))
+            )
+          ).then((results) => {
+            const failed = results.filter((r) => r.status === "rejected").length;
+            if (failed > 0) {
+              console.warn(
+                `[iPod] importLibrary: ${failed}/${importedTracks.length} tracks failed to sync to the shared library`
+              );
+            }
+          });
         } catch (error) {
           console.error("Failed to import library:", error);
           throw error;
@@ -607,17 +702,96 @@ export const useIpodStore = create<IpodState>()(
       initializeLibrary: async () => {
         const current = get();
         // Only initialize if the library is in uninitialized state
-        if (current.libraryState === "uninitialized") {
+        if (current.libraryState !== "uninitialized") return;
+
+        try {
+          // The collective library lives on the server; load it as source of truth.
+          await get().fetchSharedLibrary();
+          set((state) => ({
+            currentIndex:
+              state.tracks.length > 0
+                ? state.currentIndex >= 0
+                  ? state.currentIndex
+                  : 0
+                : -1,
+            playbackHistory: [],
+            historyPosition: -1,
+          }));
+        } catch (err) {
+          // Offline / server unreachable: fall back to the bundled defaults so
+          // the app still works. The poller will reconcile once online.
+          console.error(
+            "Failed to load collective library, using bundled defaults",
+            err
+          );
           const { tracks, version } = await loadDefaultTracks();
           set({
             tracks,
             currentIndex: tracks.length > 0 ? 0 : -1,
             libraryState: "loaded",
             lastKnownVersion: version,
-            playbackHistory: [], // Clear playback history when initializing library
+            playbackHistory: [],
             historyPosition: -1,
           });
         }
+      },
+      fetchSharedLibrary: async () => {
+        const serverTracks = await musicApi.listTracks();
+        const current = get();
+        const currentId = current.tracks[current.currentIndex]?.id;
+
+        // Diff against the local list (for toast counts / change detection).
+        const existingIds = new Set(current.tracks.map((t) => t.id));
+        const serverIds = new Set(serverTracks.map((t) => t.id));
+        const newTracksAdded = serverTracks.filter(
+          (t) => !existingIds.has(t.id)
+        ).length;
+        const removed = current.tracks.filter(
+          (t) => !serverIds.has(t.id)
+        ).length;
+        const localById = new Map(current.tracks.map((t) => [t.id, t]));
+        let tracksUpdated = 0;
+        for (const s of serverTracks) {
+          const local = localById.get(s.id);
+          if (
+            local &&
+            (local.title !== s.title ||
+              local.artist !== s.artist ||
+              local.album !== s.album ||
+              local.url !== s.url ||
+              local.lyricOffset !== s.lyricOffset)
+          ) {
+            tracksUpdated++;
+          }
+        }
+
+        // Server is the source of truth: replace the local list with it, while
+        // keeping the currently-playing track selected (matched by id).
+        if (newTracksAdded > 0 || tracksUpdated > 0 || removed > 0) {
+          let currentIndex = -1;
+          if (serverTracks.length > 0) {
+            const foundIdx = currentId
+              ? serverTracks.findIndex((t) => t.id === currentId)
+              : -1;
+            currentIndex =
+              foundIdx >= 0
+                ? foundIdx
+                : Math.min(
+                    Math.max(current.currentIndex, 0),
+                    serverTracks.length - 1
+                  );
+          }
+          set({ tracks: serverTracks, currentIndex, libraryState: "loaded" });
+        } else if (current.libraryState !== "loaded") {
+          set({ libraryState: "loaded" });
+        }
+
+        return {
+          newTracksAdded,
+          tracksUpdated,
+          removed,
+          totalTracks: serverTracks.length,
+        };
       },
       addTrackFromVideoId: async (urlOrId: string, autoPlay: boolean = true): Promise<Track | null> => {
         // Extract video ID from various URL formats
@@ -669,6 +843,15 @@ export const useIpodStore = create<IpodState>()(
         const videoId = extractVideoId(urlOrId);
         if (!videoId) {
           throw new Error("Invalid YouTube URL or video ID");
+        }
+
+        // Collective library is keyed by video id — if it's already present,
+        // just select/play it instead of adding a duplicate (and skip the
+        // oEmbed/parse round-trips).
+        const existingIndex = get().tracks.findIndex((t) => t.id === videoId);
+        if (existingIndex !== -1) {
+          set({ currentIndex: existingIndex, isPlaying: autoPlay });
+          return get().tracks[existingIndex];
         }
 
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -736,104 +919,45 @@ export const useIpodStore = create<IpodState>()(
           lyricOffset: 1000, // Default 1 second offset for new tracks
         };
 
+        // Optimistically add to the local list, then persist to the shared
+        // library so every user sees it. Roll back if the server write fails.
+        get().addTrack(newTrack);
+        if (!autoPlay) {
+          set({ isPlaying: false });
+        }
+
         try {
-          get().addTrack(newTrack); // Add track to the store
-          // If autoPlay is false (e.g., for iOS), pause after adding
-          if (!autoPlay) {
-            set({ isPlaying: false });
-          }
-          return newTrack;
+          const saved = await musicApi.addTrack(
+            musicApi.toAddPayload(newTrack, resolveGreenroomUserId())
+          );
+          // Reconcile with the server's stored copy (metadata may be normalized).
+          set((state) => ({
+            tracks: state.tracks.map((t) =>
+              t.id === saved.id ? { ...t, ...saved } : t
+            ),
+          }));
+          return saved;
         } catch (error) {
-          console.error("Error adding track to store:", error);
-          return null;
+          console.error("Failed to persist track to shared library:", error);
+          // Roll back the optimistic add.
+          set((state) => {
+            const tracks = state.tracks.filter((t) => t.id !== newTrack.id);
+            const currentIndex =
+              tracks.length > 0
+                ? Math.min(state.currentIndex, tracks.length - 1)
+                : -1;
+            return { tracks, currentIndex };
+          });
+          throw error;
         }
       },
 
       syncLibrary: async () => {
-        try {
-          // Force refresh to get latest tracks from server (bypass cache)
-          const { tracks: serverTracks, version: serverVersion } =
-            await loadDefaultTracks(true);
-          const current = get();
-          const wasEmpty = current.tracks.length === 0;
-
-          // Create a map of server tracks by ID for efficient lookup
-          const serverTrackMap = new Map(
-            serverTracks.map((track) => [track.id, track])
-          );
-
-          let newTracksAdded = 0;
-          let tracksUpdated = 0;
-
-          // Process existing tracks: update metadata if track exists on server
-          const updatedTracks = current.tracks.map((currentTrack) => {
-            const serverTrack = serverTrackMap.get(currentTrack.id);
-            if (serverTrack) {
-              // Track exists on server, check if metadata needs updating
-              const hasChanges =
-                currentTrack.title !== serverTrack.title ||
-                currentTrack.artist !== serverTrack.artist ||
-                currentTrack.album !== serverTrack.album ||
-                currentTrack.url !== serverTrack.url ||
-                currentTrack.lyricOffset !== serverTrack.lyricOffset;
-
-              if (hasChanges) {
-                tracksUpdated++;
-                // Update with server metadata but preserve any user customizations we want to keep
-                return {
-                  ...currentTrack,
-                  title: serverTrack.title,
-                  artist: serverTrack.artist,
-                  album: serverTrack.album,
-                  url: serverTrack.url,
-                  lyricOffset: serverTrack.lyricOffset,
-                };
-              }
-            }
-            // Return unchanged track (either no server version or no changes)
-            return currentTrack;
-          });
-
-          // Find tracks that are on the server but not in the user's library
-          const existingIds = new Set(current.tracks.map((track) => track.id));
-          const tracksToAdd = serverTracks.filter(
-            (track) => !existingIds.has(track.id)
-          );
-          newTracksAdded = tracksToAdd.length;
-
-          // Combine new tracks (at top) with updated existing tracks
-          const finalTracks = [...tracksToAdd, ...updatedTracks];
-
-          // Update store if there were any changes
-          if (newTracksAdded > 0 || tracksUpdated > 0) {
-            set({
-              tracks: finalTracks,
-              lastKnownVersion: serverVersion,
-              libraryState: "loaded",
-              // If library was empty and we added tracks, set first song as current
-              currentIndex:
-                wasEmpty && finalTracks.length > 0 ? 0 : current.currentIndex,
-              // Reset playing state if we're setting a new current track
-              isPlaying:
-                wasEmpty && finalTracks.length > 0 ? false : current.isPlaying,
-            });
-          } else {
-            // Even if no changes, update the version and state
-            set({
-              lastKnownVersion: serverVersion,
-              libraryState: "loaded",
-            });
-          }
-
-          return {
-            newTracksAdded,
-            tracksUpdated,
-            totalTracks: finalTracks.length,
-          };
-        } catch (error) {
-          console.error("Error syncing library:", error);
-          throw error;
-        }
+        // The collective library lives on the server (single global list), so a
+        // sync is just a fetch that reconciles adds/updates/removes.
+        const { newTracksAdded, tracksUpdated, totalTracks } =
+          await get().fetchSharedLibrary();
+        return { newTracksAdded, tracksUpdated, totalTracks };
       },
     }),
     {

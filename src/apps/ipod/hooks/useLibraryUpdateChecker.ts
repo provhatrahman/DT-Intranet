@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useIpodStore, type Track } from "@/stores/useIpodStore";
+import { useIpodStore } from "@/stores/useIpodStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -23,100 +23,50 @@ export function useLibraryUpdateChecker(isActive: boolean) {
 
     const checkForUpdates = async () => {
       try {
-        // Do track-based comparison like manual sync, not version-based
-        // This avoids timing issues where version might already be updated
-        const currentTracks = useIpodStore.getState().tracks;
-        const wasEmpty = currentTracks.length === 0;
+        const wasEmpty = useIpodStore.getState().tracks.length === 0;
 
-        // Get server tracks directly (same as syncLibrary does)
-        const res = await fetch("/data/ipod-videos.json");
-        const data = await res.json();
-        const serverTracks: Track[] = (data.videos || data).map(
-          (v: Record<string, unknown>) => ({
-            id: v.id as string,
-            url: v.url as string,
-            title: v.title as string,
-            artist: v.artist as string | undefined,
-            album: (v.album as string | undefined) ?? "",
-            lyricOffset: v.lyricOffset as number | undefined,
-          })
-        );
-        const serverVersion = data.version || 1;
-
-        // Check for new tracks (same logic as syncLibrary)
-        const existingIds = new Set(currentTracks.map((track) => track.id));
-        const newTracksCount = serverTracks.filter(
-          (track) => !existingIds.has(track.id)
-        ).length;
-
-        // Check for metadata updates
-        let tracksUpdated = 0;
-        const serverTrackMap = new Map(
-          serverTracks.map((track) => [track.id, track])
-        );
-        currentTracks.forEach((currentTrack) => {
-          const serverTrack = serverTrackMap.get(currentTrack.id);
-          if (serverTrack) {
-            const hasChanges =
-              currentTrack.title !== serverTrack.title ||
-              currentTrack.artist !== serverTrack.artist ||
-              currentTrack.album !== serverTrack.album ||
-              currentTrack.url !== serverTrack.url ||
-              currentTrack.lyricOffset !== serverTrack.lyricOffset;
-            if (hasChanges) tracksUpdated++;
-          }
-        });
+        // Pull the collective library from the server and reconcile. syncLibrary
+        // only mutates the store when something actually changed, so we can key
+        // the toast off the returned counts.
+        const result = await syncLibrary();
 
         console.log("[iPod] Auto update check:", {
-          newTracksCount,
-          tracksUpdated,
-          currentTracksCount: currentTracks.length,
-          serverTracksCount: serverTracks.length,
-          serverVersion,
-          currentLastKnownVersion: useIpodStore.getState().lastKnownVersion,
+          newTracksAdded: result.newTracksAdded,
+          tracksUpdated: result.tracksUpdated,
+          totalTracks: result.totalTracks,
         });
 
-        if (newTracksCount > 0 || tracksUpdated > 0) {
-          // Auto-update: directly sync without asking user
-          try {
-            const result = await syncLibrary();
-            const message =
-              wasEmpty && result.newTracksAdded > 0
-                ? t("apps.ipod.dialogs.addedSongsToTop", {
-                    count: result.newTracksAdded,
-                    plural: result.newTracksAdded === 1 ? "" : "s",
-                  })
-                : result.newTracksAdded > 0
-                ? t("apps.ipod.dialogs.autoUpdatedLibraryAddedSongs", {
-                    newCount: result.newTracksAdded,
-                    newPlural: result.newTracksAdded === 1 ? "" : "s",
-                    updatedText:
-                      result.tracksUpdated > 0
-                        ? t("apps.ipod.dialogs.andUpdated", {
-                            count: result.tracksUpdated,
-                            plural: result.tracksUpdated === 1 ? "" : "s",
-                          })
-                        : "",
-                  })
-                : t("apps.ipod.dialogs.autoUpdatedTrackMetadata", {
-                    count: result.tracksUpdated,
-                  });
+        if (result.newTracksAdded > 0 || result.tracksUpdated > 0) {
+          const message =
+            wasEmpty && result.newTracksAdded > 0
+              ? t("apps.ipod.dialogs.addedSongsToTop", {
+                  count: result.newTracksAdded,
+                  plural: result.newTracksAdded === 1 ? "" : "s",
+                })
+              : result.newTracksAdded > 0
+              ? t("apps.ipod.dialogs.autoUpdatedLibraryAddedSongs", {
+                  newCount: result.newTracksAdded,
+                  newPlural: result.newTracksAdded === 1 ? "" : "s",
+                  updatedText:
+                    result.tracksUpdated > 0
+                      ? t("apps.ipod.dialogs.andUpdated", {
+                          count: result.tracksUpdated,
+                          plural: result.tracksUpdated === 1 ? "" : "s",
+                        })
+                      : "",
+                })
+              : t("apps.ipod.dialogs.autoUpdatedTrackMetadata", {
+                  count: result.tracksUpdated,
+                });
 
-            toast.success(t("apps.ipod.dialogs.libraryAutoUpdated"), {
-              description: message,
-              duration: 4000,
-            });
+          toast.success(t("apps.ipod.dialogs.libraryAutoUpdated"), {
+            description: message,
+            duration: 4000,
+          });
 
-            console.log(
-              `[iPod] Auto-updated: ${result.newTracksAdded} new tracks, ${result.tracksUpdated} updated tracks`
-            );
-          } catch (error) {
-            console.error("Error auto-updating library:", error);
-            toast.error(t("apps.ipod.dialogs.autoUpdateFailed"), {
-              description: t("apps.ipod.dialogs.failedToAutoUpdateLibrary"),
-              duration: 4000,
-            });
-          }
+          console.log(
+            `[iPod] Auto-updated: ${result.newTracksAdded} new tracks, ${result.tracksUpdated} updated tracks`
+          );
         }
       } catch (error) {
         console.error("Error checking for library updates:", error);

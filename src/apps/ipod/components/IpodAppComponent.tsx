@@ -1109,6 +1109,7 @@ export function IpodAppComponent({
     setTheme,
     toggleUiVariant,
     clearLibrary,
+    removeTrack,
     nextTrack,
     previousTrack,
   } = useIpodStoreShallow((s) => ({
@@ -1133,6 +1134,7 @@ export function IpodAppComponent({
     setTheme: s.setTheme,
     toggleUiVariant: s.toggleUiVariant,
     clearLibrary: s.clearLibrary,
+    removeTrack: s.removeTrack,
     nextTrack: s.nextTrack,
     previousTrack: s.previousTrack,
   }));
@@ -1168,6 +1170,7 @@ export function IpodAppComponent({
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
+  const [isConfirmRemoveOpen, setIsConfirmRemoveOpen] = useState(false);
 
   const [isAddingTrack, setIsAddingTrack] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -2619,6 +2622,7 @@ export function IpodAppComponent({
       }}
       onSyncLibrary={manualSync}
       onAddTrack={() => setIsAddDialogOpen(true)}
+      onRemoveTrack={() => setIsConfirmRemoveOpen(true)}
       onShareSong={handleShareSong}
     />
   );
@@ -2949,6 +2953,24 @@ export function IpodAppComponent({
           }}
           title={t("apps.ipod.dialogs.clearLibraryTitle")}
           description={t("apps.ipod.dialogs.clearLibraryDescription")}
+        />
+        <ConfirmDialog
+          isOpen={isConfirmRemoveOpen}
+          onOpenChange={setIsConfirmRemoveOpen}
+          onConfirm={async () => {
+            const state = useIpodStore.getState();
+            const track = state.tracks[state.currentIndex];
+            setIsConfirmRemoveOpen(false);
+            if (!track) return;
+            try {
+              await removeTrack(track.id);
+              showStatus(t("apps.ipod.status.removedFromLibrary"));
+            } catch {
+              showStatus(t("apps.ipod.status.removeFailed"));
+            }
+          }}
+          title={t("apps.ipod.dialogs.removeFromLibraryTitle")}
+          description={t("apps.ipod.dialogs.removeFromLibraryDescription")}
         />
 
         <InputDialog

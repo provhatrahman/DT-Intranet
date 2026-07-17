@@ -30,6 +30,7 @@ interface IpodMenuBarProps {
   onClearLibrary: () => void;
   onSyncLibrary: () => void;
   onAddTrack: () => void;
+  onRemoveTrack: () => void;
   onShareSong: () => void;
 }
 
@@ -40,6 +41,7 @@ export function IpodMenuBar({
   onClearLibrary,
   onSyncLibrary,
   onAddTrack,
+  onRemoveTrack,
   onShareSong,
 }: IpodMenuBarProps) {
   const { t } = useTranslation();
@@ -233,6 +235,13 @@ export function IpodMenuBar({
             disabled={tracks.length === 0 || currentIndex === -1}
           >
             {t("apps.ipod.menu.shareSong")}
+          </MenubarItem>
+          <MenubarItem
+            onClick={onRemoveTrack}
+            className="text-md h-6 px-3"
+            disabled={tracks.length === 0 || currentIndex === -1}
+          >
+            {t("apps.ipod.menu.removeFromLibrary")}
           </MenubarItem>
           <MenubarSeparator className="h-[2px] bg-black my-1" />
           <MenubarItem
@@ -535,6 +544,13 @@ export function IpodMenuBar({
             className="text-md h-6 px-3"
           >
             {t("apps.ipod.menu.addToLibrary")}
+          </MenubarItem>
+          <MenubarItem
+            onClick={onRemoveTrack}
+            className="text-md h-6 px-3"
+            disabled={tracks.length === 0 || currentIndex === -1}
+          >
+            {t("apps.ipod.menu.removeFromLibrary")}
           </MenubarItem>
 
           {tracks.length > 0 && (
