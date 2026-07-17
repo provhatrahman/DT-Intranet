@@ -52,7 +52,17 @@ import {
   StatusBadge,
   useOsTheme,
 } from "@/components/greenroom";
-import { Inbox, Trash2 } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  Calendar,
+  CalendarClock,
+  Clock,
+  Inbox,
+  SearchX,
+  Trash2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
@@ -75,6 +85,66 @@ function extractIsoDate(text: string | undefined): string {
 function digitsOnly(text: string | undefined): string {
   const digits = (text ?? "").replace(/[^0-9]/g, "");
   return digits;
+}
+
+// Offer fields are free text from two different backends, so dates arrive as
+// anything from ISO strings to "mid August". Pretty-print the ISO ones and
+// pass everything else through untouched.
+function formatFactDate(value: string | undefined): string {
+  if (!value) return "TBD";
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
+  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  if (isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// Adds thousands separators to purely numeric fees ("5000" → "5,000") and
+// leaves free-text ones ("£500 + travel", "TBD") alone.
+function formatFactFee(value: string): string {
+  return /^\d+(\.\d+)?$/.test(value.trim())
+    ? Number(value).toLocaleString()
+    : value;
+}
+
+// One labeled fact in the offer card's detail grid. Placeholder values render
+// dimmed so real data stands out when scanning a wall of cards.
+function Fact({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  const isUnset = !value || value === "TBD" || value === "Unknown";
+  return (
+    <div className={cn("flex items-start gap-1.5 min-w-0", className)}>
+      <Icon
+        className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5"
+        aria-hidden
+      />
+      <div className="min-w-0">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div
+          className={cn(
+            "text-xs break-words",
+            isUnset && "text-muted-foreground/70 italic"
+          )}
+        >
+          {value || "TBD"}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function IncomingOffersAppComponent({
@@ -147,6 +217,7 @@ export function IncomingOffersAppComponent({
     approvePitch,
     updatePitch,
     addComment,
+    isLoading: isPitchesLoading,
   } = usePitchesStore();
   const {
     createProject,
@@ -164,6 +235,7 @@ export function IncomingOffersAppComponent({
     createBooking,
     deleteBooking,
     voteOnBooking,
+    isLoading: isBookingsLoading,
   } = useBookingsStore();
   const { artists, fetchArtists, findByName } = useArtistsStore();
   const { recordOwnedBooking, forgetOwnedBooking, ownsBooking } =
@@ -802,6 +874,13 @@ export function IncomingOffersAppComponent({
                 <SelectItem value="fee">Sort by Fee</SelectItem>
               </SelectContent>
             </Select>
+            {/* Quick read on inbox volume; switches to match-count while
+                searching so filtering visibly narrows the grid. */}
+            <span className="hidden sm:inline text-xs text-muted-foreground whitespace-nowrap">
+              {filter
+                ? `${filteredOffers.length} of ${offers.length}`
+                : `${offers.length} pending`}
+            </span>
             <Button variant="default" onClick={() => setIsLogOfferOpen(true)}>
               <span>Log Offer</span>
             </Button>
@@ -817,11 +896,19 @@ export function IncomingOffersAppComponent({
               !isMacTheme && "bg-muted/10"
             )}
           >
-            {filteredOffers.length === 0 ? (
+            {offers.length === 0 && (isPitchesLoading || isBookingsLoading) ? (
+              <EmptyState icon={Inbox} title="Loading offers…" />
+            ) : offers.length === 0 ? (
               <EmptyState
                 icon={Inbox}
-                title="No offers found"
+                title="Inbox zero"
                 hint="Incoming pitches and logged offers awaiting a decision show up here."
+              />
+            ) : filteredOffers.length === 0 ? (
+              <EmptyState
+                icon={SearchX}
+                title="No offers match your search"
+                hint="Try a different name, promoter, venue, or artist."
               />
             ) : (
               <div className="grid grid-cols-1 @2xl:grid-cols-2 @5xl:grid-cols-3 gap-4 p-4">
@@ -1014,70 +1101,42 @@ function OfferCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 py-4 space-y-4 text-sm">
-        <p className="text-muted-foreground line-clamp-3 min-h-[3rem]">
-          {offer.description}
-        </p>
+      <CardContent className="flex-1 py-4 space-y-3 text-sm">
+        {offer.description && (
+          <p className="text-muted-foreground line-clamp-3">
+            {offer.description}
+          </p>
+        )}
 
-        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground font-medium">Date</span>
-            <span>{offer.date}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-muted-foreground font-medium">Fee</span>
-            <span>{offer.fee}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-muted-foreground font-medium">Venue</span>
-            <span className="break-words">{offer.venue}</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-muted-foreground font-medium">Time</span>
-            <span>{offer.timings}</span>
-          </div>
+        <div className="grid grid-cols-2 gap-y-2.5 gap-x-4">
+          <Fact
+            icon={Calendar}
+            label="Event Date"
+            value={formatFactDate(offer.date)}
+          />
+          <Fact icon={Banknote} label="Fee" value={formatFactFee(offer.fee)} />
+          <Fact icon={Building2} label="Venue" value={offer.venue} />
+          <Fact icon={Clock} label="Time" value={offer.timings} />
           {offer.submittedAt && (
-            <div className="flex flex-col col-span-2">
-              <span className="text-muted-foreground font-medium">
-                Submitted
-              </span>
-              <span>
-                {new Date(offer.submittedAt).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-            </div>
+            <Fact
+              icon={CalendarClock}
+              label="Submitted"
+              value={formatFactDate(offer.submittedAt)}
+              className="col-span-2"
+            />
           )}
         </div>
       </CardContent>
-      {/* Both pitches and bookings are voted on Yes/No by everyone; only admins
-          get the terminal action (Reject Pitch / Decline Offer) and Approve. */}
+      {/* Everyone votes Yes/No and can raise a hand to be involved; the
+          terminal decisions (Approve / Reject) are admin-only and sit in
+          their own divided row so community and admin actions don't blur. */}
       <CardFooter
         className={cn(
           "pt-3 border-t flex flex-col gap-2",
           isMacTheme ? "border-black/10" : "bg-muted/5"
         )}
       >
-        {isAdmin && (
-          <Button
-            variant="default"
-            onClick={onApprove}
-            className="w-full min-h-[36px] touch-manipulation"
-            title="Approve and move to Active Projects"
-          >
-            <span className="font-semibold">
-              Approve &amp; Move to Active Projects
-            </span>
-          </Button>
-        )}
-        <div
-          className={cn(
-            "w-full grid gap-2",
-            isAdmin ? "grid-cols-3" : "grid-cols-2"
-          )}
-        >
+        <div className="w-full grid grid-cols-2 gap-2">
           <VoteButton
             active={userVote === "yes"}
             count={counts?.yes ?? 0}
@@ -1094,17 +1153,6 @@ function OfferCard({
           >
             No
           </VoteButton>
-          {isAdmin && (
-            <Button
-              variant={isMacTheme ? "secondary" : "outline"}
-              onClick={onReject}
-              className="h-auto min-h-[60px] py-2 px-2 touch-manipulation"
-            >
-              <span className="text-[10px] font-semibold leading-tight">
-                {isPitch ? "Reject Pitch" : "Decline Offer"}
-              </span>
-            </Button>
-          )}
         </div>
         {/* Separate from the yes/no vote: register personal interest in working
             on this project. A voter can flag this whether they voted yes, no,
@@ -1114,6 +1162,42 @@ function OfferCard({
           count={counts?.involved ?? 0}
           onClick={onToggleInvolvement}
         />
+        {isAdmin && (
+          <div
+            className={cn(
+              "w-full flex gap-2 mt-1 pt-3 border-t",
+              isMacTheme ? "border-black/10" : "border-border"
+            )}
+          >
+            <Button
+              variant="default"
+              onClick={onApprove}
+              className="flex-1 min-h-[36px] touch-manipulation"
+              title="Approve and move to Active Projects"
+            >
+              <span className="font-semibold">Approve</span>
+            </Button>
+            <Button
+              variant={isMacTheme ? "secondary" : "outline"}
+              onClick={onReject}
+              className="min-h-[36px] px-3 touch-manipulation"
+              title={
+                isPitch
+                  ? "Reject this pitch with feedback"
+                  : "Decline this offer"
+              }
+            >
+              <span
+                className={cn(
+                  "text-xs font-semibold",
+                  !isMacTheme && "text-destructive"
+                )}
+              >
+                {isPitch ? "Reject" : "Decline"}
+              </span>
+            </Button>
+          </div>
+        )}
       </CardFooter>
     </AquaCard>
   );
@@ -1134,6 +1218,10 @@ function VoteButton({
 }) {
   const { isMacTheme } = useOsTheme();
 
+  const title = active
+    ? "Click again to clear your vote"
+    : "Cast your vote — an optional comment is shared with the submitter";
+
   if (isMacTheme) {
     // Inactive votes read as neutral gel buttons; the user's active vote gets
     // the colored gel treatment (emerald yes / red no) from themes.css.
@@ -1142,15 +1230,14 @@ function VoteButton({
         variant="secondary"
         onClick={onClick}
         aria-pressed={active}
+        title={title}
         className={cn(
-          "w-full h-auto min-h-[60px] py-2 px-2 flex flex-col gap-0.5 items-center justify-center touch-manipulation",
+          "w-full h-auto min-h-[40px] py-1.5 px-2 flex items-center justify-center gap-1.5 touch-manipulation",
           active && (color === "green" ? "emerald" : "red")
         )}
       >
-        <span className="font-semibold text-[10px] leading-tight text-center">
-          {children}
-        </span>
-        <span className="text-[9px] opacity-90">({count})</span>
+        <span className="font-semibold text-xs leading-tight">{children}</span>
+        <span className="text-[10px] opacity-90">({count})</span>
       </Button>
     );
   }
@@ -1169,18 +1256,19 @@ function VoteButton({
       variant="retro"
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       className={cn(
-        "h-auto min-h-[60px] py-2 px-2 text-xs flex flex-col gap-0.5 items-center justify-center w-full focus:outline-none focus:ring-0 relative overflow-hidden touch-manipulation",
+        "h-auto min-h-[40px] py-1.5 px-2 text-xs flex items-center justify-center gap-1.5 w-full focus:outline-none focus:ring-0 relative overflow-hidden touch-manipulation",
         active && "[border-image:url('/assets/button-default.svg')_60_stretch]"
       )}
       style={{
         backgroundColor: overlay,
       }}
     >
-      <span className="font-semibold text-[10px] leading-tight text-center relative z-10">
+      <span className="font-semibold text-xs leading-tight relative z-10">
         {children}
       </span>
-      <span className="text-[9px] opacity-80 relative z-10">({count})</span>
+      <span className="text-[10px] opacity-80 relative z-10">({count})</span>
     </Button>
   );
 }
