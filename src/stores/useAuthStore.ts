@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
 import {
-  AUTH_MODE,
   GOOGLE_AUTH_ENDPOINT,
   GOOGLE_CLIENT_ID,
   GOOGLE_SCOPES,
@@ -39,11 +38,11 @@ interface AuthState {
   user: GreenroomAuthUser | null;
   error: string | null;
 
-  /** Kick off login. mock: fake it; google: redirect to Google (PKCE). */
+  /** Kick off login: redirect to Google (Authorization Code + PKCE). */
   startLogin: () => Promise<void>;
-  /** Complete the redirect: exchange ?code for tokens, then verify. */
+  /** Complete the redirect: send ?code to the backend, store the session. */
   handleCallback: (search: string) => Promise<void>;
-  /** Confirm allowlist access with the backend using the current id token. */
+  /** Re-confirm allowlist access with the backend using the current id token. */
   verify: () => Promise<void>;
   /** Try to renew silently; resolves true if we ended up authenticated. */
   silentReauth: () => Promise<boolean>;
@@ -59,18 +58,26 @@ function expiryFromIdToken(idToken: string, fallbackSeconds = 3600): number {
   return exp ? exp * 1000 : Date.now() + fallbackSeconds * 1000;
 }
 
-// Mock identity for AUTH_MODE=mock — reuses the dev impersonation env vars so
-// mock login lands on the same user the "View as" tooling expects.
-function mockUser(): GreenroomAuthUser {
-  const id = Number(import.meta.env.VITE_DEV_GREENROOM_USER_ID) || 8;
-  const name = import.meta.env.VITE_DEV_GREENROOM_USER_DISPLAY || "admin";
-  return {
-    id,
-    username: name,
-    email: `${name}@greenroom.dev`,
-    role: "admin",
-    is_admin: id === 8,
-  };
+// Build the Google authorization URL and stash the PKCE verifier + state.
+async function beginGoogleRedirect(extraParams: Record<string, string> = {}) {
+  const verifier = randomUrlSafe(48);
+  const state = randomUrlSafe(16);
+  const challenge = await computeCodeChallenge(verifier);
+  sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
+  sessionStorage.setItem(OAUTH_STATE_KEY, state);
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: getRedirectUri(),
+    response_type: "code",
+    scope: GOOGLE_SCOPES,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+    state,
+    // access_type=online — no refresh token in the browser; renew via prompt=none.
+    access_type: "online",
+    ...extraParams,
+  });
+  window.location.assign(`${GOOGLE_AUTH_ENDPOINT}?${params.toString()}`);
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -84,40 +91,7 @@ export const useAuthStore = create<AuthState>()(
 
       startLogin: async () => {
         set({ status: "authenticating", error: null });
-
-        if (AUTH_MODE === "mock") {
-          // No redirect, no backend: fabricate a session so the gated desktop
-          // is reachable in local dev.
-          const token = `mock.${randomUrlSafe(8)}`;
-          set({
-            idToken: token,
-            expiresAt: Date.now() + 3600_000,
-            user: mockUser(),
-            status: "authenticated",
-          });
-          return;
-        }
-
-        // Real Google PKCE: stash verifier + state, then redirect.
-        const verifier = randomUrlSafe(48);
-        const state = randomUrlSafe(16);
-        const challenge = await computeCodeChallenge(verifier);
-        sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
-        sessionStorage.setItem(OAUTH_STATE_KEY, state);
-
-        const params = new URLSearchParams({
-          client_id: GOOGLE_CLIENT_ID,
-          redirect_uri: getRedirectUri(),
-          response_type: "code",
-          scope: GOOGLE_SCOPES,
-          code_challenge: challenge,
-          code_challenge_method: "S256",
-          state,
-          // Ask for a fresh id_token; access_type=online (no refresh token in
-          // the browser — we renew via prompt=none instead).
-          access_type: "online",
-        });
-        window.location.assign(`${GOOGLE_AUTH_ENDPOINT}?${params.toString()}`);
+        await beginGoogleRedirect();
       },
 
       handleCallback: async (search: string) => {
@@ -195,11 +169,6 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        if (AUTH_MODE === "mock") {
-          set({ user: mockUser(), status: "authenticated" });
-          return;
-        }
-
         try {
           const res = await fetch(VERIFY_URL, {
             method: "POST",
@@ -224,35 +193,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       silentReauth: async () => {
-        if (AUTH_MODE === "mock") {
-          // Nothing expires meaningfully in mock mode — just extend.
-          set({ expiresAt: Date.now() + 3600_000, status: "authenticated" });
-          return true;
-        }
-        // Google: a full-page prompt=none redirect. Remember where we were so
-        // the callback can restore it. If Google can't renew silently it
-        // returns error=login_required and handleCallback drops us to idle.
+        // A full-page prompt=none redirect. Remember where we were so the
+        // callback can restore it. If Google can't renew silently it returns
+        // error=login_required and handleCallback drops us to idle.
         sessionStorage.setItem(
           "greenroom:return_to",
           window.location.pathname + window.location.search + window.location.hash
         );
-        const verifier = randomUrlSafe(48);
-        const state = randomUrlSafe(16);
-        const challenge = await computeCodeChallenge(verifier);
-        sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
-        sessionStorage.setItem(OAUTH_STATE_KEY, state);
-        const params = new URLSearchParams({
-          client_id: GOOGLE_CLIENT_ID,
-          redirect_uri: getRedirectUri(),
-          response_type: "code",
-          scope: GOOGLE_SCOPES,
-          code_challenge: challenge,
-          code_challenge_method: "S256",
-          state,
-          prompt: "none",
-          access_type: "online",
-        });
-        window.location.assign(`${GOOGLE_AUTH_ENDPOINT}?${params.toString()}`);
+        await beginGoogleRedirect({ prompt: "none" });
         // Navigation is in flight; treat as not-yet-authenticated for callers.
         return false;
       },

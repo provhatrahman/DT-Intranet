@@ -36,8 +36,7 @@ on a `users` row (see `greenroom-db-change`). The seeded rows use dummy
 
 | Where | Name | Purpose | Default |
 |---|---|---|---|
-| Frontend build (`import.meta.env`) | `VITE_AUTH_ENABLED` | Master switch — gate the desktop behind login | `false` |
-| Frontend build | `VITE_AUTH_MODE` | `mock` (fake login, no Google/backend) or `google` (real flow) | `mock` |
+| Frontend build (`import.meta.env`) | `VITE_AUTH_ENABLED` | Master switch — gate the desktop behind Google login | `false` |
 | Frontend build | `VITE_GOOGLE_CLIENT_ID` | Override the OAuth client ID | hardcoded public default |
 | Backend env | `GOOGLE_CLIENT_SECRET` | **Server-side only.** Code→token exchange | *(empty → exchange returns 503)* |
 | Backend env | `GOOGLE_CLIENT_ID` | ID-token audience check | hardcoded public default |
@@ -49,30 +48,20 @@ and, separately, `REQUIRE_AUTH=true` (backend enforcement).
 
 ## Local development
 
-Local dev proxies to the local Django backend on `:8000`
-(`GREENROOM_API_TARGET=http://localhost:8000`).
-
-**Mock mode (works today, no Google/secret needed)** — develop the gated app.
-Runs on the default port `:5173`; port is irrelevant in mock mode (no Google
-redirect):
-```bash
-GREENROOM_API_TARGET=http://localhost:8000 \
-  VITE_AUTH_ENABLED=true VITE_AUTH_MODE=mock bun dev
-```
-"Sign in with Google" fakes a verified admin session (user id 8). Good for
-building/behaviour work behind the gate.
-
-**Real Google mode locally** — must run on **:3000** (the registered local
-redirect URI), pointed at the local backend:
+**Login gate on** — must run on **:3000** (the registered local redirect URI),
+pointed at the local Django backend on `:8000`:
 ```bash
 PORT=3000 GREENROOM_API_TARGET=http://localhost:8000 \
-  VITE_AUTH_ENABLED=true VITE_AUTH_MODE=google bun dev
+  VITE_AUTH_ENABLED=true bun dev
 ```
 Do **not** use `bun run dev:vercel` — it's also :3000 but points at the **prod**
-API instead of the local `:8000` backend. Prerequisites:
+API instead of the local `:8000` backend. Prerequisites (both done):
 1. `GOOGLE_CLIENT_SECRET=…` in `c:\Projects\backend\.env`, then restart the
    Django server (`.venv\Scripts\python manage.py runserver 8000`).
-2. `http://localhost:3000/auth/callback` registered on the OAuth client (done).
+2. `http://localhost:3000/auth/callback` registered on the OAuth client.
+
+**Ungated dev** — to work without logging in, just omit `VITE_AUTH_ENABLED`
+(or set it `false`). The app runs as before, on any port, no bearer headers.
 
 ---
 
