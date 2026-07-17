@@ -18,6 +18,12 @@ export const PROJECT_ROLES = [
 
 export const DEFAULT_PROJECT_ROLE = "Performer";
 
+// Roles used on a project's internal staff team (users), distinct from the
+// artist lineup roles above. The lead is the single row with PROJECT_LEAD_ROLE;
+// everyone else is TEAM_MEMBER_ROLE. See the project_team backend table.
+export const PROJECT_LEAD_ROLE = "Project Lead";
+export const TEAM_MEMBER_ROLE = "Team Member";
+
 export const PROJECT_STATUS_LABELS: Record<string, string> = {
   active: "Active",
   completed: "Completed",

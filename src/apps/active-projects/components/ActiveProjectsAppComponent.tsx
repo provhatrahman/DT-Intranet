@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
@@ -8,9 +8,12 @@ import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "..";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
+import { useUsersStore } from "@/stores/useUsersStore";
 import {
   PROJECT_ROLES,
   DEFAULT_PROJECT_ROLE,
+  PROJECT_LEAD_ROLE,
+  TEAM_MEMBER_ROLE,
   GIG_SIZES,
   PROJECT_TYPES,
   formatProjectStatus,
@@ -19,6 +22,7 @@ import {
 import type {
   ProjectDetail,
   ProjectMember,
+  ProjectTeamMember,
   ProjectUpdate,
 } from "@/lib/api/projects";
 import type { ArtistDetail } from "@/lib/api/artists";
@@ -70,6 +74,7 @@ import {
   FolderOpen,
   ExternalLink,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 
 // Greenroom stores a bare Google Drive folder ID; build the folder URL from it.
@@ -133,8 +138,9 @@ export function ActiveProjectsAppComponent({
     clearError,
   } = useProjectsStore();
   const { fetchArtists } = useArtistsStore();
+  const { fetchUsers } = useUsersStore();
 
-  // Fetch projects and artists when the window opens.
+  // Fetch projects, artists, and staff users when the window opens.
   useEffect(() => {
     if (isWindowOpen) {
       fetchActiveProjects().catch((err) => {
@@ -143,8 +149,11 @@ export function ActiveProjectsAppComponent({
       fetchArtists().catch((err) => {
         console.error("Failed to fetch artists:", err);
       });
+      fetchUsers().catch((err) => {
+        console.error("Failed to fetch users:", err);
+      });
     }
-  }, [isWindowOpen, fetchActiveProjects, fetchArtists]);
+  }, [isWindowOpen, fetchActiveProjects, fetchArtists, fetchUsers]);
 
   useEffect(() => {
     if (error) {
@@ -415,39 +424,57 @@ function ProjectDetailView({
 
   const [form, setForm] = useState(() => projectToForm(project));
   const [isSaving, setIsSaving] = useState(false);
+  // Snapshot of the values last persisted to the backend. The debounced
+  // auto-save compares against this so it only fires on genuine edits (and not,
+  // e.g., when the form is reset on a project switch).
+  const savedRef = useRef(form);
 
-  // Reset the form when switching projects.
+  // Reset the form only when switching to a *different* project. Keying on the
+  // id (not the whole object) means an auto-save's own refresh won't clobber
+  // fields the user is still editing.
   useEffect(() => {
-    setForm(projectToForm(project));
-  }, [project]);
+    const next = projectToForm(project);
+    setForm(next);
+    savedRef.current = next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await updateProject(project.id, {
-        name: form.name,
-        description: form.description,
-        project_type: form.project_type || undefined,
-        start_date: form.start_date || undefined,
-        end_date: form.end_date || undefined,
-        budget: form.budget || undefined,
-        event_date: form.event_date || undefined,
-        event_type: form.event_type || undefined,
-        venue_name: form.venue_name || undefined,
-        city: form.city || undefined,
-        country: form.country || undefined,
-        promoter_name: form.promoter_name || undefined,
-        gig_size_id: form.gig_size_id ?? undefined,
-        drive_parent_folder_id: form.drive_parent_folder_id || undefined,
-        feedback: form.feedback || undefined,
-      });
-      toast.success("Project saved");
-    } catch {
-      // error surfaced via store toast
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Auto-save: there's no Save button — edits persist on their own a short
+  // moment after the user stops changing fields.
+  useEffect(() => {
+    if (JSON.stringify(form) === JSON.stringify(savedRef.current)) return;
+    const timer = setTimeout(async () => {
+      const snapshot = form;
+      setIsSaving(true);
+      try {
+        await updateProject(project.id, {
+          name: snapshot.name,
+          description: snapshot.description,
+          project_type: snapshot.project_type || undefined,
+          start_date: snapshot.start_date || undefined,
+          end_date: snapshot.end_date || undefined,
+          budget: snapshot.budget || undefined,
+          event_date: snapshot.event_date || undefined,
+          event_type: snapshot.event_type || undefined,
+          venue_name: snapshot.venue_name || undefined,
+          city: snapshot.city || undefined,
+          country: snapshot.country || undefined,
+          promoter_name: snapshot.promoter_name || undefined,
+          gig_size_id: snapshot.gig_size_id ?? undefined,
+          drive_parent_folder_id: snapshot.drive_parent_folder_id || undefined,
+          feedback: snapshot.feedback || undefined,
+        });
+        savedRef.current = snapshot;
+      } catch {
+        // error surfaced via store toast; savedRef is left as-is so the next
+        // edit retries the save.
+      } finally {
+        setIsSaving(false);
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
 
   const handleStatusChange = async (status: string) => {
     if (status === project.status) return;
@@ -776,15 +803,17 @@ function ProjectDetailView({
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <Button
-                  variant="default"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="min-h-[36px] touch-manipulation"
-                >
-                  <span>{isSaving ? "Saving..." : "Save Changes"}</span>
-                </Button>
+              <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground min-h-5">
+                {isSaving && (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Saving…</span>
+                  </>
+                )}
+              </div>
+
+              <div className="border-t pt-6">
+                <ProjectTeamCard project={project} />
               </div>
 
               <div className="border-t pt-6">
@@ -873,6 +902,168 @@ function formatUpdateTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+// Internal staff assigned to the project: a single Project Lead plus any number
+// of team members. Backed by the project_team table (users), distinct from the
+// artist Lineup. Changes persist immediately (no Save button) via the store.
+function ProjectTeamCard({ project }: { project: ProjectDetail }) {
+  const { addTeamMember, removeTeamMember } = useProjectsStore();
+  const { users } = useUsersStore();
+  const { isMacTheme } = useOsTheme();
+  const [isBusy, setIsBusy] = useState(false);
+  const [addValue, setAddValue] = useState("");
+
+  const lead = project.team.find((m) => m.role === PROJECT_LEAD_ROLE) ?? null;
+  const teamMembers = project.team.filter((m) => m.role !== PROJECT_LEAD_ROLE);
+
+  const assignedIds = useMemo(
+    () => new Set(project.team.map((m) => m.user_id)),
+    [project.team]
+  );
+  // Users not yet on the team — candidates for the "add member" picker.
+  const availableForTeam = users.filter((u) => !assignedIds.has(u.id));
+
+  const memberLabel = (m: ProjectTeamMember) =>
+    m.username ?? `User ${m.user_id}`;
+
+  const handleSetLead = async (value: string) => {
+    const newId = value === "none" ? null : Number(value);
+    if (newId !== null && lead?.user_id === newId) return;
+    setIsBusy(true);
+    try {
+      if (newId === null) {
+        if (lead) await removeTeamMember(project.id, lead.user_id);
+      } else {
+        // Demote the current lead to a team member (keep them on the project),
+        // then promote the chosen user. The backend upserts on (project, user),
+        // so re-roling an existing team member into the lead just updates them.
+        if (lead) await addTeamMember(project.id, lead.user_id, TEAM_MEMBER_ROLE);
+        await addTeamMember(project.id, newId, PROJECT_LEAD_ROLE);
+      }
+    } catch {
+      // error surfaced via store toast
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleAddMember = async (value: string) => {
+    const userId = Number(value);
+    setAddValue("");
+    if (!userId) return;
+    setIsBusy(true);
+    try {
+      await addTeamMember(project.id, userId, TEAM_MEMBER_ROLE);
+    } catch {
+      // error surfaced via store toast
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: number) => {
+    setIsBusy(true);
+    try {
+      await removeTeamMember(project.id, userId);
+    } catch {
+      // error surfaced via store toast
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Project Team</h3>
+      </div>
+
+      {/* Project Lead — a single user */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5" />
+          Project Lead
+        </Label>
+        <Select
+          value={lead ? String(lead.user_id) : "none"}
+          onValueChange={handleSetLead}
+          disabled={isBusy}
+        >
+          <SelectTrigger className="w-full sm:w-60">
+            <SelectValue placeholder="No lead assigned" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No lead assigned</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u.id} value={String(u.id)}>
+                {u.username}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Team members — many users */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Team Members</Label>
+        {teamMembers.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-1">
+            No team members assigned yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-2">
+            {teamMembers.map((member) => (
+              <div
+                key={member.user_id}
+                className={cn(
+                  "flex items-center justify-between gap-2 p-2 rounded-md",
+                  isMacTheme ? "aqua-well" : "border"
+                )}
+              >
+                <span className="flex-1 min-w-0 text-sm font-medium truncate">
+                  {memberLabel(member)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={() => handleRemoveMember(member.user_id)}
+                  disabled={isBusy}
+                  title="Remove from team"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <Select
+          value={addValue}
+          onValueChange={handleAddMember}
+          disabled={isBusy || availableForTeam.length === 0}
+        >
+          <SelectTrigger className="w-full sm:w-60">
+            <SelectValue
+              placeholder={
+                availableForTeam.length === 0
+                  ? "All users assigned"
+                  : "Add team member…"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {availableForTeam.map((u) => (
+              <SelectItem key={u.id} value={String(u.id)}>
+                {u.username}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
 }
 
 // A simple chronological log of free-text progress updates, shown at the bottom

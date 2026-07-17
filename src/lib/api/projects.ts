@@ -1,4 +1,5 @@
 import { GREENROOM_API_BASE } from "@/config/greenroomApi";
+import { greenroomFetch } from "@/lib/api/client";
 
 // Types verified against the live backend on 2026-07-06 — see BACKEND_STATE.md.
 // Notable: `lead_artist_id` no longer exists; event fields (event_date, venue,
@@ -40,6 +41,15 @@ export interface ProjectMember {
   artist_name: string;
   role_in_project: string;
   joined_at: string | null;
+}
+
+// Internal staff (a user working on the project), distinct from artist members.
+// The row with role "Project Lead" is the project lead; others are team members.
+export interface ProjectTeamMember {
+  user_id: number;
+  username: string | null;
+  role: string;
+  added_at: string | null;
 }
 
 export interface ProjectTask {
@@ -85,6 +95,8 @@ export interface ProjectDetail extends ProjectListItem {
   lineup: ProjectMember[];
   members: ProjectMember[];
   tasks: ProjectTask[];
+  // Internal staff working on the project (users), separate from artist members.
+  team: ProjectTeamMember[];
   wrapup: ProjectWrapup | null;
 }
 
@@ -137,6 +149,7 @@ interface ProjectDetailResponse {
   lineup?: ProjectMember[];
   members?: ProjectMember[];
   tasks?: ProjectTask[];
+  team?: ProjectTeamMember[];
   wrapup?: ProjectWrapup | null;
 }
 
@@ -163,7 +176,7 @@ export async function getProjects(
   const url = status
     ? `${GREENROOM_API_BASE}/projects/?status=${encodeURIComponent(status)}`
     : `${GREENROOM_API_BASE}/projects/`;
-  const response = await fetch(url);
+  const response = await greenroomFetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch projects: ${response.statusText}`);
   }
@@ -172,7 +185,7 @@ export async function getProjects(
 }
 
 export async function getProjectById(id: number): Promise<ProjectDetail> {
-  const response = await fetch(`${GREENROOM_API_BASE}/projects/${id}/`);
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/projects/${id}/`);
   if (!response.ok) {
     throw new Error(`Failed to fetch project ${id}: ${response.statusText}`);
   }
@@ -182,6 +195,7 @@ export async function getProjectById(id: number): Promise<ProjectDetail> {
     lineup: data.lineup ?? [],
     members: data.members ?? [],
     tasks: data.tasks ?? [],
+    team: data.team ?? [],
     wrapup: data.wrapup ?? null,
   };
 }
@@ -189,7 +203,7 @@ export async function getProjectById(id: number): Promise<ProjectDetail> {
 export async function createProject(
   payload: CreateProjectPayload
 ): Promise<CreateProjectResponse> {
-  const response = await fetch(`${GREENROOM_API_BASE}/projects/create/`, {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/projects/create/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -204,7 +218,7 @@ export async function updateProject(
   id: number,
   payload: UpdateProjectPayload
 ): Promise<{ message: string; project_id: number }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/update/`,
     {
       method: "PATCH",
@@ -224,7 +238,7 @@ export async function updateProjectStatus(
   id: number,
   status: ProjectStatus
 ): Promise<{ message: string; project_id: number; status: ProjectStatus }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/update-status/`,
     {
       method: "PATCH",
@@ -244,7 +258,7 @@ export async function assignTeam(
   id: number,
   teamMembers: TeamMemberPayload[]
 ): Promise<{ message: string; members: ProjectMember[] }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/assign-team/`,
     {
       method: "POST",
@@ -258,12 +272,61 @@ export async function assignTeam(
   return await response.json();
 }
 
+// --- Internal staff team (users) — distinct from the artist `assignTeam` above.
+
+export async function getProjectTeam(
+  id: number
+): Promise<ProjectTeamMember[]> {
+  const response = await greenroomFetch(`${GREENROOM_API_BASE}/projects/${id}/team/`);
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to fetch team"));
+  }
+  const data = await response.json();
+  return data.team ?? [];
+}
+
+// Add or re-role a staff user on the project's team. The backend upserts on
+// (project, user), so calling this with role "Project Lead" also handles
+// reassigning the lead.
+export async function addProjectTeamMember(
+  id: number,
+  userId: number,
+  role: string
+): Promise<{ message: string; member: ProjectTeamMember }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/team/add/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, role }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to add team member"));
+  }
+  return await response.json();
+}
+
+export async function removeProjectTeamMember(
+  id: number,
+  userId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/team/${userId}/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to remove team member"));
+  }
+  return await response.json();
+}
+
 // Sets status to "archived" (a real status, distinct from completed/cancelled)
 // and writes a status-history row.
 export async function archiveProject(
   id: number
 ): Promise<{ message: string; project_id: number }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/archive/`,
     {
       method: "POST",
@@ -280,7 +343,7 @@ export async function archiveProject(
 export async function getProjectStatusHistory(
   id: number
 ): Promise<ProjectStatusHistoryEntry[]> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/status-history/`
   );
   if (!response.ok) {
@@ -297,7 +360,7 @@ export async function getProjectStatusHistory(
 export async function getProjectUpdates(
   id: number
 ): Promise<ProjectUpdate[]> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/updates/`
   );
   if (!response.ok) {
@@ -314,7 +377,7 @@ export async function addProjectUpdate(
   body: string,
   userId: number | null
 ): Promise<ProjectUpdate> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/updates/add/`,
     {
       method: "POST",
@@ -334,7 +397,7 @@ export async function addProjectUpdate(
 export async function deleteProject(
   id: number
 ): Promise<{ message: string }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/delete/`,
     { method: "DELETE" }
   );
@@ -347,7 +410,7 @@ export async function deleteProject(
 export async function getProjectWrapup(
   id: number
 ): Promise<ProjectWrapup | null> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/wrapup/`
   );
   if (response.status === 404) {
@@ -364,7 +427,7 @@ export async function createWrapup(
   id: number,
   payload: WrapupPayload
 ): Promise<{ id: number; message: string }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/wrapup/create/`,
     {
       method: "POST",
@@ -382,7 +445,7 @@ export async function updateWrapup(
   id: number,
   payload: WrapupPayload
 ): Promise<{ message: string; wrapup_id: number }> {
-  const response = await fetch(
+  const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/wrapup/update/`,
     {
       method: "PATCH",

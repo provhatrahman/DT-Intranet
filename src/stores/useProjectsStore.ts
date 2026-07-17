@@ -15,6 +15,8 @@ import {
   updateProject as apiUpdateProject,
   updateProjectStatus as apiUpdateProjectStatus,
   assignTeam as apiAssignTeam,
+  addProjectTeamMember as apiAddProjectTeamMember,
+  removeProjectTeamMember as apiRemoveProjectTeamMember,
   archiveProject as apiArchiveProject,
   getProjectWrapup as apiGetProjectWrapup,
   createWrapup as apiCreateWrapup,
@@ -51,6 +53,9 @@ interface ProjectsState {
   updateProject: (id: number, payload: UpdateProjectPayload) => Promise<void>;
   updateStatus: (id: number, status: ProjectStatus) => Promise<void>;
   assignTeam: (id: number, members: TeamMemberPayload[]) => Promise<void>;
+  // Internal staff team (users), distinct from the artist `assignTeam` above.
+  addTeamMember: (id: number, userId: number, role: string) => Promise<void>;
+  removeTeamMember: (id: number, userId: number) => Promise<void>;
   archiveProject: (id: number) => Promise<void>;
   fetchWrapup: (id: number) => Promise<ProjectWrapup | null>;
   saveWrapup: (
@@ -186,6 +191,32 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to assign team";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  addTeamMember: async (id: number, userId: number, role: string) => {
+    try {
+      await apiAddProjectTeamMember(id, userId, role);
+      await get().refreshProject(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to add team member";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  removeTeamMember: async (id: number, userId: number) => {
+    try {
+      await apiRemoveProjectTeamMember(id, userId);
+      await get().refreshProject(id);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to remove team member";
       set({ error: message });
       throw error;
     }
