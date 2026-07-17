@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// Dev-only "View as" role override.
+// "View as" role override.
 //
 // When set, it forces the *effective* Greenroom identity (see
 // useEffectiveGreenroomAccount) to a fixed admin or non-admin user, so the
@@ -9,8 +9,9 @@ import { persist } from "zustand/middleware";
 // actions) can be previewed live without linking a real backend account.
 //
 // This is a global override with top priority over the env dev-account and any
-// linked account. It is honored only in dev builds (import.meta.env.DEV); the
-// UI that flips it (the "Dev" menu in the top menu bar) is also dev-only.
+// linked account. It is honored for Greenroom admins (and in dev builds); the
+// menu-bar switch that flips it (MenuBarAccount) is gated the same way, keyed
+// off the *real* identity so an admin previewing as a non-admin keeps access.
 //
 // `null` = off — fall back to the real effective identity.
 

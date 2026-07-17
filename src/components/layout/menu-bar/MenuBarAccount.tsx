@@ -8,7 +8,10 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
+import {
+  useEffectiveGreenroomAccount,
+  useIsRealGreenroomAdmin,
+} from "@/hooks/useGreenroomAccount";
 import { useThemeFlags } from "@/hooks/useThemeFlags";
 import {
   useDevViewAsStore,
@@ -21,13 +24,14 @@ import {
  * shown here always matches who pitches/projects are attributed to. Hidden when
  * no account is linked (source: "none").
  *
- * In dev builds the name is a dropdown trigger hosting the "View as" switch,
- * which forces the effective Greenroom identity to an admin or non-admin so
- * role-gated UI can be previewed live. In production the name is a plain,
- * non-interactive label.
+ * For Greenroom admins (and in dev builds) the name is a dropdown trigger
+ * hosting the "View as" switch, which forces the effective Greenroom identity to
+ * an admin or non-admin so role-gated UI can be previewed live. For everyone
+ * else the name is a plain, non-interactive label.
  */
 export function MenuBarAccount() {
   const { userId, displayName } = useEffectiveGreenroomAccount();
+  const isRealAdmin = useIsRealGreenroomAdmin();
   const { isWindowsTheme, isWin98 } = useThemeFlags();
   const viewAs = useDevViewAsStore((s) => s.viewAs);
   const setViewAs = useDevViewAsStore((s) => s.setViewAs);
@@ -35,7 +39,9 @@ export function MenuBarAccount() {
   if (userId == null) return null;
 
   const name = displayName || `User ${userId}`;
-  const isDev = import.meta.env.DEV;
+  // The View-as switch is admin-gated (via the real identity, so previewing as
+  // a non-admin doesn't hide it), and always available in dev for previewing.
+  const canViewAs = import.meta.env.DEV || isRealAdmin;
 
   const labelStyle = {
     marginRight: isWindowsTheme ? "4px" : "8px",
@@ -53,8 +59,8 @@ export function MenuBarAccount() {
     isWindowsTheme ? "text-xs font-bold" : ""
   }`;
 
-  // Production (and any non-dev build): plain, non-interactive label.
-  if (!isDev) {
+  // Non-admins: plain, non-interactive label.
+  if (!canViewAs) {
     return (
       <div
         className={labelClassName}
@@ -109,7 +115,7 @@ export function MenuBarAccount() {
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator className="h-[2px] bg-black my-1" />
         <DropdownMenuLabel className="text-[11px] px-3 py-1 opacity-50 font-normal max-w-[220px] whitespace-normal leading-tight">
-          Dev-only. Overrides the Greenroom identity to preview admin-gated UI.
+          Admin only. Overrides the Greenroom identity to preview admin-gated UI.
           Not enforced server-side.
         </DropdownMenuLabel>
       </DropdownMenuContent>

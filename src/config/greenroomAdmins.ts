@@ -18,8 +18,8 @@
 // Other known users (non-admin by default): 11 coordinator1, 12 coordinator2,
 //   13 staff1, 14 staff2. Edit the list to change who is treated as an admin.
 //
-// See also VIEW_AS_* below and useDevViewAsStore — the dev-only "View as" menu
-// impersonates one of these identities to preview role-gated UI.
+// See also VIEW_AS_* below and useDevViewAsStore — the admin-gated "View as"
+// menu impersonates one of these identities to preview role-gated UI.
 
 export interface GreenroomAdminAccount {
   userId: number;
