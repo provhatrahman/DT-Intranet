@@ -32,12 +32,11 @@ interface AppMenuProps {
 
 /**
  * Universal macOS-style leftmost "App" menu (About/Share/Hide/Quit) for the
- * foreground app's window, mirroring `FinderAppMenu`/real Mac OS X. Ported
- * from upstream for Phase 3+ use but NOT currently wired into
- * `MacTopMenuBar` — every app there still supplies its own full menu bar via
- * `children`, so adding this changes the chrome for every app simultaneously.
- * Wire it in deliberately once each app's menu bar has been checked against
- * it (duplicate About/Quit entries, hide semantics, etc).
+ * foreground app's window, mirroring `FinderAppMenu`/real Mac OS X. Wired into
+ * `MacTopMenuBar` for the foreground app on macOS/System7 themes, so the app's
+ * name always shows as the leftmost menu (matching upstream ryOS). Each app
+ * still supplies its own File/Edit/… menus via `children`, which render to the
+ * right of this menu.
  */
 export function AppMenu({ appId, appName, instanceId, onShowAbout }: AppMenuProps) {
   const { t } = useTranslation();

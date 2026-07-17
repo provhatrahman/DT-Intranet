@@ -1,7 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Menubar } from "@/components/ui/menubar";
 import { AppleMenu } from "../AppleMenu";
+import { AppMenu } from "../AppMenu";
 import { useAppContext } from "@/contexts/AppContext";
+import { getTranslatedAppName } from "@/utils/i18n";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { useDisplaySettingsStore } from "@/stores/useDisplaySettingsStore";
 import { useThemeFlags } from "@/hooks/useThemeFlags";
@@ -103,6 +105,16 @@ export function MacTopMenuBar({ children }: MacTopMenuBarProps) {
       <ScrollableMenuWrapper style={noDragRegionStyle}>
         <Menubar className="flex items-stretch border-none bg-transparent space-x-0 p-0 rounded-none h-full">
           <AppleMenu apps={apps} />
+          {isMacOSTheme && hasActiveApp && foregroundInstance && (
+            <AppMenu
+              appId={foregroundInstance.appId}
+              appName={
+                getTranslatedAppName(foregroundInstance.appId) ||
+                foregroundInstance.appId
+              }
+              instanceId={foregroundInstance.instanceId}
+            />
+          )}
           {isMacOSTheme && !hasActiveApp && <FinderAppMenu />}
           {hasActiveApp && children ? children : <DefaultMenuItems />}
         </Menubar>
