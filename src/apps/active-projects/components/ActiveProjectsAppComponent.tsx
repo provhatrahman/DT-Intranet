@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
@@ -34,6 +34,7 @@ import { CardContent } from "@/components/ui/card";
 import {
   AquaCard,
   EmptyState,
+  Field,
   FormDialog,
   SidebarRow,
   StatusBadge,
@@ -42,7 +43,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -62,10 +62,10 @@ import {
   MapPin,
   Users,
   Calendar,
+  Check,
   Music,
-  User,
-  DollarSign,
   Building2,
+  FileText,
   Mail,
   Instagram,
   ListChecks,
@@ -76,6 +76,7 @@ import {
   MessageSquare,
   Loader2,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // Greenroom stores a bare Google Drive folder ID; build the folder URL from it.
 function driveFolderUrl(folderId: string): string {
@@ -99,6 +100,34 @@ function extractDriveFolderId(input: string): string {
     if (match) return match[1];
   }
   return value;
+}
+
+// Titled section panel for the Overview tab: a glossy Aqua card (plain shadcn
+// Card on other themes) with an icon + heading row. Declares itself a
+// container so inner grids respond to the card's own width — this keeps
+// column counts sane when cards sit side by side on wide windows.
+function SectionCard({
+  icon: Icon,
+  title,
+  children,
+  className,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <AquaCard className={className}>
+      <CardContent className="p-4 @container">
+        <div className="flex items-center gap-2 mb-4">
+          <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+          <h3 className="text-sm font-semibold truncate">{title}</h3>
+        </div>
+        <div className="space-y-4">{children}</div>
+      </CardContent>
+    </AquaCard>
+  );
 }
 
 export function ActiveProjectsAppComponent({
@@ -476,6 +505,10 @@ function ProjectDetailView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form]);
 
+  // Edits not yet persisted — pending the debounce timer or a failed save.
+  // Drives the Saved / Unsaved changes / Saving… indicator in the header.
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedRef.current);
+
   const handleStatusChange = async (status: string) => {
     if (status === project.status) return;
     try {
@@ -554,18 +587,39 @@ function ProjectDetailView({
           )}
         >
           <ScrollArea className="flex-1">
-            <div className="space-y-6 p-4 pr-6 @container">
+            <div className="space-y-4 p-4 pr-6 @container">
               {/* Actions sit beside the title on wide windows and wrap below
                   it on narrow ones/phones */}
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                <div className="flex-1 min-w-[14rem] space-y-1">
+                <div className="flex-1 min-w-[14rem] space-y-1.5">
+                  {/* Mirrors the Name field live so edits are reflected
+                      immediately, not only after the auto-save round-trips. */}
                   <h1 className="text-2xl font-semibold break-words">
-                    {project.name}
+                    {form.name.trim() || project.name}
                   </h1>
-                  <StatusBadge
-                    status={project.status}
-                    label={formatProjectStatus(project.status)}
-                  />
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <StatusBadge
+                      status={project.status}
+                      label={formatProjectStatus(project.status)}
+                    />
+                    {/* Autosave state — there's no Save button, so keep the
+                        current state visible at the top of the page. */}
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Saving…</span>
+                        </>
+                      ) : isDirty ? (
+                        <span>Unsaved changes</span>
+                      ) : (
+                        <>
+                          <Check className="h-3 w-3" />
+                          <span>Saved</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
                   {isAdmin && (
@@ -595,229 +649,214 @@ function ProjectDetailView({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Description</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              {/* Fields flow into more columns as the detail pane widens
-                  (container query = pane width, not viewport) so a wide
-                  window fills instead of leaving a right-side gutter. */}
-              <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Project Type</Label>
-                  <Select
-                    value={form.project_type || "unset"}
-                    onValueChange={(v) =>
-                      setForm({ ...form, project_type: v === "unset" ? "" : v })
+              <SectionCard icon={FileText} title="Details">
+                <Field label="Name">
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Description">
+                  <Textarea
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unset">Not set</SelectItem>
-                      {PROJECT_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                      {form.project_type &&
-                        !(PROJECT_TYPES as readonly string[]).includes(
-                          form.project_type
-                        ) && (
-                          <SelectItem value={form.project_type}>
-                            {form.project_type}
+                    className="min-h-[100px]"
+                  />
+                </Field>
+                {/* Fields flow into more columns as the card widens
+                    (container query = card width, not viewport) so a wide
+                    window fills instead of leaving a right-side gutter. */}
+                <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+                  <Field label="Project Type">
+                    <Select
+                      value={form.project_type || "unset"}
+                      onValueChange={(v) =>
+                        setForm({
+                          ...form,
+                          project_type: v === "unset" ? "" : v,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unset">Not set</SelectItem>
+                        {PROJECT_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
                           </SelectItem>
-                        )}
-                    </SelectContent>
-                  </Select>
+                        ))}
+                        {form.project_type &&
+                          !(PROJECT_TYPES as readonly string[]).includes(
+                            form.project_type
+                          ) && (
+                            <SelectItem value={form.project_type}>
+                              {form.project_type}
+                            </SelectItem>
+                          )}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Gig Size">
+                    <Select
+                      value={
+                        form.gig_size_id !== null
+                          ? String(form.gig_size_id)
+                          : "unset"
+                      }
+                      onValueChange={(v) =>
+                        setForm({
+                          ...form,
+                          gig_size_id: v === "unset" ? null : Number(v),
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unset">Not set</SelectItem>
+                        {GIG_SIZES.map((g) => (
+                          <SelectItem key={g.id} value={String(g.id)}>
+                            {g.code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Budget">
+                    <Input
+                      value={form.budget}
+                      onChange={(e) =>
+                        setForm({ ...form, budget: e.target.value })
+                      }
+                      placeholder="e.g., 5000"
+                      inputMode="decimal"
+                    />
+                  </Field>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" />
-                    Budget
-                  </Label>
-                  <Input
-                    value={form.budget}
-                    onChange={(e) =>
-                      setForm({ ...form, budget: e.target.value })
-                    }
-                    placeholder="e.g., 5000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Start Date
-                  </Label>
-                  <Input
-                    type="date"
-                    value={form.start_date}
-                    onChange={(e) =>
-                      setForm({ ...form, start_date: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    End Date
-                  </Label>
-                  <Input
-                    type="date"
-                    value={form.end_date}
-                    onChange={(e) =>
-                      setForm({ ...form, end_date: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Event Date
-                  </Label>
-                  <Input
-                    type="date"
-                    value={form.event_date}
-                    onChange={(e) =>
-                      setForm({ ...form, event_date: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5" />
-                    Venue
-                  </Label>
-                  <Input
-                    value={form.venue_name}
-                    onChange={(e) =>
-                      setForm({ ...form, venue_name: e.target.value })
-                    }
-                    placeholder="e.g., Electric Brixton"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Gig Size</Label>
-                  <Select
-                    value={
-                      form.gig_size_id !== null
-                        ? String(form.gig_size_id)
-                        : "unset"
-                    }
-                    onValueChange={(v) =>
-                      setForm({
-                        ...form,
-                        gig_size_id: v === "unset" ? null : Number(v),
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unset">Not set</SelectItem>
-                      {GIG_SIZES.map((g) => (
-                        <SelectItem key={g.id} value={String(g.id)}>
-                          {g.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" />
-                    City
-                  </Label>
-                  <Input
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Country</Label>
-                  <Input
-                    value={form.country}
-                    onChange={(e) =>
-                      setForm({ ...form, country: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" />
-                    Promoter
-                  </Label>
-                  <Input
-                    value={form.promoter_name}
-                    onChange={(e) =>
-                      setForm({ ...form, promoter_name: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
+              </SectionCard>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium flex items-center gap-1.5">
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  Google Drive Folder
-                </Label>
-                <Input
-                  value={form.drive_parent_folder_id}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      drive_parent_folder_id: extractDriveFolderId(
-                        e.target.value
-                      ),
-                    })
-                  }
-                  placeholder="Paste a Google Drive folder link"
-                />
-                {form.drive_parent_folder_id && (
-                  <a
-                    href={driveFolderUrl(form.drive_parent_folder_id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Open in Google Drive
-                  </a>
-                )}
-              </div>
+              <SectionCard icon={Calendar} title="Schedule">
+                <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
+                  <Field label="Start Date">
+                    <Input
+                      type="date"
+                      value={form.start_date}
+                      onChange={(e) =>
+                        setForm({ ...form, start_date: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="End Date">
+                    <Input
+                      type="date"
+                      value={form.end_date}
+                      onChange={(e) =>
+                        setForm({ ...form, end_date: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Event Date">
+                    <Input
+                      type="date"
+                      value={form.event_date}
+                      onChange={(e) =>
+                        setForm({ ...form, event_date: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+              </SectionCard>
 
-              <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground min-h-5">
-                {isSaving && (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Saving…</span>
-                  </>
-                )}
-              </div>
+              <SectionCard icon={MapPin} title="Venue & Promoter">
+                <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4">
+                  <Field label="Venue">
+                    <Input
+                      value={form.venue_name}
+                      onChange={(e) =>
+                        setForm({ ...form, venue_name: e.target.value })
+                      }
+                      placeholder="e.g., Electric Brixton"
+                    />
+                  </Field>
+                  <Field label="City">
+                    <Input
+                      value={form.city}
+                      onChange={(e) =>
+                        setForm({ ...form, city: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Country">
+                    <Input
+                      value={form.country}
+                      onChange={(e) =>
+                        setForm({ ...form, country: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Promoter">
+                    <Input
+                      value={form.promoter_name}
+                      onChange={(e) =>
+                        setForm({ ...form, promoter_name: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+              </SectionCard>
 
-              <div className="border-t pt-6">
-                <ProjectTeamCard project={project} />
-              </div>
+              <SectionCard icon={FolderOpen} title="Files">
+                <Field label="Google Drive Folder">
+                  <div className="flex flex-col @md:flex-row gap-2">
+                    <Input
+                      value={form.drive_parent_folder_id}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          drive_parent_folder_id: extractDriveFolderId(
+                            e.target.value
+                          ),
+                        })
+                      }
+                      placeholder="Paste a Google Drive folder link"
+                      className="flex-1"
+                    />
+                    {form.drive_parent_folder_id && (
+                      <Button
+                        asChild
+                        variant="secondary"
+                        className="shrink-0 min-h-[32px] touch-manipulation"
+                      >
+                        <a
+                          href={driveFolderUrl(form.drive_parent_folder_id)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="inline-flex items-center">
+                            <ExternalLink className="h-4 w-4 mr-1.5" />
+                            Open in Drive
+                          </span>
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </Field>
+              </SectionCard>
 
-              <div className="border-t pt-6">
-                <ProjectUpdatesCard projectId={project.id} />
+              {/* Team is short and Updates grows long — sit them side by side
+                  once the pane is wide enough to spare the columns. */}
+              <div className="grid grid-cols-1 @4xl:grid-cols-2 gap-4 items-start">
+                <SectionCard icon={Users} title="Project Team">
+                  <ProjectTeamCard project={project} />
+                </SectionCard>
+                <SectionCard icon={MessageSquare} title="Status Updates">
+                  <ProjectUpdatesCard projectId={project.id} />
+                </SectionCard>
               </div>
             </div>
           </ScrollArea>
@@ -975,23 +1014,14 @@ function ProjectTeamCard({ project }: { project: ProjectDetail }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Project Team</h3>
-      </div>
-
       {/* Project Lead — a single user */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium flex items-center gap-1.5">
-          <User className="h-3.5 w-3.5" />
-          Project Lead
-        </Label>
+      <Field label="Project Lead">
         <Select
           value={lead ? String(lead.user_id) : "none"}
           onValueChange={handleSetLead}
           disabled={isBusy}
         >
-          <SelectTrigger className="w-full sm:w-60">
+          <SelectTrigger className="w-full @md:w-60">
             <SelectValue placeholder="No lead assigned" />
           </SelectTrigger>
           <SelectContent>
@@ -1003,65 +1033,66 @@ function ProjectTeamCard({ project }: { project: ProjectDetail }) {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Field>
 
       {/* Team members — many users */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Team Members</Label>
-        {teamMembers.length === 0 ? (
-          <div className="text-sm text-muted-foreground py-1">
-            No team members assigned yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-2">
-            {teamMembers.map((member) => (
-              <div
-                key={member.user_id}
-                className={cn(
-                  "flex items-center justify-between gap-2 p-2 rounded-md",
-                  isMacTheme ? "aqua-well" : "border"
-                )}
-              >
-                <span className="flex-1 min-w-0 text-sm font-medium truncate">
-                  {memberLabel(member)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 shrink-0"
-                  onClick={() => handleRemoveMember(member.user_id)}
-                  disabled={isBusy}
-                  title="Remove from team"
+      <Field label="Team Members">
+        <div className="space-y-2">
+          {teamMembers.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-1">
+              No team members assigned yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 @lg:grid-cols-2 gap-2">
+              {teamMembers.map((member) => (
+                <div
+                  key={member.user_id}
+                  className={cn(
+                    "flex items-center justify-between gap-2 p-2 rounded-md",
+                    isMacTheme ? "aqua-well" : "border"
+                  )}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-        <Select
-          value={addValue}
-          onValueChange={handleAddMember}
-          disabled={isBusy || availableForTeam.length === 0}
-        >
-          <SelectTrigger className="w-full sm:w-60">
-            <SelectValue
-              placeholder={
-                availableForTeam.length === 0
-                  ? "All users assigned"
-                  : "Add team member…"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {availableForTeam.map((u) => (
-              <SelectItem key={u.id} value={String(u.id)}>
-                {u.username}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+                  <span className="flex-1 min-w-0 text-sm font-medium truncate">
+                    {memberLabel(member)}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => handleRemoveMember(member.user_id)}
+                    disabled={isBusy}
+                    title="Remove from team"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Select
+            value={addValue}
+            onValueChange={handleAddMember}
+            disabled={isBusy || availableForTeam.length === 0}
+          >
+            <SelectTrigger className="w-full @md:w-60">
+              <SelectValue
+                placeholder={
+                  availableForTeam.length === 0
+                    ? "All users assigned"
+                    : "Add team member…"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {availableForTeam.map((u) => (
+                <SelectItem key={u.id} value={String(u.id)}>
+                  {u.username}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </Field>
     </div>
   );
 }
@@ -1072,6 +1103,7 @@ function ProjectTeamCard({ project }: { project: ProjectDetail }) {
 function ProjectUpdatesCard({ projectId }: { projectId: number }) {
   const { fetchUpdates, postUpdate } = useProjectsStore();
   const { userId } = useEffectiveGreenroomAccount();
+  const { isMacTheme } = useOsTheme();
   const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -1113,11 +1145,6 @@ function ProjectUpdatesCard({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Status Updates</h3>
-      </div>
-
       <div className="space-y-2">
         <Textarea
           value={draft}
@@ -1132,7 +1159,10 @@ function ProjectUpdatesCard({ projectId }: { projectId: number }) {
             }
           }}
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          <span className="hidden @md:inline text-[11px] text-muted-foreground">
+            Ctrl/⌘ + Enter to post
+          </span>
           <Button
             variant="default"
             size="sm"
@@ -1157,22 +1187,28 @@ function ProjectUpdatesCard({ projectId }: { projectId: number }) {
         />
       ) : (
         <div className="space-y-2">
+          {/* Inset wells (not raised cards) so the timeline reads as content
+              inside the Status Updates panel rather than nested cards. */}
           {updates.map((update) => (
-            <AquaCard key={update.id}>
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs font-medium">
-                    {update.username ?? "Unknown"}
-                  </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {formatUpdateTime(update.created_at)}
-                  </span>
-                </div>
-                <p className="text-sm whitespace-pre-wrap break-words">
-                  {update.body}
-                </p>
-              </CardContent>
-            </AquaCard>
+            <div
+              key={update.id}
+              className={cn(
+                "p-3 rounded-lg",
+                isMacTheme ? "aqua-well" : "bg-muted/30"
+              )}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-medium">
+                  {update.username ?? "Unknown"}
+                </span>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {formatUpdateTime(update.created_at)}
+                </span>
+              </div>
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {update.body}
+              </p>
+            </div>
           ))}
         </div>
       )}
