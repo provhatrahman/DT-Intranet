@@ -10,10 +10,19 @@ $S3_BUCKET = if ($env:S3_BUCKET) { $env:S3_BUCKET } else { "daytimers-intranet-p
 $CLOUDFRONT_DISTRIBUTION_ID = if ($env:CLOUDFRONT_DISTRIBUTION_ID) { $env:CLOUDFRONT_DISTRIBUTION_ID } else { "E3OF10QS7S5YPV" }
 $AWS_PROFILE = if ($env:AWS_PROFILE) { $env:AWS_PROFILE } else { "AdministratorAccess-471028617262" }
 
+# Gate the desktop behind Google login in the prod bundle. Vite bakes
+# import.meta.env at build time, so this MUST be set before `bun run build`.
+# Default ON for prod deploys; override with $env:VITE_AUTH_ENABLED="false" to
+# ship an ungated build. NOTE: a gated bundle is unusable until the backend side
+# is enabled too (auth Lambdas deployed, GOOGLE_CLIENT_SECRET set, allowlist
+# populated, CloudFront /auth/callback fallback). See AUTH_SETUP.md.
+if (-not $env:VITE_AUTH_ENABLED) { $env:VITE_AUTH_ENABLED = "true" }
+
 Write-Host "Deployment Configuration:" -ForegroundColor Cyan
 Write-Host "  S3 Bucket: $S3_BUCKET"
 Write-Host "  CloudFront Distribution: $CLOUDFRONT_DISTRIBUTION_ID"
 Write-Host "  AWS Profile: $AWS_PROFILE"
+Write-Host "  Auth gate (VITE_AUTH_ENABLED): $env:VITE_AUTH_ENABLED"
 Write-Host ""
 
 # Step 1: Build

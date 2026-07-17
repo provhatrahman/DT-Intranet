@@ -88,34 +88,61 @@ The frontend + backend code is done. These are the only things outside the code:
 
 ---
 
-## Will it "just work" in prod? — NO, here's the checklist
+## Prod enablement runbook — verified 2026-07-17
 
-Deploying the current commits alone will **not** enable auth. Required steps:
+Deploying the current commits alone will **not** enable auth. State below was
+verified against live prod on 2026-07-17 (✅ = confirmed done, ❌ = outstanding).
+Do these as **one batch**; nothing here has been applied to prod yet.
 
-1. **Frontend build flag.** `VITE_AUTH_ENABLED=true` must be set **at build
-   time** (Vite bakes `import.meta.env` into the bundle). Add it to the
-   `deploy.ps1` build env / `.env.production`. Without it the prod bundle has
-   auth off.
-2. **Backend redeploy — all domains.** The auth middleware lives in the shared
-   `settings.py`, so it runs in **every** domain Lambda, not just users. Redeploy
-   all `prod-<domain>-service` functions with the new code. `google-auth` +
-   `requests` are in `requirements.txt`, so the CI build bundles them.
-3. **`GOOGLE_CLIENT_SECRET` on `prod-users-service`** (the Lambda that does the
-   exchange) via SSM/Lambda env.
-4. **CORS at the gateway** — the prod frontend (`greenroom.daytimers.org`) calls
-   the API cross-origin, and the bearer header + JSON POST make requests
-   *non-simple*, so the gateway must answer **preflight (OPTIONS)** and allow the
-   `Authorization` header + the origin. This is the main infra item and is
-   currently not configured (the API sends no CORS headers today).
-5. **CloudFront SPA fallback** for `/auth/callback` → serve `index.html`
-   (403/404 → `/index.html`, 200). Otherwise the callback URL 404s on prod.
-6. **Google Console** — prod redirect URI added (see action items above).
-7. **Allowlist in prod DB** (`DT-Test`) — real Google emails on `users` rows.
-8. **Enforcement rollout** — deploy with `REQUIRE_AUTH=false` first (endpoints
-   work, nothing blocked), confirm the frontend is sending tokens for all
-   traffic, then flip `REQUIRE_AUTH=true` to actually close the open API.
+1. **Frontend build flag.** ✅ **Wired.** `deploy.ps1` now defaults
+   `VITE_AUTH_ENABLED=true` before `bun run build` (Vite bakes `import.meta.env`
+   at build time). The next frontend deploy ships gated. Override with
+   `$env:VITE_AUTH_ENABLED="false"` to ship ungated.
+2. **Backend auth code → prod — all domains.** ❌ The auth code is on
+   `greenroom-develop` (+ uncommitted working-tree changes), **not on `main`**,
+   so prod 404s `/api/users/auth/*`. Get it onto `main`, let CI build, then
+   `lambda update-function-code` for **all 9** `prod-<domain>-service` (the
+   middleware lives in shared `settings.py` → runs in every domain Lambda).
+   `google-auth` + `requests` are already in `requirements.txt`.
+   ```bash
+   for d in users artists bookings projects tasks pitches payments analytics events; do
+     aws lambda update-function-code --profile greenroom-cli --region eu-west-2 \
+       --function-name prod-$d-service \
+       --s3-bucket prod-lambda-artifacts-471028617262 --s3-key $d-service.zip
+     aws lambda wait function-updated --profile greenroom-cli --region eu-west-2 \
+       --function-name prod-$d-service
+   done
+   ```
+3. **`GOOGLE_CLIENT_SECRET` on `prod-users-service`** ❌ (the Lambda that does the
+   exchange). The value is already in `backend/.env` (same OAuth client). Set it
+   on the Lambda env (merge into existing Environment.Variables, don't clobber).
+4. **CORS at the gateway** — ✅ **already configured.** Verified: OPTIONS + real
+   responses return `access-control-allow-origin: https://greenroom.daytimers.org`
+   and `access-control-allow-headers: authorization,content-type`. No action.
+   *(This doc previously said CORS was unconfigured — that was stale.)*
+5. **CloudFront SPA fallback** ❌ — dist `E3OF10QS7S5YPV` has
+   `DefaultRootObject=index.html` but **0 custom error responses**, so
+   `/auth/callback` returns 403 from S3 today (verified). Add error responses so
+   403/404 → `/index.html` (200). Via `get-distribution-config` → add
+   `CustomErrorResponses` → `update-distribution` with the returned `ETag`:
+   ```json
+   "CustomErrorResponses": { "Quantity": 2, "Items": [
+     {"ErrorCode":403,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":10},
+     {"ErrorCode":404,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":10}
+   ]}
+   ```
+   (Bonus: also fixes hard-navigation to app deep links like `/ipod`, which 403 today.)
+6. **Google Console** — ✅ prod redirect URI `https://greenroom.daytimers.org/auth/callback`
+   registered (see action items above).
+7. **Allowlist in prod DB** (`DT-Test`) ❌ — real Google emails on `users` rows.
+   Snapshot first, then apply `backend/scripts/sql/allowlist_prod.sql` (fill in the
+   real emails). The seeded `@greenroom.com` rows are dummies and won't map.
+8. **Enforcement rollout** ❌ — steps 1–7 leave `REQUIRE_AUTH=false` (API open,
+   but the desktop already requires login and sends tokens). Once confirmed all
+   traffic carries a bearer, set `REQUIRE_AUTH=true` on every Lambda env and
+   redeploy/restart to actually close the open API.
 
-Order: 1–3 + 6 can go together; 4 & 5 are infra; 7 anytime; 8 last.
+Order: 2 + 3 + 5 + 7 (with a snapshot) go in the batch; 8 last, after verifying login.
 
 ## Dev DB note
 For local testing, dev `users` id 8's email was changed to a real Google
