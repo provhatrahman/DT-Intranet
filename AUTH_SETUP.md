@@ -49,28 +49,30 @@ and, separately, `REQUIRE_AUTH=true` (backend enforcement).
 
 ## Local development
 
-Local dev runs on **:5173** (the default Vite port), proxied to the local
-Django backend on `:8000`.
+Local dev proxies to the local Django backend on `:8000`
+(`GREENROOM_API_TARGET=http://localhost:8000`).
 
-**Mock mode (works today, no Google/secret needed)** — develop the gated app:
+**Mock mode (works today, no Google/secret needed)** — develop the gated app.
+Runs on the default port `:5173`; port is irrelevant in mock mode (no Google
+redirect):
 ```bash
 GREENROOM_API_TARGET=http://localhost:8000 \
   VITE_AUTH_ENABLED=true VITE_AUTH_MODE=mock bun dev
 ```
 "Sign in with Google" fakes a verified admin session (user id 8). Good for
-building/behaviour work behind the gate. Port doesn't matter in mock mode (no
-Google redirect).
+building/behaviour work behind the gate.
 
-**Real Google mode locally** — needs the two prerequisites below:
+**Real Google mode locally** — must run on **:3000** (the registered local
+redirect URI), pointed at the local backend:
 ```bash
-GREENROOM_API_TARGET=http://localhost:8000 \
+PORT=3000 GREENROOM_API_TARGET=http://localhost:8000 \
   VITE_AUTH_ENABLED=true VITE_AUTH_MODE=google bun dev
 ```
-Do **not** use `bun run dev:vercel` — it points at the **prod** API instead of
-the local `:8000` backend. Prerequisites:
+Do **not** use `bun run dev:vercel` — it's also :3000 but points at the **prod**
+API instead of the local `:8000` backend. Prerequisites:
 1. `GOOGLE_CLIENT_SECRET=…` in `c:\Projects\backend\.env`, then restart the
    Django server (`.venv\Scripts\python manage.py runserver 8000`).
-2. `http://localhost:5173/auth/callback` in the OAuth client's redirect URIs.
+2. `http://localhost:3000/auth/callback` registered on the OAuth client (done).
 
 ---
 
@@ -80,9 +82,10 @@ The frontend + backend code is done. These are the only things outside the code:
 
 1. **Authorized redirect URIs** on OAuth client
    `407614724084-…apps.googleusercontent.com`:
-   - `http://localhost:5173/auth/callback` (local dev — the Vite port we use)
+   - `http://localhost:3000/auth/callback` (local dev)
    - `https://greenroom.daytimers.org/auth/callback` (prod)
    - *(Authorized JavaScript origins are **not** needed — exchange is server-side.)*
+   - **Status: done** — both registered by the OAuth owner, secret provided.
 2. **Provide the client secret** (`GOCSPX-…`) so it can be set as
    `GOOGLE_CLIENT_SECRET` in the backend env (dev `.env`; prod SSM / Lambda env
    on `prod-users-service`). It must never be committed or shipped to the browser.
