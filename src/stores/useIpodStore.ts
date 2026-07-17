@@ -27,6 +27,8 @@ interface IpodData {
   showVideo: boolean;
   backlightOn: boolean;
   theme: "classic" | "black" | "u2";
+  /** Screen skin: "classic" monochrome LCD or "modern" iOS-style color UI */
+  uiVariant: "classic" | "modern";
   lcdFilterOn: boolean;
   showLyrics: boolean;
   lyricsAlignment: LyricsAlignment;
@@ -129,6 +131,7 @@ const initialIpodData: IpodData = {
   showVideo: false,
   backlightOn: true,
   theme: "classic",
+  uiVariant: "modern",
   lcdFilterOn: true,
   showLyrics: true,
   lyricsAlignment: LyricsAlignment.FocusThree,
@@ -157,6 +160,8 @@ export interface IpodState extends IpodData {
   toggleLcdFilter: () => void;
   toggleFullScreen: () => void;
   setTheme: (theme: "classic" | "black" | "u2") => void;
+  setUiVariant: (uiVariant: "classic" | "modern") => void;
+  toggleUiVariant: () => void;
   addTrack: (track: Track) => void;
   clearLibrary: () => void;
   resetLibrary: () => Promise<void>;
@@ -198,7 +203,7 @@ export interface IpodState extends IpodData {
   }>;
 }
 
-const CURRENT_IPOD_STORE_VERSION = 19; // Incremented version for persistent translation language
+const CURRENT_IPOD_STORE_VERSION = 20; // Added uiVariant (classic/modern screen skin)
 
 // Helper function to get unplayed track IDs from history
 function getUnplayedTrackIds(
@@ -366,6 +371,11 @@ export const useIpodStore = create<IpodState>()(
       toggleFullScreen: () =>
         set((state) => ({ isFullScreen: !state.isFullScreen })),
       setTheme: (theme) => set({ theme }),
+      setUiVariant: (uiVariant) => set({ uiVariant }),
+      toggleUiVariant: () =>
+        set((state) => ({
+          uiVariant: state.uiVariant === "modern" ? "classic" : "modern",
+        })),
       addTrack: (track) =>
         set((state) => ({
           tracks: [track, ...state.tracks],
@@ -837,6 +847,7 @@ export const useIpodStore = create<IpodState>()(
         loopCurrent: state.loopCurrent,
         isShuffled: state.isShuffled,
         theme: state.theme,
+        uiVariant: state.uiVariant,
         lcdFilterOn: state.lcdFilterOn,
         showLyrics: state.showLyrics, // Persist lyrics visibility
         lyricsAlignment: state.lyricsAlignment,
@@ -867,6 +878,7 @@ export const useIpodStore = create<IpodState>()(
               state.lyricsAlignment ?? LyricsAlignment.FocusThree,
             chineseVariant: state.chineseVariant ?? ChineseVariant.Traditional,
             koreanDisplay: state.koreanDisplay ?? KoreanDisplay.Original,
+            uiVariant: state.uiVariant ?? "modern", // Default to the modern color screen skin
             lyricsTranslationRequest: state.lyricsTranslationRequest ?? null, // Preserve existing translation state
             lyricsTranslationLanguage: state.lyricsTranslationLanguage ?? null, // Preserve existing translation language preference
             libraryState: "uninitialized" as LibraryState, // Reset to uninitialized on migration
@@ -885,6 +897,7 @@ export const useIpodStore = create<IpodState>()(
           loopCurrent: state.loopCurrent,
           isShuffled: state.isShuffled,
           theme: state.theme,
+          uiVariant: state.uiVariant,
           lcdFilterOn: state.lcdFilterOn,
           showLyrics: state.showLyrics, // Persist lyrics visibility
           lyricsAlignment: state.lyricsAlignment,

@@ -1089,6 +1089,7 @@ export function IpodAppComponent({
   );
   const {
     theme,
+    uiVariant,
     lcdFilterOn,
     showLyrics,
     lyricsAlignment,
@@ -1106,11 +1107,13 @@ export function IpodAppComponent({
     toggleVideo,
     toggleBacklight,
     setTheme,
+    toggleUiVariant,
     clearLibrary,
     nextTrack,
     previousTrack,
   } = useIpodStoreShallow((s) => ({
     theme: s.theme,
+    uiVariant: s.uiVariant,
     lcdFilterOn: s.lcdFilterOn,
     showLyrics: s.showLyrics,
     lyricsAlignment: s.lyricsAlignment,
@@ -1128,6 +1131,7 @@ export function IpodAppComponent({
     toggleVideo: s.toggleVideo,
     toggleBacklight: s.toggleBacklight,
     setTheme: s.setTheme,
+    toggleUiVariant: s.toggleUiVariant,
     clearLibrary: s.clearLibrary,
     nextTrack: s.nextTrack,
     previousTrack: s.previousTrack,
@@ -1324,6 +1328,13 @@ export function IpodAppComponent({
     memoizedChangeTheme(nextTheme);
   }, [memoizedChangeTheme]);
 
+  const memoizedToggleUiVariant = useCallback(() => {
+    toggleUiVariant();
+    const isModern = useIpodStore.getState().uiVariant === "modern";
+    showStatus(isModern ? "Modern Screen" : "Classic Screen");
+    registerActivity();
+  }, [toggleUiVariant, showStatus, registerActivity]);
+
   useEffect(() => {
     if (backlightTimerRef.current) {
       clearTimeout(backlightTimerRef.current);
@@ -1506,6 +1517,7 @@ export function IpodAppComponent({
     const currentIsShuffled = isShuffled;
     const currentBacklightOn = backlightOn;
     const currentTheme = theme;
+    const currentUiVariant = uiVariant;
 
     return [
       {
@@ -1537,6 +1549,12 @@ export function IpodAppComponent({
             ? t("apps.ipod.menu.black")
             : t("apps.ipod.menu.u2"),
       },
+      {
+        label: "Screen",
+        action: memoizedToggleUiVariant,
+        showChevron: false,
+        value: currentUiVariant === "modern" ? "Modern" : "Classic",
+      },
     ];
   }, [
     loopCurrent,
@@ -1544,10 +1562,12 @@ export function IpodAppComponent({
     isShuffled,
     backlightOn,
     theme,
+    uiVariant,
     memoizedToggleRepeat,
     memoizedToggleShuffle,
     memoizedToggleBacklight,
     memoizedHandleThemeChange,
+    memoizedToggleUiVariant,
     t,
   ]);
 

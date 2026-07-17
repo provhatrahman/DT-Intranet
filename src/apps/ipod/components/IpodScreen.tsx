@@ -2,12 +2,20 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import ReactPlayer from "react-player";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Track } from "@/stores/useIpodStore";
+import { Track, useIpodStore } from "@/stores/useIpodStore";
 import { useAudioSettingsStore } from "@/stores/useAudioSettingsStore";
 import { LyricsDisplay } from "./LyricsDisplay";
 import { useLyrics } from "@/hooks/useLyrics";
 import { LyricsAlignment, ChineseVariant, KoreanDisplay } from "@/types/lyrics";
 import { useTranslation } from "react-i18next";
+import { Shuffle, Repeat, RepeatOnce } from "@phosphor-icons/react";
+import {
+  isModernIpodUiVariant,
+  resolveTrackCoverUrl,
+  MODERN_TITLEBAR_HEIGHT,
+} from "../constants";
+import { IpodModernPlayPauseIcon } from "./IpodModernPlayPauseIcon";
+import { ModernNowPlayingArtwork } from "./ModernNowPlayingArtwork";
 
 // Minimal BatteryManager interface for browsers that expose navigator.getBattery
 interface BatteryManager {
@@ -18,7 +26,13 @@ interface BatteryManager {
 }
 
 // Battery component
-function BatteryIndicator({ backlightOn }: { backlightOn: boolean }) {
+function BatteryIndicator({
+  backlightOn,
+  variant = "classic",
+}: {
+  backlightOn: boolean;
+  variant?: "classic" | "modern";
+}) {
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const [isCharging, setIsCharging] = useState<boolean>(false);
   const [animationFrame, setAnimationFrame] = useState<number>(1);
@@ -69,6 +83,27 @@ function BatteryIndicator({ backlightOn }: { backlightOn: boolean }) {
   // Use fallback if no battery level detected
   const level = batteryLevel ?? 1.0;
   const filledBars = isCharging ? animationFrame : Math.ceil(level * 4);
+
+  // Modern skin: compact green glossy pill (iPod nano 6G/7G style), sized for
+  // the slim 16px titlebar. Uses the .ipod-modern-battery-* classes.
+  if (isModernIpodUiVariant(variant)) {
+    const fillPercent = Math.max(0, Math.min(1, level)) * 100;
+    const isLow = !isCharging && level <= 0.2;
+    return (
+      <div className="flex items-center">
+        <div className="relative h-[9px] w-[14px] shrink-0 overflow-hidden ipod-modern-battery-container">
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 ipod-modern-battery-fill transition-[width] duration-300",
+              isLow && "ipod-modern-battery-fill--low"
+            )}
+            style={{ width: `${fillPercent}%` }}
+          />
+        </div>
+        <div className="-ml-[1px] h-[5px] w-[2px] shrink-0 ipod-modern-battery-cap" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center">
@@ -200,6 +235,7 @@ function MenuListItem({
   backlightOn = true,
   showChevron = true,
   value,
+  isModern = false,
 }: {
   text: string;
   isSelected: boolean;
@@ -207,7 +243,47 @@ function MenuListItem({
   backlightOn?: boolean;
   showChevron?: boolean;
   value?: string;
+  isModern?: boolean;
 }) {
+  if (isModern) {
+    // Modern skin: white rows with a glossy-blue selection gradient and an
+    // iOS-style chevron. Colors come from .ipod-modern-row(-selected) in CSS.
+    return (
+      <div
+        onClick={onClick}
+        className={cn(
+          "min-h-[22px] pl-1.5 pr-2 cursor-pointer font-ipod-modern-ui flex justify-between items-center ipod-modern-row",
+          isSelected ? "ipod-modern-row-selected" : "text-black"
+        )}
+      >
+        <span className="whitespace-nowrap overflow-hidden text-ellipsis flex-1 mr-2 text-[15px] font-semibold leading-[1.15]">
+          {text}
+        </span>
+        {value ? (
+          <span
+            className={cn(
+              "flex-shrink-0 text-[15px] font-semibold",
+              isSelected ? "text-white/90" : "text-[rgb(99,101,103)]"
+            )}
+          >
+            {value}
+          </span>
+        ) : (
+          showChevron && (
+            <span
+              className={cn(
+                "flex-shrink-0 text-[19px] leading-none",
+                isSelected ? "text-white/95" : "text-[#b8b8bc]"
+              )}
+            >
+              {"›"}
+            </span>
+          )
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={onClick}
@@ -238,10 +314,12 @@ function ScrollingText({
   text,
   className,
   isPlaying = true,
+  align = "center",
 }: {
   text: string;
   className?: string;
   isPlaying?: boolean;
+  align?: "left" | "center";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -265,7 +343,7 @@ function ScrollingText({
       ref={containerRef}
       className={cn(
         "relative overflow-hidden",
-        !shouldScroll && "flex justify-center",
+        !shouldScroll && (align === "left" ? "flex justify-start" : "flex justify-center"),
         className
       )}
     >
@@ -297,7 +375,13 @@ function ScrollingText({
           </motion.div>
         </div>
       ) : (
-        <div ref={textRef} className="whitespace-nowrap text-center">
+        <div
+          ref={textRef}
+          className={cn(
+            "whitespace-nowrap",
+            align === "left" ? "text-left" : "text-center"
+          )}
+        >
           {text}
         </div>
       )}
@@ -416,6 +500,11 @@ export function IpodScreen({
   lyricsControls,
 }: IpodScreenProps) {
   const { t } = useTranslation();
+  // Screen skin + header state (read from store; not threaded as props)
+  const uiVariant = useIpodStore((s) => s.uiVariant);
+  const isShuffled = useIpodStore((s) => s.isShuffled);
+  const loopAll = useIpodStore((s) => s.loopAll);
+  const isModernUi = isModernIpodUiVariant(uiVariant);
   // Animation variants for menu transitions
   const menuVariants = {
     enter: (direction: "forward" | "backward") => ({
@@ -554,14 +643,21 @@ export function IpodScreen({
     <div
       className={cn(
         "relative w-full h-[150px] border border-black border-2 rounded-[2px] overflow-hidden transition-all duration-500 select-none no-select-all",
-        lcdFilterOn ? "lcd-screen" : "",
-        backlightOn
-          ? "bg-[#c5e0f5] bg-gradient-to-b from-[#d1e8fa] to-[#e0f0fc]"
-          : "bg-[#8a9da9] contrast-65 saturate-50",
-        // Add the soft blue glow when both LCD filter and backlight are on
-        lcdFilterOn &&
-          backlightOn &&
-          "shadow-[0_0_10px_2px_rgba(197,224,245,0.05)]"
+        isModernUi
+          ? cn(
+              "ipod-modern-screen bg-white",
+              !backlightOn && "ipod-modern-backlight-off"
+            )
+          : cn(
+              lcdFilterOn ? "lcd-screen" : "",
+              backlightOn
+                ? "bg-[#c5e0f5] bg-gradient-to-b from-[#d1e8fa] to-[#e0f0fc]"
+                : "bg-[#8a9da9] contrast-65 saturate-50",
+              // Add the soft blue glow when both LCD filter and backlight are on
+              lcdFilterOn &&
+                backlightOn &&
+                "shadow-[0_0_10px_2px_rgba(197,224,245,0.05)]"
+            )
       )}
       style={{
         minWidth: '100%',
@@ -574,13 +670,13 @@ export function IpodScreen({
         WebkitTouchCallout: 'none',
       }}
     >
-      {/* LCD screen overlay with scan lines - only show when LCD filter is on */}
-      {lcdFilterOn && (
+      {/* LCD screen overlay with scan lines - only show when LCD filter is on (classic only) */}
+      {lcdFilterOn && !isModernUi && (
         <div className="absolute inset-0 pointer-events-none z-25 lcd-scan-lines"></div>
       )}
 
-      {/* Glass reflection effect - only show when LCD filter is on */}
-      {lcdFilterOn && (
+      {/* Glass reflection effect - only show when LCD filter is on (classic only) */}
+      {lcdFilterOn && !isModernUi && (
         <div className="absolute inset-0 pointer-events-none z-25 lcd-reflection"></div>
       )}
 
@@ -719,24 +815,47 @@ export function IpodScreen({
       )}
 
       {/* Title bar - not animated, immediately swaps */}
-      <div className="border-b border-[#0a3667] py-0 px-2 font-chicago text-[16px] flex items-center sticky top-0 z-10 text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
+      {isModernUi ? (
         <div
-          className={`w-6 flex items-center justify-start font-chicago ${
-            isPlaying ? "text-xs" : "text-[18px]"
-          }`}
+          className="ipod-modern-titlebar font-ipod-modern-ui font-semibold flex items-center gap-1.5 pl-1.5 pr-1.5 sticky top-0 z-20 text-black"
+          style={{
+            height: MODERN_TITLEBAR_HEIGHT,
+            minHeight: MODERN_TITLEBAR_HEIGHT,
+          }}
         >
-          <div className="w-4 h-4 mt-0.5 flex items-center justify-center">
-            {isPlaying ? "▶" : "⏸︎"}
+          <div className="flex-1 min-w-0 truncate text-left text-[12px] font-semibold [text-shadow:0_1px_0_rgba(255,255,255,0.9)]">
+            {currentMenuTitle}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <IpodModernPlayPauseIcon playing={isPlaying} size={14} />
+            <BatteryIndicator backlightOn={backlightOn} variant="modern" />
           </div>
         </div>
-        <div className="flex-1 truncate text-center">{currentMenuTitle}</div>
-        <div className="w-6 flex items-center justify-end">
-          <BatteryIndicator backlightOn={backlightOn} />
+      ) : (
+        <div className="border-b border-[#0a3667] py-0 px-2 font-chicago text-[16px] flex items-center sticky top-0 z-10 text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
+          <div
+            className={`w-6 flex items-center justify-start font-chicago ${
+              isPlaying ? "text-xs" : "text-[18px]"
+            }`}
+          >
+            <div className="w-4 h-4 mt-0.5 flex items-center justify-center">
+              {isPlaying ? "▶" : "⏸︎"}
+            </div>
+          </div>
+          <div className="flex-1 truncate text-center">{currentMenuTitle}</div>
+          <div className="w-6 flex items-center justify-end">
+            <BatteryIndicator backlightOn={backlightOn} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content area - this animates/slides */}
-      <div className="relative h-[calc(100%-26px)]">
+      <div
+        className={cn(
+          "relative",
+          isModernUi ? "h-[calc(100%-16px)]" : "h-[calc(100%-26px)]"
+        )}
+      >
         <AnimatePresence initial={false} custom={menuDirection} mode="sync">
           {menuMode ? (
             <motion.div
@@ -775,6 +894,7 @@ export function IpodScreen({
                             text={item.label}
                             isSelected={index === selectedMenuItem}
                             backlightOn={backlightOn}
+                            isModern={isModernUi}
                             onClick={() => {
                               onSelectMenuItem(index);
                               onMenuItemAction(item.action);
@@ -827,54 +947,145 @@ export function IpodScreen({
                 }
               }}
             >
-              <div className="flex-1 flex flex-col p-1 px-2 overflow-auto">
-                {currentTrack ? (
-                  <>
-                    <div className="font-chicago text-[12px] mb-1 text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
-                      {currentIndex + 1} of {tracksLength}
+              {isModernUi ? (
+                <div className="flex-1 flex flex-col px-2 pt-1.5 pb-1 overflow-x-hidden overflow-y-visible font-ipod-modern-ui">
+                  {currentTrack ? (
+                    <>
+                      {/* Header: track counter + shuffle/repeat status */}
+                      <div className="flex items-center justify-between text-[12px] font-normal leading-[1.06] text-[rgb(99,101,103)]">
+                        <span>
+                          {currentIndex + 1} of {tracksLength}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          {isShuffled && <Shuffle size={12} weight="bold" />}
+                          {loopCurrent ? (
+                            <RepeatOnce size={12} weight="bold" />
+                          ) : loopAll ? (
+                            <Repeat size={12} weight="bold" />
+                          ) : null}
+                        </span>
+                      </div>
+                      {/* Body: album art + track text */}
+                      <div className="flex items-start gap-3 mt-1">
+                        <ModernNowPlayingArtwork
+                          coverUrl={resolveTrackCoverUrl(currentTrack)}
+                        />
+                        <div className="flex-1 min-w-0 pt-1">
+                          <div className="text-[15px] font-semibold text-black leading-[1.06]">
+                            <ScrollingText
+                              text={currentTrack.title}
+                              isPlaying={isPlaying}
+                              align="left"
+                            />
+                          </div>
+                          <div className="text-[12px] font-normal text-[rgb(99,101,103)] leading-[1.2]">
+                            <ScrollingText
+                              text={currentTrack.artist || ""}
+                              isPlaying={isPlaying}
+                              align="left"
+                            />
+                          </div>
+                          {currentTrack.album && (
+                            <div className="text-[12px] font-normal text-[rgb(99,101,103)] leading-[1.2]">
+                              <ScrollingText
+                                text={currentTrack.album}
+                                isPlaying={isPlaying}
+                                align="left"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Progress + times */}
+                      <div className="mt-auto">
+                        <div className="aqua-progress h-[9px] w-full rounded-none overflow-hidden">
+                          <div
+                            className="aqua-progress-fill h-full transition-all duration-200 ease-out"
+                            style={{
+                              width: `${
+                                totalTime > 0
+                                  ? (elapsedTime / totalTime) * 100
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-[12px] leading-[1.06] mt-1 flex justify-between text-[rgb(99,101,103)] font-normal tabular-nums">
+                          <span>
+                            {Math.floor(elapsedTime / 60)}:
+                            {String(Math.floor(elapsedTime % 60)).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+                          <span>
+                            -{Math.floor((totalTime - elapsedTime) / 60)}:
+                            {String(
+                              Math.floor((totalTime - elapsedTime) % 60)
+                            ).padStart(2, "0")}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-[12px] text-[rgb(99,101,103)] h-full flex flex-col justify-center items-center gap-0.5">
+                      <p>Don't steal music</p>
+                      <p>Ne volez pas la musique</p>
+                      <p>Bitte keine Musik stehlen</p>
+                      <p>音楽を盗用しないでください</p>
                     </div>
-                    <div className="font-chicago text-[16px] text-center text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
-                      <ScrollingText
-                        text={currentTrack.title}
-                        isPlaying={isPlaying}
-                      />
-                      <ScrollingText
-                        text={currentTrack.artist || ""}
-                        isPlaying={isPlaying}
-                      />
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col p-1 px-2 overflow-auto">
+                  {currentTrack ? (
+                    <>
+                      <div className="font-chicago text-[12px] mb-1 text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
+                        {currentIndex + 1} of {tracksLength}
+                      </div>
+                      <div className="font-chicago text-[16px] text-center text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
+                        <ScrollingText
+                          text={currentTrack.title}
+                          isPlaying={isPlaying}
+                        />
+                        <ScrollingText
+                          text={currentTrack.artist || ""}
+                          isPlaying={isPlaying}
+                        />
+                      </div>
+                      <div className="mt-auto w-full h-[8px] rounded-full border border-[#0a3667] overflow-hidden">
+                        <div
+                          className="h-full bg-[#0a3667]"
+                          style={{
+                            width: `${
+                              totalTime > 0 ? (elapsedTime / totalTime) * 100 : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <div className="font-chicago text-[16px] w-full h-[22px] flex justify-between text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
+                        <span>
+                          {Math.floor(elapsedTime / 60)}:
+                          {String(Math.floor(elapsedTime % 60)).padStart(2, "0")}
+                        </span>
+                        <span>
+                          -{Math.floor((totalTime - elapsedTime) / 60)}:
+                          {String(
+                            Math.floor((totalTime - elapsedTime) % 60)
+                          ).padStart(2, "0")}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center font-geneva-12 text-[12px] text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)] h-full flex flex-col justify-center items-center">
+                      <p>Don't steal music</p>
+                      <p>Ne volez pas la musique</p>
+                      <p>Bitte keine Musik stehlen</p>
+                      <p>音楽を盗用しないでください</p>
                     </div>
-                    <div className="mt-auto w-full h-[8px] rounded-full border border-[#0a3667] overflow-hidden">
-                      <div
-                        className="h-full bg-[#0a3667]"
-                        style={{
-                          width: `${
-                            totalTime > 0 ? (elapsedTime / totalTime) * 100 : 0
-                          }%`,
-                        }}
-                      />
-                    </div>
-                    <div className="font-chicago text-[16px] w-full h-[22px] flex justify-between text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)]">
-                      <span>
-                        {Math.floor(elapsedTime / 60)}:
-                        {String(Math.floor(elapsedTime % 60)).padStart(2, "0")}
-                      </span>
-                      <span>
-                        -{Math.floor((totalTime - elapsedTime) / 60)}:
-                        {String(
-                          Math.floor((totalTime - elapsedTime) % 60)
-                        ).padStart(2, "0")}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center font-geneva-12 text-[12px] text-[#0a3667] [text-shadow:1px_1px_0_rgba(0,0,0,0.15)] h-full flex flex-col justify-center items-center">
-                    <p>Don't steal music</p>
-                    <p>Ne volez pas la musique</p>
-                    <p>Bitte keine Musik stehlen</p>
-                    <p>音楽を盗用しないでください</p>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

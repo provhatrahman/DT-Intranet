@@ -71,6 +71,7 @@ export function IpodMenuBar({
     isVideoOn,
     isLcdFilterOn,
     currentTheme,
+    uiVariant,
     showLyrics,
     isFullScreen,
     lyricsAlignment,
@@ -91,6 +92,7 @@ export function IpodMenuBar({
     toggleLcdFilter,
     toggleFullScreen,
     setTheme,
+    setUiVariant,
     toggleLyrics,
     setLyricsAlignment,
     refreshLyrics,
@@ -111,6 +113,7 @@ export function IpodMenuBar({
     isVideoOn: s.showVideo,
     isLcdFilterOn: s.lcdFilterOn,
     currentTheme: s.theme,
+    uiVariant: s.uiVariant,
     showLyrics: s.showLyrics,
     isFullScreen: s.isFullScreen,
     lyricsAlignment: s.lyricsAlignment ?? LyricsAlignment.FocusThree,
@@ -131,6 +134,7 @@ export function IpodMenuBar({
     toggleLcdFilter: s.toggleLcdFilter,
     toggleFullScreen: s.toggleFullScreen,
     setTheme: s.setTheme,
+    setUiVariant: s.setUiVariant,
     toggleLyrics: s.toggleLyrics,
     setLyricsAlignment: s.setLyricsAlignment,
     refreshLyrics: s.refreshLyrics,
@@ -482,6 +486,26 @@ export function IpodMenuBar({
             className="text-md h-6 pr-3"
           >
             {t("apps.ipod.menu.u2")}
+          </MenubarCheckboxItem>
+
+          <MenubarSeparator className="h-[2px] bg-black my-1" />
+          <MenubarCheckboxItem
+            checked={uiVariant === "modern"}
+            onCheckedChange={(checked) => {
+              if (checked) setUiVariant("modern");
+            }}
+            className="text-md h-6 pr-3"
+          >
+            Modern Screen
+          </MenubarCheckboxItem>
+          <MenubarCheckboxItem
+            checked={uiVariant === "classic"}
+            onCheckedChange={(checked) => {
+              if (checked) setUiVariant("classic");
+            }}
+            className="text-md h-6 pr-3"
+          >
+            Classic Screen
           </MenubarCheckboxItem>
 
           <MenubarSeparator className="h-[2px] bg-black my-1" />
