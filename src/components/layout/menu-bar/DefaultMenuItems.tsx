@@ -203,28 +203,6 @@ export function DefaultMenuItems() {
             {t("common.menu.music")}
           </MenubarItem>
           <MenubarItem
-            onClick={() => handleLaunchFinder("/Sites")}
-            className="text-md h-6 px-3 flex items-center gap-2"
-          >
-            <ThemedIcon
-              name="sites.png"
-              alt={t("common.menu.sites")}
-              className="w-4 h-4 [image-rendering:pixelated]"
-            />
-            {t("common.menu.sites")}
-          </MenubarItem>
-          <MenubarItem
-            onClick={() => handleLaunchFinder("/Videos")}
-            className="text-md h-6 px-3 flex items-center gap-2"
-          >
-            <ThemedIcon
-              name="movies.png"
-              alt={t("common.menu.videos")}
-              className="w-4 h-4 [image-rendering:pixelated]"
-            />
-            {t("common.menu.videos")}
-          </MenubarItem>
-          <MenubarItem
             onClick={() => handleLaunchFinder("/Trash")}
             className="text-md h-6 px-3 flex items-center gap-2"
           >
