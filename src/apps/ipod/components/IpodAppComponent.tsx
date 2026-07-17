@@ -18,7 +18,10 @@ import { IpodWheel } from "./IpodWheel";
 import { useIpodStore, Track } from "@/stores/useIpodStore";
 import { useShallow } from "zustand/react/shallow";
 import { useIpodStoreShallow, useAppStoreShallow } from "@/stores/helpers";
-import { useAppStore } from "@/stores/useAppStore";
+import {
+  useAudioSettingsStore,
+  useAudioSettingsStoreShallow,
+} from "@/stores/useAudioSettingsStore";
 import { ShareItemDialog } from "@/components/dialogs/ShareItemDialog";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
@@ -2443,7 +2446,7 @@ export function IpodAppComponent({
   };
 
   // Volume control
-  const { ipodVolume } = useAppStoreShallow((state) => ({
+  const { ipodVolume } = useAudioSettingsStoreShallow((state) => ({
     ipodVolume: state.ipodVolume,
   }));
 
@@ -2771,7 +2774,8 @@ export function IpodAppComponent({
                             width="100%"
                             height="100%"
                             volume={
-                              ipodVolume * useAppStore.getState().masterVolume
+                              ipodVolume *
+                              useAudioSettingsStore.getState().masterVolume
                             }
                             loop={loopCurrent}
                             onEnded={handleTrackEnd}

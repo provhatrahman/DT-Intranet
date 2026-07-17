@@ -20,9 +20,13 @@ const FLAT_TONE: Record<NoticeTone, string> = {
 };
 
 const ICON_TONE: Record<NoticeTone, string> = {
-  info: "text-blue-700",
-  warning: "text-yellow-700",
-  error: "text-red-700",
+  // The dark-mode aqua-well tints (see src/styles/greenroom.css) are dark
+  // washes rather than the light theme's pale tints, so the icon needs a
+  // lighter shade of the same hue to stay legible; `neutral` is covered by
+  // dark-aqua.css's generic `.text-gray-500` remap already.
+  info: "text-blue-700 dark:text-blue-300",
+  warning: "text-yellow-700 dark:text-yellow-300",
+  error: "text-red-700 dark:text-red-300",
   neutral: "text-gray-500",
 };
 

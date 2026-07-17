@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-os-theme="macosx" data-os-platform="mac" data-os-mac-chrome="aqua" data-os-aqua-material="glass" style="background-color: #000">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -63,7 +63,7 @@
     <meta name="twitter:image" content="https://os.ryo.lu/icons/mac-512.png" />
 
     <title>Greenroom</title>
-    
+
     <!-- Stale bundle detection: reload if cached index.html references missing JS bundles -->
     <script>
       (function() {
@@ -71,22 +71,22 @@
         var reloadKey = 'greenroom-stale-reload';
         var lastReload = sessionStorage.getItem(reloadKey);
         var now = Date.now();
-        
+
         // If we reloaded in the last 10 seconds, don't reload again
         if (lastReload && (now - parseInt(lastReload, 10)) < 10000) {
           console.warn('[Greenroom] Recently reloaded for stale bundle, skipping to prevent loop');
           return;
         }
-        
+
         // Guard to prevent multiple reload attempts
         var isReloading = false;
-        
+
         // Listen for script load errors (captures ES module import failures)
         window.addEventListener('error', function(event) {
           if (isReloading) return;
           // Check if this is a script/module loading error
           var target = event.target || event.srcElement;
-          
+
           // Handle <script> tag errors
           if (target && target.tagName === 'SCRIPT') {
             var src = target.src || '';
@@ -97,16 +97,16 @@
             }
           }
         }, true); // Use capture phase to catch errors before they propagate
-        
+
         // Handle dynamic import failures (ES modules)
         window.addEventListener('unhandledrejection', function(event) {
           if (isReloading) return;
           var reason = event.reason;
           if (!reason) return;
-          
+
           var message = reason.message || String(reason);
           var stack = reason.stack || '';
-          
+
           // Check for module loading failures
           // Common error patterns:
           // - "Failed to fetch dynamically imported module" (Chrome)
@@ -114,18 +114,18 @@
           // - "Loading module from ... was blocked" (Safari)
           // - "Importing a module script failed" (Safari)
           // - "Unable to preload CSS" with chunk reference
-          var isModuleError = 
+          var isModuleError =
             message.indexOf('dynamically imported module') !== -1 ||
             message.indexOf('Loading module') !== -1 ||
             message.indexOf('module script failed') !== -1 ||
             message.indexOf('Unable to preload CSS') !== -1;
-          
+
           // Also check if error is specifically about our assets
           // This catches Safari-specific errors that include the URL in the message
-          var isAssetError = 
+          var isAssetError =
             (message.indexOf('/assets/') !== -1 && message.indexOf('.js') !== -1) ||
             (stack.indexOf('/assets/') !== -1 && stack.indexOf('.js') !== -1);
-          
+
           // Only trigger for module errors or asset-specific errors
           // Avoid triggering for general "Failed to fetch" from API calls
           if (isModuleError || isAssetError) {
@@ -133,16 +133,16 @@
             triggerStaleReload('Module import error: ' + message);
           }
         });
-        
+
         function triggerStaleReload(reason) {
           if (isReloading) return;
           isReloading = true;
-          
+
           console.warn('[Greenroom] Stale bundle detected, clearing caches and reloading...', reason);
-          
+
           // Mark that we're reloading to prevent loops
           sessionStorage.setItem(reloadKey, String(Date.now()));
-          
+
           // Clear all caches to ensure fresh assets
           if (window.caches) {
             caches.keys().then(function(names) {
@@ -159,7 +159,7 @@
             doReload();
           }
         }
-        
+
         function doReload() {
           // Unregister service worker to avoid serving stale HTML again
           if (navigator.serviceWorker) {
@@ -181,7 +181,7 @@
             forceReload();
           }
         }
-        
+
         function forceReload() {
           // Add cache-busting param to force fresh index.html fetch
           var url = new URL(window.location.href);
@@ -191,7 +191,135 @@
       })();
     </script>
   </head>
-  <body style="background-color: black">
+  <body style="background-color: #000; margin: 0">
+    <!-- First-paint theme bootstrap (ported from upstream ryOS main): sets
+         data-os-theme/platform/mac-chrome/aqua-material/color-scheme on
+         <html> from localStorage before React mounts, so the correct chrome
+         (incl. dark mode) paints immediately instead of flashing the
+         markup default (Aqua/Glass/light) set above. See
+         src/themes/bootstrapConfig.ts (generates the config below) and
+         src/stores/useThemeStore.ts (the same logic, applied post-mount). -->
+    <script src="/theme-bootstrap-config.js"></script>
+    <script>
+      (function () {
+        try {
+          var rawTheme = localStorage.getItem("ryos:theme");
+          var legacyTheme = localStorage.getItem("os_theme");
+          if (!rawTheme && legacyTheme) {
+            rawTheme = legacyTheme;
+            localStorage.setItem("ryos:theme", legacyTheme);
+          }
+          if (legacyTheme !== null) localStorage.removeItem("os_theme");
+          var config = window.__RYOS_THEME_BOOTSTRAP__ || {
+            defaultTheme: "macosx",
+            defaultAquaMaterial: "glass",
+            themes: {
+              system7: { platform: "mac", macChrome: "system7", supportsDarkMode: false },
+              macosx: { platform: "mac", macChrome: "aqua", supportsDarkMode: true },
+              xp: { platform: "windows", macChrome: null, supportsDarkMode: false },
+              win98: { platform: "windows", macChrome: null, supportsDarkMode: false },
+            },
+          };
+          var themeConfig = rawTheme && config.themes && config.themes[rawTheme];
+          var theme = themeConfig ? rawTheme : config.defaultTheme || "macosx";
+          themeConfig = config.themes && config.themes[theme];
+          var root = document.documentElement;
+          root.dataset.osTheme = theme;
+          // Mirror the platform/chrome attributes the React store will set later so first paint matches.
+          var platform = themeConfig && themeConfig.platform ? themeConfig.platform : "mac";
+          root.dataset.osPlatform = platform;
+          if (themeConfig && themeConfig.macChrome) {
+            root.dataset.osMacChrome = themeConfig.macChrome;
+          } else {
+            delete root.dataset.osMacChrome;
+          }
+          // Aqua material is a separate preference from the OS theme. Preserve
+          // explicit saved choices; default missing/invalid storage to Glass.
+          var rawAquaMaterial = localStorage.getItem("ryos:theme:aqua-material");
+          var aquaMaterial =
+            rawAquaMaterial === "classic" || rawAquaMaterial === "glass"
+              ? rawAquaMaterial
+              : config.defaultAquaMaterial || "glass";
+          if (theme === "macosx" && aquaMaterial === "glass") {
+            root.dataset.osAquaMaterial = "glass";
+          } else {
+            delete root.dataset.osAquaMaterial;
+          }
+          // Dark mode is per-theme, only honored when the theme advertises support.
+          // Match useThemeStore#effectiveDarkFor (string prefs + legacy booleans + system).
+          var supportsDark = !!(themeConfig && themeConfig.supportsDarkMode);
+          var systemDark = false;
+          try {
+            systemDark =
+              window.matchMedia &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches;
+          } catch (e0) {}
+
+          var isDarkBoot = false;
+          if (supportsDark) {
+            try {
+              var rawDark = localStorage.getItem("ryos:theme:dark");
+              var pref = null;
+              if (rawDark) {
+                var parsedDark = JSON.parse(rawDark);
+                if (
+                  parsedDark &&
+                  typeof parsedDark === "object" &&
+                  parsedDark[theme] !== undefined &&
+                  parsedDark[theme] !== null
+                ) {
+                  pref = parsedDark[theme];
+                }
+              }
+              if (pref === true || pref === "dark") isDarkBoot = true;
+              else if (pref === false || pref === "light") isDarkBoot = false;
+              else isDarkBoot = systemDark;
+            } catch (e1) {}
+
+            if (isDarkBoot) {
+              root.dataset.osColorScheme = "dark";
+              root.style.colorScheme = "dark";
+              root.classList.add("dark");
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      (function () {
+        var theme = document.documentElement.dataset.osTheme || "macosx";
+        var fontsByTheme = {
+          macosx: [
+            "/fonts/LucidaGrande.woff2",
+            "/fonts/AquaKana.woff2",
+          ],
+          system7: [
+            "/fonts/ChicagoKare-Regular.woff2",
+            "/fonts/geneva-12.woff2",
+            "/fonts/fusion-pixel-12px-proportional-ja.woff2",
+          ],
+          xp: [
+            "/fonts/ms_sans_serif.woff2",
+            "/fonts/ms_sans_serif_bold.woff2",
+            "/fonts/fusion-pixel-12px-proportional-ja.woff2",
+          ],
+          win98: [
+            "/fonts/ms_sans_serif.woff2",
+            "/fonts/ms_sans_serif_bold.woff2",
+            "/fonts/fusion-pixel-12px-proportional-ja.woff2",
+          ],
+        };
+        (fontsByTheme[theme] || fontsByTheme.macosx).forEach(function (href) {
+          var link = document.createElement("link");
+          link.rel = "preload";
+          link.as = "font";
+          link.type = "font/woff2";
+          link.crossOrigin = "anonymous";
+          link.href = href;
+          document.head.appendChild(link);
+        });
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

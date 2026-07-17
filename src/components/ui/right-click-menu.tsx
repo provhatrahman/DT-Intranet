@@ -9,8 +9,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { ReactNode } from "react";
+import { ReactNode, useCallback, useEffect } from "react";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
+import { useSound, Sounds } from "@/hooks/useSound";
 
 // ------------------ Types ------------------
 export type MenuItem =
@@ -29,6 +30,7 @@ export type MenuItem =
       label: string;
       items: MenuItem[];
       icon?: string; // Icon path or emoji
+      disabled?: boolean;
     }
   | {
       type: "checkbox";
@@ -53,27 +55,50 @@ interface RightClickMenuProps {
 }
 
 export const menuItemClass =
-  "text-md h-6 px-3 active:bg-gray-900 active:text-white min-w-[140px] flex items-center gap-2";
+  "text-md h-6 px-3 active:bg-os-selection-bg active:text-os-selection-text min-w-[140px] flex items-center gap-2";
+
+const menuItemKeyCache = new WeakMap<object, string>();
+let menuItemKeySeed = 0;
+
+function getMenuItemKey(item: MenuItem): string {
+  const cached = menuItemKeyCache.get(item);
+  if (cached) return cached;
+
+  let key = "";
+  if (item.type === "item" || item.type === "submenu" || item.type === "checkbox") {
+    key = `${item.type}-${item.label}`;
+  } else if (item.type === "radioGroup") {
+    key = `${item.type}-${item.value}`;
+  } else {
+    key = "separator";
+  }
+
+  menuItemKeySeed += 1;
+  const uniqueKey = `${key}-${menuItemKeySeed}`;
+  menuItemKeyCache.set(item, uniqueKey);
+  return uniqueKey;
+}
 
 // ------------------ Renderer helpers ------------------
 function renderItems(items: MenuItem[]): ReactNode {
-  return items.map((item, idx) => {
+  return items.map((item) => {
+    const itemKey = getMenuItemKey(item);
     switch (item.type) {
       case "item":
         return (
           <DropdownMenuItem
-            key={idx}
+            key={itemKey}
             onSelect={item.onSelect}
             disabled={item.disabled}
             className={menuItemClass}
           >
             {item.icon && (
-              <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+              <div className="size-4 flex items-center justify-center flex-shrink-0">
                 {item.icon.startsWith("/") || item.icon.startsWith("http") ? (
                   <ThemedIcon
                     name={item.icon}
                     alt={item.label}
-                    className="w-4 h-4 [image-rendering:pixelated]"
+                    className="size-4 [image-rendering:pixelated]"
                   />
                 ) : (
                   <span className="text-xs leading-none">{item.icon}</span>
@@ -85,19 +110,22 @@ function renderItems(items: MenuItem[]): ReactNode {
         );
       case "separator":
         return (
-          <DropdownMenuSeparator key={idx} className="h-[2px] bg-black my-1" />
+          <DropdownMenuSeparator key={itemKey} className="h-[2px] bg-black my-1" />
         );
       case "submenu":
         return (
-          <DropdownMenuSub key={idx}>
-            <DropdownMenuSubTrigger className={menuItemClass}>
+          <DropdownMenuSub key={itemKey}>
+            <DropdownMenuSubTrigger
+              disabled={item.disabled}
+              className={menuItemClass}
+            >
               {item.icon && (
-                <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                <div className="size-4 flex items-center justify-center flex-shrink-0">
                   {item.icon.startsWith("/") || item.icon.startsWith("http") ? (
                     <ThemedIcon
                       name={item.icon}
                       alt={item.label}
-                      className="w-4 h-4 [image-rendering:pixelated]"
+                      className="size-4 [image-rendering:pixelated]"
                     />
                   ) : (
                     <span className="text-xs leading-none">{item.icon}</span>
@@ -114,7 +142,7 @@ function renderItems(items: MenuItem[]): ReactNode {
       case "checkbox":
         return (
           <DropdownMenuCheckboxItem
-            key={idx}
+            key={itemKey}
             checked={item.checked}
             onSelect={item.onSelect}
             disabled={item.disabled}
@@ -154,6 +182,18 @@ export function RightClickMenu({
   items,
   align = "start",
 }: RightClickMenuProps) {
+  const { play: playMenuOpen } = useSound(Sounds.MENU_OPEN);
+  const stopMenuEventPropagation = useCallback((event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  }, []);
+
+  // Play open sound when menu appears
+  useEffect(() => {
+    if (position) {
+      playMenuOpen();
+    }
+  }, [position, playMenuOpen]);
+
   if (!position) return null;
 
   return (
@@ -174,6 +214,11 @@ export function RightClickMenu({
         sideOffset={4}
         alignOffset={4}
         className="px-0"
+        onPointerDown={stopMenuEventPropagation}
+        onMouseDown={stopMenuEventPropagation}
+        onTouchStart={stopMenuEventPropagation}
+        onClick={stopMenuEventPropagation}
+        onContextMenu={stopMenuEventPropagation}
       >
         {renderItems(items)}
       </DropdownMenuContent>

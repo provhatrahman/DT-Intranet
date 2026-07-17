@@ -7,6 +7,7 @@ import {
 import { useChatsStore } from "../../../stores/useChatsStore";
 import type { AIChatMessage } from "@/types/chat";
 import { useAppStore } from "@/stores/useAppStore";
+import { useAudioSettingsStore } from "@/stores/useAudioSettingsStore";
 import { useInternetExplorerStore } from "@/stores/useInternetExplorerStore";
 import { getApiUrl } from "@/utils/platform";
 import { useVideoStore } from "@/stores/useVideoStore";
@@ -28,6 +29,7 @@ import { useTtsQueue } from "@/hooks/useTtsQueue";
 import { useTextEditStore } from "@/stores/useTextEditStore";
 import { useFilesStore } from "@/stores/useFilesStore";
 import { useLanguageStore } from "@/stores/useLanguageStore";
+import { isSupportedLanguage } from "@/lib/languageConfig";
 import { generateHTML, generateJSON } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -466,7 +468,7 @@ export function useAiChat(onPromptSetUsername?: () => void) {
   const launchApp = useLaunchApp();
   const closeApp = useAppStore((state) => state.closeApp);
   const aiModel = useAppStore((state) => state.aiModel);
-  const speechEnabled = useAppStore((state) => state.speechEnabled);
+  const speechEnabled = useAudioSettingsStore((state) => state.speechEnabled);
   const { saveFile } = useFileSystem("/Documents", { skipLoad: true });
 
   // Local input state (SDK v5 no longer provides this)
@@ -2126,12 +2128,16 @@ export function useAiChat(onPromptSetUsername?: () => void) {
             };
 
             const changes: string[] = [];
-            const appStore = useAppStore.getState();
+            const audioSettingsStore = useAudioSettingsStore.getState();
             const langStore = useLanguageStore.getState();
             const themeStore = useThemeStore.getState();
 
             // Language change
-            if (language !== undefined) {
+            // GREENROOM (phase 1, English-only): SUPPORTED_LANGUAGES is
+            // temporarily restricted to "en" (src/lib/languageConfig.ts), so
+            // guard against the AI requesting an unsupported language rather
+            // than casting past the narrowed LanguageCode type.
+            if (language !== undefined && isSupportedLanguage(language)) {
               // Use translation keys for language names (reuse iPod translation keys)
               const getLanguageDisplayName = (langCode: string): string => {
                 const langMap: Record<string, string> = {
@@ -2154,7 +2160,7 @@ export function useAiChat(onPromptSetUsername?: () => void) {
                 }
                 return langCode;
               };
-              langStore.setLanguage(language as "en" | "zh-TW" | "ja" | "ko" | "fr" | "de" | "es" | "pt" | "it" | "ru");
+              langStore.setLanguage(language);
               changes.push(
                 i18n.t("apps.chats.toolCalls.settingsLanguageChanged", {
                   language: getLanguageDisplayName(language),
@@ -2179,7 +2185,7 @@ export function useAiChat(onPromptSetUsername?: () => void) {
 
             // Master volume
             if (masterVolume !== undefined) {
-              appStore.setMasterVolume(masterVolume);
+              audioSettingsStore.setMasterVolume(masterVolume);
               const volumePercent = Math.round(masterVolume * 100);
               changes.push(
                 i18n.t("apps.chats.toolCalls.settingsMasterVolumeSet", {
@@ -2191,7 +2197,7 @@ export function useAiChat(onPromptSetUsername?: () => void) {
 
             // Speech enabled
             if (speechEnabled !== undefined) {
-              appStore.setSpeechEnabled(speechEnabled);
+              audioSettingsStore.setSpeechEnabled(speechEnabled);
               changes.push(
                 speechEnabled
                   ? i18n.t("apps.chats.toolCalls.settingsSpeechEnabled")

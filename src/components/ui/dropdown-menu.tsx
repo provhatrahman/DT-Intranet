@@ -1,14 +1,15 @@
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronRight, Circle } from "lucide-react";
+import { Check, CaretRight, Circle } from "@phosphor-icons/react";
 import { useSound, Sounds } from "@/hooks/useSound";
-import { useThemeStore } from "@/stores/useThemeStore";
+import { useThemeFlags } from "@/hooks/useThemeFlags";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import { cn } from "@/lib/utils";
 
 const DropdownMenu = ({
   children,
+  onOpenChange,
   ...props
 }: DropdownMenuPrimitive.DropdownMenuProps) => {
   const { play: playMenuOpen } = useSound(Sounds.MENU_OPEN);
@@ -16,15 +17,15 @@ const DropdownMenu = ({
 
   return (
     <DropdownMenuPrimitive.Root
+      {...props}
       onOpenChange={(open) => {
         if (open) {
           playMenuOpen();
         } else {
           playMenuClose();
         }
-        props.onOpenChange?.(open);
+        onOpenChange?.(open);
       }}
-      {...props}
     >
       {children}
     </DropdownMenuPrimitive.Root>
@@ -32,18 +33,23 @@ const DropdownMenu = ({
 };
 DropdownMenu.displayName = DropdownMenuPrimitive.Root.displayName;
 
-const DropdownMenuTrigger = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>
->(({ className, style, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
+const DropdownMenuTrigger = (
+  {
+    ref,
+    className,
+    style,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger> & {
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.Trigger>>;
+  }
+) => {
+  const { isMacOSTheme } = useThemeFlags();
 
-  const macosTextShadow =
-    currentTheme === "macosx"
-      ? {
-          textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
-        }
-      : {};
+  const macosTextShadow = isMacOSTheme
+    ? {
+        textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
+      }
+    : {};
 
   return (
     <DropdownMenuPrimitive.Trigger
@@ -53,7 +59,7 @@ const DropdownMenuTrigger = React.forwardRef<
       {...props}
     />
   );
-});
+};
 DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName;
 
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
@@ -64,36 +70,47 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-const DropdownMenuSubTrigger = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
+const DropdownMenuSubTrigger = (
+  {
+    ref,
+    className,
+    inset,
+    children,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean;
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>>;
   }
->(({ className, inset, children, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
+) => {
+  const { isWindowsTheme, isMacOSTheme, isSystem7Theme } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.SubTrigger
       ref={ref}
       className={cn(
-        "flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        // Open/focused submenu trigger uses the accent-derived selection fill
+        // on classic chromes; `bg-accent` goes near-black in macOS dark mode.
+        isSystem7Theme &&
+          "focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)]",
+        isMacOSTheme &&
+          "focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)]",
+        !isSystem7Theme &&
+          !isMacOSTheme &&
+          "focus:bg-accent data-[state=open]:bg-accent",
         inset && "pl-8",
         className
       )}
       style={{
         fontFamily:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-            : currentTheme === "macosx"
-            ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-            : undefined,
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
         fontSize:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? "11px"
-            : currentTheme === "macosx"
-            ? "12px !important"
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-subtrigger-font-size) !important"
+              : "var(--os-menu-subtrigger-font-size)"
             : undefined,
-        ...(currentTheme === "macosx" && {
+        ...(isMacOSTheme && {
           borderRadius: "0px",
           padding: "6px 12px 6px 16px",
           margin: "1px 0",
@@ -104,19 +121,24 @@ const DropdownMenuSubTrigger = React.forwardRef<
       {...props}
     >
       {children}
-      <ChevronRight className="ml-auto" />
+      <CaretRight className="ml-auto" size={12} weight="bold" />
     </DropdownMenuPrimitive.SubTrigger>
   );
-});
+};
 DropdownMenuSubTrigger.displayName =
   DropdownMenuPrimitive.SubTrigger.displayName;
 
-const DropdownMenuSubContent = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
->(({ className, style, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
+const DropdownMenuSubContent = (
+  {
+    ref,
+    className,
+    style,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent> & {
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.SubContent>>;
+  }
+) => {
+  const { isMacOSTheme, isAquaGlass } = useThemeFlags();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   return (
@@ -125,7 +147,10 @@ const DropdownMenuSubContent = React.forwardRef<
         ref={ref}
         className={cn(
           // Use z-[10004] to ensure dropdown submenu content appears above menu content
-          "z-[10004] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          // origin-[…]: scale from the trigger side instead of the element center.
+          // fill-mode-forwards: hold the exit end-state until Radix unmounts —
+          // without it Safari can paint one unanimated frame (visible jitter).
+          "z-[10004] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg origin-[var(--radix-dropdown-menu-content-transform-origin)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fill-mode-forwards data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
           className
         )}
         style={{
@@ -133,7 +158,9 @@ const DropdownMenuSubContent = React.forwardRef<
             border: "none",
             borderRadius: "0px",
             background: "var(--os-pinstripe-window)",
-            opacity: "0.92",
+            // Aqua Glass gets its translucency from the frosted background in
+            // themes.css; an inline opacity would block the open/close fade.
+            ...(isAquaGlass ? {} : { opacity: "0.92" }),
             boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             padding: "4px 0px",
             ...(isMobile ? {} : { minWidth: "180px" }),
@@ -145,20 +172,28 @@ const DropdownMenuSubContent = React.forwardRef<
       />
     </DropdownMenuPrimitive.Portal>
   );
-});
+};
 DropdownMenuSubContent.displayName =
   DropdownMenuPrimitive.SubContent.displayName;
 
-const DropdownMenuContent = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, style, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
+const DropdownMenuContent = (
+  {
+    ref,
+    className,
+    sideOffset = 4,
+    style,
+    container,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
+    container?: HTMLElement | null;
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.Content>>;
+  }
+) => {
+  const { isMacOSTheme, isAquaGlass } = useThemeFlags();
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container}>
       <DropdownMenuPrimitive.Content
         ref={ref}
         sideOffset={sideOffset}
@@ -166,7 +201,10 @@ const DropdownMenuContent = React.forwardRef<
           // Use z-[10003] to ensure dropdown content appears above the menubar (z-[10002])
           // This is critical for Safari where backdrop-filter creates new stacking contexts
           "z-[10003] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          // origin-[…]: scale from the trigger side instead of the element center.
+          // fill-mode-forwards: hold the exit end-state until Radix unmounts —
+          // without it Safari can paint one unanimated frame (visible jitter).
+          "origin-[var(--radix-dropdown-menu-content-transform-origin)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fill-mode-forwards data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
           className
         )}
         style={{
@@ -174,7 +212,9 @@ const DropdownMenuContent = React.forwardRef<
             border: "none",
             borderRadius: "0px",
             background: "var(--os-pinstripe-window)",
-            opacity: "0.92",
+            // Aqua Glass gets its translucency from the frosted background in
+            // themes.css; an inline opacity would block the open/close fade.
+            ...(isAquaGlass ? {} : { opacity: "0.92" }),
             boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             padding: "4px 0px",
             ...(isMobile ? {} : { minWidth: style?.minWidth ?? "180px" }),
@@ -186,18 +226,21 @@ const DropdownMenuContent = React.forwardRef<
       />
     </DropdownMenuPrimitive.Portal>
   );
-});
+};
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
-const DropdownMenuItem = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
+const DropdownMenuItem = (
+  {
+    ref,
+    className,
+    inset,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.Item>>;
   }
->(({ className, inset, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
+) => {
+  const { isWindowsTheme, isMacOSTheme, isAquaGlass } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.Item
@@ -209,19 +252,17 @@ const DropdownMenuItem = React.forwardRef<
         "data-[state=checked]:!bg-transparent data-[state=checked]:text-foreground"
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "13px !important"
-          : undefined,
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-item-font-size) !important"
+              : "var(--os-menu-item-font-size)"
+            : undefined,
         ...(isMacOSTheme && {
           borderRadius: "0px",
-          padding: "6px 20px 6px 16px",
+          padding: isAquaGlass ? "4px 10px" : "6px 20px 6px 16px",
           margin: "1px 0",
           WebkitFontSmoothing: "antialiased",
           textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
@@ -230,17 +271,26 @@ const DropdownMenuItem = React.forwardRef<
       {...props}
     />
   );
-});
+};
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
 
-const DropdownMenuCheckboxItem = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
->(({ className, children, checked, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isMacOSTheme = currentTheme === "macosx";
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
-  const isSystem7 = currentTheme === "system7";
+const DropdownMenuCheckboxItem = (
+  {
+    ref,
+    className,
+    children,
+    checked,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem> & {
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>>;
+  }
+) => {
+  const {
+    isWindowsTheme,
+    isMacOSTheme,
+    isSystem7Theme,
+    isAquaMenuChrome,
+  } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.CheckboxItem
@@ -248,28 +298,22 @@ const DropdownMenuCheckboxItem = React.forwardRef<
       className={cn(
         "relative flex cursor-default select-none items-center py-1.5 pl-8 pr-2 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         // Theme-specific hover/focus styles
-        isSystem7 && "rounded-none focus:bg-black focus:text-white hover:bg-black hover:text-white mx-0",
+        isSystem7Theme && "rounded-none focus:bg-black focus:text-white hover:bg-black hover:text-white mx-0",
         isMacOSTheme && "rounded-none focus:bg-[rgba(39,101,202,0.88)] focus:text-white hover:bg-[rgba(39,101,202,0.88)] hover:text-white",
-        !isSystem7 && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+        !isSystem7Theme && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
         className,
         "data-[state=checked]:text-foreground"
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "13px !important"
-          : undefined,
-        ...(isSystem7 && {
-          padding: "2px 12px 2px 32px",
-          margin: "0",
-        }),
-        ...(isXpTheme && {
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-item-font-size) !important"
+              : "var(--os-menu-item-font-size)"
+            : undefined,
+        ...(!isAquaMenuChrome && {
           padding: "2px 12px 2px 32px",
           margin: "0",
         }),
@@ -284,64 +328,67 @@ const DropdownMenuCheckboxItem = React.forwardRef<
       checked={checked}
       {...props}
     >
-      <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute left-3 flex size-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
+          <Check size={12} weight="bold" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
     </DropdownMenuPrimitive.CheckboxItem>
   );
-});
+};
 DropdownMenuCheckboxItem.displayName =
   DropdownMenuPrimitive.CheckboxItem.displayName;
 
-const DropdownMenuRadioItem = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(({ className, children, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
+const DropdownMenuRadioItem = (
+  {
+    ref,
+    className,
+    children,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem> & {
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>>;
+  }
+) => {
+  const { isWindowsTheme, isMacOSTheme } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.RadioItem
       ref={ref}
       className={cn(
         "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className,
-        "data-[state=checked]:!bg-transparent data-[state=checked]:text-foreground"
+        className
       )}
       style={{
         fontFamily:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-            : currentTheme === "macosx"
-            ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-            : undefined,
-        fontSize:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? "11px"
-            : undefined,
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize: isWindowsTheme ? "var(--os-menu-item-font-size)" : undefined,
       }}
       {...props}
     >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute left-2 flex size-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Circle className="h-2 w-2 fill-current" />
+          <Circle size={8} weight="fill" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
     </DropdownMenuPrimitive.RadioItem>
   );
-});
+};
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName;
 
-const DropdownMenuLabel = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
+const DropdownMenuLabel = (
+  {
+    ref,
+    className,
+    inset,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
     inset?: boolean;
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.Label>>;
   }
->(({ className, inset, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
+) => {
+  const { isWindowsTheme, isMacOSTheme } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.Label
@@ -353,29 +400,25 @@ const DropdownMenuLabel = React.forwardRef<
       )}
       style={{
         fontFamily:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-            : currentTheme === "macosx"
-            ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-            : undefined,
-        fontSize:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? "11px"
-            : undefined,
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize: isWindowsTheme ? "var(--os-menu-item-font-size)" : undefined,
       }}
       {...props}
     />
   );
-});
+};
 DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName;
 
-const DropdownMenuSeparator = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
->(({ className, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current);
-  const isSystem7 = currentTheme === "system7";
-  const isMacOSTheme = currentTheme === "macosx";
+const DropdownMenuSeparator = (
+  {
+    ref,
+    className,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator> & {
+    ref?: React.Ref<React.ElementRef<typeof DropdownMenuPrimitive.Separator>>;
+  }
+) => {
+  const { isSystem7Theme, isMacOSTheme } = useThemeFlags();
 
   return (
     <DropdownMenuPrimitive.Separator
@@ -384,8 +427,8 @@ const DropdownMenuSeparator = React.forwardRef<
         className,
         "-mx-1 my-1 h-[1px] border-b-0",
         !isMacOSTheme && "border-t border-muted",
-        isSystem7 && "border-dotted",
-        !isSystem7 && !isMacOSTheme && "border-solid"
+        isSystem7Theme && "border-dotted",
+        !isSystem7Theme && !isMacOSTheme && "border-solid"
       )}
       style={{
         ...(isMacOSTheme && {
@@ -398,7 +441,7 @@ const DropdownMenuSeparator = React.forwardRef<
       {...props}
     />
   );
-});
+};
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
 const DropdownMenuShortcut = ({

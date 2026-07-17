@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { getSupportedMimeType } from "@/utils/audio";
 import { checkOfflineAndShowError } from "@/utils/offline";
 import { getApiUrl } from "@/utils/platform";
+import { abortableFetch } from "@/utils/abortableFetch";
 
 // Constants
 const DEFAULT_SILENCE_THRESHOLD = 2000; // ms
@@ -46,6 +47,10 @@ export interface UseAudioTranscriptionProps {
   silenceThreshold?: number; // Duration in ms to wait before stopping
   minRecordingDuration?: number; // Minimum recording duration in ms
   frequencyBands?: number; // Number of frequency bands for visualization (default 4)
+  /** Called when recording state changes - called inline, not via effect */
+  onRecordingStateChange?: (recording: boolean) => void;
+  /** Called when frequencies or silence state changes - called inline, not via effect */
+  onFrequenciesChange?: (frequencies: number[], isSilent: boolean) => void;
 }
 
 const analyzeAudioData = (
@@ -114,11 +119,19 @@ export function useAudioTranscription({
   silenceThreshold = DEFAULT_SILENCE_THRESHOLD,
   minRecordingDuration = DEFAULT_MIN_RECORDING_DURATION,
   frequencyBands = 4,
+  onRecordingStateChange,
+  onFrequenciesChange,
 }: UseAudioTranscriptionProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [frequencies, setFrequencies] = useState<number[]>(Array(frequencyBands).fill(0));
   const [isSilent, setIsSilent] = useState(true);
   const frequencyBandsRef = useRef(frequencyBands);
+  
+  // Keep refs to latest callbacks to avoid stale closures
+  const onRecordingStateChangeRef = useRef(onRecordingStateChange);
+  onRecordingStateChangeRef.current = onRecordingStateChange;
+  const onFrequenciesChangeRef = useRef(onFrequenciesChange);
+  onFrequenciesChangeRef.current = onFrequenciesChange;
 
   // Refs for audio handling
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -169,10 +182,16 @@ export function useAudioTranscription({
         const extension = mimeType.split(";")[0].split("/")[1];
         formData.append("audio", audioBlob, `recording.${extension}`);
 
-        const response = await fetch(getApiUrl("/api/audio-transcribe"), {
-          method: "POST",
-          body: formData,
-        });
+        const response = await abortableFetch(
+          getApiUrl("/api/audio-transcribe"),
+          {
+            method: "POST",
+            body: formData,
+            timeout: 30000,
+            throwOnHttpError: false,
+            retry: { maxAttempts: 1, initialDelayMs: 250 },
+          }
+        );
 
         if (!response.ok) {
           const errorData = (await response.json()) as { error: string };
@@ -210,6 +229,7 @@ export function useAudioTranscription({
         if (mediaRecorderRef.current.state === "recording") {
           mediaRecorderRef.current.stop();
           setIsRecording(false);
+          onRecordingStateChangeRef.current?.(false);
         }
       } catch (error) {
         console.error("Error stopping media recorder:", error);
@@ -230,8 +250,8 @@ export function useAudioTranscription({
       );
 
     setFrequencies(newFrequencies);
-
-    // Calibration phase: collect ambient noise samples (using speech band)
+    
+    // Note: We call onFrequenciesChange after setIsSilent below to batch the update
     if (calibrationFramesRef.current.length < CALIBRATION_FRAMES) {
       calibrationFramesRef.current.push(speechBandVolume);
       
@@ -269,6 +289,9 @@ export function useAudioTranscription({
     const isConsistentlySilent =
       silentFramesCountRef.current >= CONSECUTIVE_SILENT_FRAMES_THRESHOLD;
     setIsSilent(isConsistentlySilent);
+    
+    // Call frequency change callback with updated values
+    onFrequenciesChangeRef.current?.(newFrequencies, isConsistentlySilent);
 
     const recordingDuration = Date.now() - recordingStartTimeRef.current;
     const currentlyRecording = mediaRecorderRef.current?.state === "recording";
@@ -302,7 +325,6 @@ export function useAudioTranscription({
 
     animationFrameRef.current = requestAnimationFrame(analyzeFrequencies);
   }, [
-    isRecording,
     minRecordingDuration,
     silenceThreshold,
     stopRecording,
@@ -316,8 +338,9 @@ export function useAudioTranscription({
         audio: DEFAULT_AUDIO_CONFIG,
       });
 
-      // Set up audio analysis
-      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      // Set up audio analysis - use default sample rate to match getUserMedia stream
+      // (explicit sampleRate: 16000 caused NotSupportedError when connecting stream)
+      audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
@@ -365,8 +388,10 @@ export function useAudioTranscription({
           await audioContextRef.current.close();
         }
         stream.getTracks().forEach((track) => track.stop());
-        setFrequencies(Array(frequencyBandsRef.current).fill(0));
+        const resetFrequencies = Array(frequencyBandsRef.current).fill(0);
+        setFrequencies(resetFrequencies);
         setIsSilent(true);
+        onFrequenciesChangeRef.current?.(resetFrequencies, true);
 
         // Then send for transcription
         await sendAudioForTranscription(currentChunks);
@@ -375,6 +400,7 @@ export function useAudioTranscription({
       // Start recording with smaller timeslice for more frequent data collection
       mediaRecorder.start(50); // Collect data every 50ms
       setIsRecording(true);
+      onRecordingStateChangeRef.current?.(true);
     } catch (error) {
       const err = error instanceof Error ? error : new Error("Unknown error");
       onError?.(err);

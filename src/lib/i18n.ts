@@ -1,157 +1,258 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 
-import enTranslation from "./locales/en/translation.json";
-import zhTWTranslation from "./locales/zh-TW/translation.json";
-import jaTranslation from "./locales/ja/translation.json";
-import koTranslation from "./locales/ko/translation.json";
-import frTranslation from "./locales/fr/translation.json";
-import deTranslation from "./locales/de/translation.json";
-import esTranslation from "./locales/es/translation.json";
-import ptTranslation from "./locales/pt/translation.json";
-import itTranslation from "./locales/it/translation.json";
-import ruTranslation from "./locales/ru/translation.json";
+import enShell from "./locales/en/shell.json";
+import {
+  DEFAULT_LANGUAGE,
+  isSupportedLanguage,
+  resolveInitialLanguage,
+  type SupportedLanguage,
+} from "./languageConfig";
+
+type TranslationMessages = Record<string, unknown>;
+type TranslationModule = { default: TranslationMessages };
+type LocaleLoader = () => Promise<TranslationModule>;
 
 const resources = {
-  en: {
-    translation: enTranslation,
-  },
-  "zh-TW": {
-    translation: zhTWTranslation,
-  },
-  ja: {
-    translation: jaTranslation,
-  },
-  ko: {
-    translation: koTranslation,
-  },
-  fr: {
-    translation: frTranslation,
-  },
-  de: {
-    translation: deTranslation,
-  },
-  es: {
-    translation: esTranslation,
-  },
-  pt: {
-    translation: ptTranslation,
-  },
-  it: {
-    translation: itTranslation,
-  },
-  ru: {
-    translation: ruTranslation,
+  [DEFAULT_LANGUAGE]: {
+    translation: enShell,
   },
 };
 
-export const SUPPORTED_LANGUAGES = ["en", "zh-TW", "ja", "ko", "fr", "de", "es", "pt", "it", "ru"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+// GREENROOM (phase 1, English-only): only "en" is a live entry while
+// SUPPORTED_LANGUAGES (src/lib/languageConfig.ts) is restricted to English.
+// The other locale JSON files still exist on disk (untouched) — re-enable a
+// language by uncommenting its entry here *and* in languageConfig.ts.
+const localeJsonPaths: Partial<Record<SupportedLanguage, string>> = {
+  en: "./locales/en/translation.json",
+  // "zh-TW": "./locales/zh-TW/translation.json",
+  // "zh-CN": "./locales/zh-CN/translation.json",
+  // ja: "./locales/ja/translation.json",
+  // ko: "./locales/ko/translation.json",
+  // fr: "./locales/fr/translation.json",
+  // de: "./locales/de/translation.json",
+  // es: "./locales/es/translation.json",
+  // pt: "./locales/pt/translation.json",
+  // it: "./locales/it/translation.json",
+  // ru: "./locales/ru/translation.json",
+};
 
-/**
- * Maps a browser locale to our supported languages with fuzzy matching.
- * Examples:
- * - zh, zh-Hans, zh-CN, zh-Hans-CN, zh-Hant, zh-Hant-TW -> zh-TW
- * - ja, ja-JP -> ja
- * - ko, ko-KR -> ko
- * - fr, fr-FR, fr-CA -> fr
- * - de, de-DE, de-AT, de-CH -> de
- * - es, es-ES, es-MX, es-AR -> es
- * - pt, pt-BR, pt-PT -> pt
- * - it, it-IT -> it
- * - ru, ru-RU -> ru
- * - en, en-US, en-GB -> en
- */
-export const detectLanguageFromLocale = (locale: string): SupportedLanguage | null => {
-  const normalizedLocale = locale.toLowerCase();
-  
-  // Exact match first (case-insensitive)
-  const exactMatch = SUPPORTED_LANGUAGES.find(
-    lang => lang.toLowerCase() === normalizedLocale
-  );
-  if (exactMatch) return exactMatch;
-  
-  // Extract language code (first part before hyphen)
-  const langCode = normalizedLocale.split("-")[0];
-  
-  // Special case: all Chinese variants map to zh-TW
-  if (langCode === "zh") {
-    return "zh-TW";
+const localeLoaders: Partial<Record<SupportedLanguage, LocaleLoader>> = {
+  en: () => import("./locales/en/translation.json"),
+  // "zh-TW": () => import("./locales/zh-TW/translation.json"),
+  // "zh-CN": () => import("./locales/zh-CN/translation.json"),
+  // ja: () => import("./locales/ja/translation.json"),
+  // ko: () => import("./locales/ko/translation.json"),
+  // fr: () => import("./locales/fr/translation.json"),
+  // de: () => import("./locales/de/translation.json"),
+  // es: () => import("./locales/es/translation.json"),
+  // pt: () => import("./locales/pt/translation.json"),
+  // it: () => import("./locales/it/translation.json"),
+  // ru: () => import("./locales/ru/translation.json"),
+};
+
+const loadingLanguages = new Map<SupportedLanguage, Promise<void>>();
+const loadedFullLanguages = new Set<SupportedLanguage>();
+
+let initializePromise: Promise<void> | null = null;
+let defaultInitPromise: Promise<void> | null = null;
+let initialLanguagePromise: Promise<void> | null = null;
+let hasBoundLanguageSync = false;
+let latestApplyRequestId = 0;
+
+const syncDocumentLanguage = (language: string): void => {
+  if (typeof document === "undefined") {
+    return;
   }
-  
-  // Check if language code matches any supported language
-  const langMatch = SUPPORTED_LANGUAGES.find(
-    lang => lang.toLowerCase() === langCode || lang.toLowerCase().startsWith(langCode + "-")
-  );
-  if (langMatch) return langMatch;
-  
-  return null;
+
+  document.documentElement.lang = language;
 };
 
-/**
- * Auto-detects the best matching language from browser settings.
- * Checks navigator.languages (array of preferred languages) for fuzzy matches.
- */
-export const autoDetectLanguage = (): SupportedLanguage => {
-  // Get browser's preferred languages
-  const browserLanguages = navigator.languages || [navigator.language];
-  
-  for (const browserLang of browserLanguages) {
-    const matched = detectLanguageFromLocale(browserLang);
-    if (matched) {
-      return matched;
+const bindLanguageSync = (): void => {
+  if (hasBoundLanguageSync) {
+    return;
+  }
+
+  i18n.on("languageChanged", syncDocumentLanguage);
+  hasBoundLanguageSync = true;
+};
+
+const getCurrentLanguage = (): SupportedLanguage => {
+  const candidate = i18n.resolvedLanguage || i18n.language;
+  return isSupportedLanguage(candidate) ? candidate : DEFAULT_LANGUAGE;
+};
+
+const setLanguageOnI18n = async (language: SupportedLanguage): Promise<void> => {
+  if (getCurrentLanguage() === language) {
+    syncDocumentLanguage(language);
+    return;
+  }
+
+  await i18n.changeLanguage(language);
+  syncDocumentLanguage(language);
+};
+
+const initializeDefaultI18n = async (): Promise<void> => {
+  if (defaultInitPromise) {
+    return defaultInitPromise;
+  }
+
+  defaultInitPromise = (async () => {
+    if (!i18n.isInitialized) {
+      await i18n.use(initReactI18next).init({
+        resources,
+        lng: DEFAULT_LANGUAGE,
+        fallbackLng: DEFAULT_LANGUAGE,
+        defaultNS: "translation",
+        ns: ["translation"],
+        initAsync: false,
+        interpolation: {
+          escapeValue: false, // React already escapes values
+        },
+      });
     }
-  }
-  
-  return "en"; // Default fallback
+
+    bindLanguageSync();
+    syncDocumentLanguage(getCurrentLanguage());
+  })();
+
+  return defaultInitPromise;
 };
 
-// Get initial language from localStorage, or auto-detect on first initialization
-const getInitialLanguage = (): string => {
-  const saved = localStorage.getItem("ryos_language");
-  const isInitialized = localStorage.getItem("ryos_language_initialized");
-  
-  // If user has previously set a language, use it
-  if (saved && SUPPORTED_LANGUAGES.includes(saved as SupportedLanguage)) {
-    return saved;
+const applyInitialLanguage = async (): Promise<void> => {
+  if (initialLanguagePromise) {
+    return initialLanguagePromise;
   }
-  
-  // If this is first initialization, auto-detect
-  if (!isInitialized) {
-    const detectedLanguage = autoDetectLanguage();
-    // Store the detected language and mark as initialized
-    localStorage.setItem("ryos_language", detectedLanguage);
-    localStorage.setItem("ryos_language_initialized", "true");
-    return detectedLanguage;
-  }
-  
-  return "en";
+
+  initialLanguagePromise = (async () => {
+    const initialLanguage = resolveInitialLanguage();
+    if (initialLanguage !== DEFAULT_LANGUAGE) {
+      await ensureLanguageResources(initialLanguage);
+    }
+    await setLanguageOnI18n(initialLanguage);
+  })();
+
+  return initialLanguagePromise;
 };
 
-i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    resources,
-    lng: getInitialLanguage(),
-    fallbackLng: "en",
-    defaultNS: "translation",
-    ns: ["translation"],
-    interpolation: {
-      escapeValue: false, // React already escapes values
-    },
-    detection: {
-      order: ["localStorage", "navigator"],
-      lookupLocalStorage: "ryos_language",
-      caches: ["localStorage"],
-    },
+export async function ensureLanguageResources(
+  language: SupportedLanguage
+): Promise<void> {
+  if (loadedFullLanguages.has(language)) {
+    return;
+  }
+
+  const existingLoad = loadingLanguages.get(language);
+  if (existingLoad) {
+    await existingLoad;
+    return;
+  }
+
+  const loader = localeLoaders[language];
+  if (!loader) {
+    return;
+  }
+
+  const loadPromise = loader()
+    .then((module) => {
+      i18n.addResourceBundle(
+        language,
+        "translation",
+        module.default,
+        true,
+        true
+      );
+      loadedFullLanguages.add(language);
+    })
+    .finally(() => {
+      loadingLanguages.delete(language);
+    });
+
+  loadingLanguages.set(language, loadPromise);
+  await loadPromise;
+}
+
+export async function ensureCurrentLanguageResources(): Promise<void> {
+  await ensureLanguageResources(getCurrentLanguage());
+}
+
+export async function initializeI18n(): Promise<void> {
+  if (initializePromise) {
+    return initializePromise;
+  }
+
+  initializePromise = (async () => {
+    await initializeDefaultI18n();
+    await applyInitialLanguage();
+  })();
+
+  return initializePromise;
+}
+
+export async function initializeI18nForFirstPaint(): Promise<void> {
+  await initializeDefaultI18n();
+  void applyInitialLanguage().catch((error) => {
+    console.error("[ryOS] Failed to apply initial language:", error);
+  });
+}
+
+export async function applyLanguage(
+  language: SupportedLanguage
+): Promise<void> {
+  await initializeI18n();
+
+  const requestId = ++latestApplyRequestId;
+
+  await ensureLanguageResources(language);
+
+  if (requestId !== latestApplyRequestId) {
+    return;
+  }
+
+  await setLanguageOnI18n(language);
+}
+
+const reloadTranslationBundle = (
+  language: SupportedLanguage,
+  messages: TranslationMessages
+): void => {
+  if (!i18n.isInitialized) {
+    return;
+  }
+
+  if (i18n.hasResourceBundle(language, "translation")) {
+    i18n.removeResourceBundle(language, "translation");
+  }
+
+  i18n.addResourceBundle(language, "translation", messages, true, true);
+  loadingLanguages.delete(language);
+  void i18n.changeLanguage(i18n.language);
+};
+
+if (import.meta.hot) {
+  const hot = import.meta.hot;
+
+  hot.accept("./locales/en/shell.json", (mod) => {
+    const messages = mod?.default as TranslationMessages | undefined;
+    if (messages) {
+      reloadTranslationBundle(DEFAULT_LANGUAGE, messages);
+      loadedFullLanguages.delete(DEFAULT_LANGUAGE);
+      void ensureLanguageResources(DEFAULT_LANGUAGE);
+    }
   });
 
-// Sync i18n language when store changes
-export const changeLanguage = (language: string) => {
-  i18n.changeLanguage(language);
-};
+  for (const [language, jsonPath] of Object.entries(localeJsonPaths) as Array<
+    [SupportedLanguage, string]
+  >) {
+    hot.accept(jsonPath, (mod) => {
+      const messages = mod?.default as TranslationMessages | undefined;
+      if (messages) {
+        reloadTranslationBundle(language, messages);
+        loadedFullLanguages.add(language);
+      }
+    });
+  }
+}
 
 export default i18n;
 

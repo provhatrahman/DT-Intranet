@@ -573,7 +573,7 @@ export function PitchAppComponent({
                                         ? "opacity-100 p-2 min-w-[44px] min-h-[44px]"
                                         : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 min-w-[32px] min-h-[32px]",
                                       isMacTheme
-                                        ? "hover:bg-black/10 active:bg-black/15 text-gray-600 hover:text-red-600 active:text-red-700"
+                                        ? "hover:bg-black/10 active:bg-black/15 text-gray-600 hover:text-red-600 active:text-red-700 dark:hover:bg-white/10 dark:active:bg-white/15 dark:text-neutral-400 dark:hover:text-red-400 dark:active:text-red-300"
                                         : "hover:bg-muted active:bg-muted/80 text-muted-foreground hover:text-destructive active:text-destructive"
                                     )}
                                     title="Delete pitch"

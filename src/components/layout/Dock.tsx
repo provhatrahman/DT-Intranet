@@ -1953,7 +1953,7 @@ function MacDock() {
           ref={dockBarRef}
           layout
           layoutRoot
-          className="inline-flex items-end"
+          className="mac-dock-surface inline-flex items-end"
           initial={false}
           animate={{
             y: isDockVisible ? 0 : scaledDockHeight + 10,
@@ -1961,10 +1961,11 @@ function MacDock() {
           }}
           style={{
             pointerEvents: isDockVisible ? "auto" : "none",
-            background: "rgba(248, 248, 248, 0.75)",
+            // Same tint variable as the menubar so light/dark/glass switch in lockstep.
+            background: "var(--os-color-dock-surface, rgba(248, 248, 248, 0.75))",
             backgroundImage: "var(--os-pinstripe-menubar)",
             border: "none",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+            boxShadow: "var(--os-color-dock-shadow, 0 2px 8px rgba(0, 0, 0, 0.15))",
             height: scaledDockHeight,
             padding: scaledPadding,
             maxWidth: "min(92vw, 980px)",

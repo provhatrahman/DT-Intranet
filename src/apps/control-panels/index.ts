@@ -3,37 +3,27 @@ export const helpItems = [
     icon: "🎨",
     title: "Appearance",
     description:
-      "Choose photos, patterns, or shader effects for your desktop wallpaper",
+      "Pick a theme, dark mode, and accent color to personalize your desktop",
   },
   {
     icon: "🔊",
     title: "Sounds",
-    description: "Toggle UI sounds, typing synth, and Terminal / IE effects",
-  },
-  {
-    icon: "🤖",
-    title: "AI Model",
-    description: "Select the AI model used by Chats and Terminal assistant",
+    description: "Toggle UI clicks, typing synth, and Terminal/IE sound effects",
   },
   {
     icon: "🌌",
     title: "Shader Effects",
-    description: "Enable CRT, Galaxy, or Aurora visual effects",
-  },
-  {
-    icon: "📦",
-    title: "Backup & Restore",
-    description: "Export or restore all settings and files",
+    description: "Switch on CRT, Galaxy, or Aurora overlays for that classic CRT vibe",
   },
   {
     icon: "🌐",
-    title: "Language",
-    description: "Select your preferred language for ryOS interface",
+    title: "International",
+    description: "Set your language, timezone, and date/time format",
   },
   {
-    icon: "⚙️",
-    title: "System",
-    description: "Reset preferences or format the virtual file system",
+    icon: "🔄",
+    title: "Software Update",
+    description: "Check for the latest version of Greenroom",
   },
 ];
 

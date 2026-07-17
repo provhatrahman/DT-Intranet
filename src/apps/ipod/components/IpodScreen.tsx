@@ -3,7 +3,7 @@ import ReactPlayer from "react-player";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Track } from "@/stores/useIpodStore";
-import { useAppStore } from "@/stores/useAppStore";
+import { useAudioSettingsStore } from "@/stores/useAudioSettingsStore";
 import { LyricsDisplay } from "./LyricsDisplay";
 import { useLyrics } from "@/hooks/useLyrics";
 import { LyricsAlignment, ChineseVariant, KoreanDisplay } from "@/types/lyrics";
@@ -443,7 +443,7 @@ export function IpodScreen({
   // Need scroll flag
   const needScrollRef = useRef(false);
 
-  const masterVolume = useAppStore((s) => s.masterVolume);
+  const masterVolume = useAudioSettingsStore((s) => s.masterVolume);
   const finalIpodVolume = ipodVolume * masterVolume;
 
   // Reset refs when menu items change

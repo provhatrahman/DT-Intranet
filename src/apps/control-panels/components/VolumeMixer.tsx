@@ -6,17 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Volume2,
-  // VolumeX, // Removed
-  // Speaker, // Removed
-  // Mic, // Removed
-  Music,
-  // Headphones, // Removed
-  MousePointerClick,
-  MessageCircle,
-  Speech as SpeechIcon,
-} from "lucide-react";
+import { SpeakerHigh, MusicNote, Cursor, WaveSquare, ChatsCircle } from "@phosphor-icons/react";
 import { useSound, Sounds } from "@/hooks/useSound";
 import { useTranslation } from "react-i18next";
 
@@ -72,7 +62,7 @@ export function VolumeMixer({
   return (
     <TooltipProvider>
       <div className="flex justify-around items-end py-2">
-        {/* Master Volume */}
+        {/* Main Volume */}
         <div className="flex flex-col items-center gap-0">
           <Slider
             orientation="vertical"
@@ -97,14 +87,14 @@ export function VolumeMixer({
                 onClick={handleMasterMuteToggle}
                 className={`h-8 w-8 ${masterVolume === 0 ? "opacity-40" : ""}`}
               >
-                <Volume2 size={20} />
+                <SpeakerHigh size={14} weight="fill" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("apps.control-panels.masterVolume")}</p>
             </TooltipContent>
           </Tooltip>
-          <p className="text-[10px] font-geneva-12 text-gray-600">{t("apps.control-panels.master")}</p>
+          <p className="text-[10px] font-geneva-12 text-neutral-600">{t("apps.control-panels.master")}</p>
         </div>
 
         {/* UI Volume */}
@@ -132,14 +122,14 @@ export function VolumeMixer({
                 onClick={handleUiMuteToggle}
                 className={`h-8 w-8 ${uiVolume === 0 ? "opacity-40" : ""}`}
               >
-                <MousePointerClick size={20} />
+                <Cursor size={14} weight="fill" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("apps.control-panels.uiVolume")}</p>
             </TooltipContent>
           </Tooltip>
-          <p className="text-[10px] font-geneva-12 text-gray-600">{t("apps.control-panels.ui")}</p>
+          <p className="text-[10px] font-geneva-12 text-neutral-600">{t("apps.control-panels.ui")}</p>
         </div>
 
         {/* Speech Volume */}
@@ -167,14 +157,14 @@ export function VolumeMixer({
                 onClick={handleSpeechMuteToggle}
                 className={`h-8 w-8 ${speechVolume === 0 ? "opacity-40" : ""}`}
               >
-                <SpeechIcon size={20} />
+                <ChatsCircle size={14} weight="fill" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("apps.control-panels.speechVolume")}</p>
             </TooltipContent>
           </Tooltip>
-          <p className="text-[10px] font-geneva-12 text-gray-600">{t("apps.control-panels.speech")}</p>
+          <p className="text-[10px] font-geneva-12 text-neutral-600">{t("apps.control-panels.speech")}</p>
         </div>
 
         {/* Chat Synth Volume */}
@@ -204,14 +194,14 @@ export function VolumeMixer({
                   chatSynthVolume === 0 ? "opacity-40" : ""
                 }`}
               >
-                <MessageCircle size={20} />
+                <WaveSquare size={14} weight="fill" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("apps.control-panels.chatSynthVolume")}</p>
             </TooltipContent>
           </Tooltip>
-          <p className="text-[10px] font-geneva-12 text-gray-600">{t("apps.control-panels.synth")}</p>
+          <p className="text-[10px] font-geneva-12 text-neutral-600">{t("apps.control-panels.synth")}</p>
         </div>
 
         {/* iPod Volume */}
@@ -251,20 +241,20 @@ export function VolumeMixer({
                   !isIOS && ipodVolume === 0 ? "opacity-40" : ""
                 }`}
               >
-                <Music size={20} />
+                <MusicNote size={14} weight="fill" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <p>{t("apps.control-panels.ipodVolume")}</p>
             </TooltipContent>
           </Tooltip>
-          <p className="text-[10px] font-geneva-12 text-gray-600">{t("apps.control-panels.ipod")}</p>
+          <p className="text-[10px] font-geneva-12 text-neutral-600">{t("apps.control-panels.ipod")}</p>
         </div>
       </div>
       {isIOS && (
         <div className="flex justify-center">
-          <p className="text-[10px] text-center text-gray-600 font-geneva-12">
-            On iOS, use hardware buttons to control media volume.
+          <p className="text-[10px] text-center text-neutral-600 font-geneva-12">
+            {t("apps.control-panels.iosVolumeHint")}
           </p>
         </div>
       )}

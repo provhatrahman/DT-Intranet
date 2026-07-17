@@ -1,8 +1,8 @@
 import * as React from "react"
 import * as MenubarPrimitive from "@radix-ui/react-menubar"
-import { Check, ChevronRight, Circle } from "lucide-react"
+import { Check, CaretRight, Circle } from "@phosphor-icons/react"
 import { useSound, Sounds } from "@/hooks/useSound"
-import { useThemeStore } from "@/stores/useThemeStore"
+import { useThemeFlags } from "@/hooks/useThemeFlags"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 import { cn } from "@/lib/utils"
@@ -20,10 +20,16 @@ const MenubarSub = MenubarPrimitive.Sub
 
 const MenubarRadioGroup = MenubarPrimitive.RadioGroup
 
-const Menubar = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Root>
->(({ className, onValueChange, ...props }, ref) => {
+const Menubar = (
+  {
+    ref,
+    className,
+    onValueChange,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Root> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Root>>;
+  }
+) => {
   const { play: playMenuOpen } = useSound(Sounds.MENU_OPEN)
   const { play: playMenuClose } = useSound(Sounds.MENU_CLOSE)
   const [previousValue, setPreviousValue] = React.useState<string | undefined>(undefined)
@@ -60,39 +66,42 @@ const Menubar = React.forwardRef<
       />
     </MenubarSwitchingContext.Provider>
   )
-})
+}
 Menubar.displayName = MenubarPrimitive.Root.displayName
 
-const MenubarTrigger = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Trigger>
->(({ className, style, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isWindowsTheme = currentTheme === "xp" || currentTheme === "win98"
-  const isSystem7 = currentTheme === "system7"
-  const isMacOSX = currentTheme === "macosx"
+const MenubarTrigger = (
+  {
+    ref,
+    className,
+    style,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Trigger> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Trigger>>;
+  }
+) => {
+  const { isWindowsTheme, isSystem7Theme, isMacOSTheme } = useThemeFlags()
 
   // Theme-specific styles for the trigger
   const themeStyles: React.CSSProperties = {
-    ...(isMacOSX && {
+    ...(isMacOSTheme && {
       textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
     }),
   }
 
   // Theme-specific classes
   const themeClasses = cn(
-    // Base styles - h-full + self-stretch ensures trigger fills parent height (works with both CSS var and Tauri's 32px)
+    // Base styles - h-full + self-stretch ensures trigger fills parent height (works with both CSS var and the desktop shell's 32px)
     "flex cursor-default select-none items-center h-full self-stretch px-2 text-md font-medium outline-none",
     // Windows themes: plain text style, no background changes, add menubar-trigger class for CSS override
     isWindowsTheme && "rounded-none menubar-trigger",
     // System 7: black background, white text when open
     // Explicitly clear state when closed to prevent lingering styles (overrides focus states)
-    isSystem7 && "rounded-none data-[state=open]:bg-black data-[state=open]:text-white data-[state=closed]:!bg-transparent data-[state=closed]:!text-inherit",
+    isSystem7Theme && "rounded-none data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)] data-[state=closed]:!bg-transparent data-[state=closed]:!text-inherit",
     // macOS X: blue background (matches menu selection color), white text when open
     // Explicitly clear state when closed to prevent lingering styles (use !important to override focus states)
-    isMacOSX && "rounded-none data-[state=open]:bg-[rgba(39,101,202,0.88)] data-[state=open]:text-white data-[state=closed]:!bg-transparent data-[state=closed]:!text-inherit",
+    isMacOSTheme && "rounded-none data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)] data-[state=closed]:!bg-transparent data-[state=closed]:!text-inherit",
     // Default/other themes
-    !isWindowsTheme && !isSystem7 && !isMacOSX && "rounded-sm data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+    !isWindowsTheme && !isSystem7Theme && !isMacOSTheme && "rounded-sm data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
     className
   )
 
@@ -104,50 +113,51 @@ const MenubarTrigger = React.forwardRef<
       {...props}
     />
   )
-})
+}
 MenubarTrigger.displayName = MenubarPrimitive.Trigger.displayName
 
-const MenubarSubTrigger = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.SubTrigger>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.SubTrigger> & {
+const MenubarSubTrigger = (
+  {
+    ref,
+    className,
+    inset,
+    children,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.SubTrigger> & {
     inset?: boolean
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.SubTrigger>>
   }
->(({ className, inset, children, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isMacOSTheme = currentTheme === "macosx"
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98"
-  const isSystem7 = currentTheme === "system7"
+) => {
+  const { isWindowsTheme, isMacOSTheme, isSystem7Theme, isAquaGlass } = useThemeFlags()
 
   return (
     <MenubarPrimitive.SubTrigger
       ref={ref}
       className={cn(
-        "flex cursor-default gap-2 select-none items-center px-2 py-1.5 text-sm outline-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "flex cursor-default gap-2 select-none items-center px-2 py-1.5 text-sm outline-none [&_svg]:pointer-events-none [&_svg]:shrink-0",
         // Theme-specific hover/focus styles
-        isSystem7 && "rounded-none focus:bg-black focus:text-white data-[state=open]:bg-black data-[state=open]:text-white mx-0",
-        isMacOSTheme && "rounded-none focus:bg-[rgba(39,101,202,0.88)] focus:text-white data-[state=open]:bg-[rgba(39,101,202,0.88)] data-[state=open]:text-white",
-        !isSystem7 && !isMacOSTheme && "rounded-sm focus:bg-accent data-[state=open]:bg-accent",
+        isSystem7Theme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)] mx-0",
+        isMacOSTheme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] data-[state=open]:bg-[var(--os-color-selection-bg)] data-[state=open]:text-[var(--os-color-selection-text)]",
+        !isSystem7Theme && !isMacOSTheme && "rounded-sm focus:bg-accent data-[state=open]:bg-accent",
         inset && "pl-8",
         className
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "12px !important"
-          : undefined,
-        ...(isSystem7 && {
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-subtrigger-font-size) !important"
+              : "var(--os-menu-subtrigger-font-size)"
+            : undefined,
+        ...(isSystem7Theme && {
           padding: "2px 12px",
           margin: "0",
         }),
         ...(isMacOSTheme && {
           borderRadius: "0px",
-          padding: "6px 12px 6px 16px",
+          padding: isAquaGlass ? "4px 10px" : "6px 12px 6px 16px",
           margin: "1px 0",
           WebkitFontSmoothing: "antialiased",
           textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
@@ -156,18 +166,23 @@ const MenubarSubTrigger = React.forwardRef<
       {...props}
     >
       {children}
-      <ChevronRight className="ml-auto" />
+      <CaretRight className="ml-auto" size={12} weight="bold" />
     </MenubarPrimitive.SubTrigger>
   )
-})
+}
 MenubarSubTrigger.displayName = MenubarPrimitive.SubTrigger.displayName
 
-const MenubarSubContent = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.SubContent>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.SubContent>
->(({ className, style, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isMacOSTheme = currentTheme === "macosx"
+const MenubarSubContent = (
+  {
+    ref,
+    className,
+    style,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.SubContent> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.SubContent>>;
+  }
+) => {
+  const { isMacOSTheme, isAquaGlass } = useThemeFlags()
   const isMobile = useMediaQuery("(max-width: 768px)")
 
   return (
@@ -176,7 +191,10 @@ const MenubarSubContent = React.forwardRef<
         ref={ref}
         className={cn(
           // Use z-[10004] to ensure submenu content appears above menu content (z-[10003])
-          "z-[10004] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+          // origin-[…]: scale from the trigger side instead of the element center.
+          // fill-mode-forwards: hold the exit end-state until Radix unmounts —
+          // without it Safari can paint one unanimated frame (visible jitter).
+          "z-[10004] min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg origin-[var(--radix-menubar-content-transform-origin)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fill-mode-forwards data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
           className
         )}
         style={{
@@ -184,7 +202,9 @@ const MenubarSubContent = React.forwardRef<
             border: "none",
             borderRadius: "0px",
             background: "var(--os-pinstripe-window)",
-            opacity: "0.92",
+            // Aqua Glass gets its translucency from the frosted background in
+            // themes.css; an inline opacity would block the open/close fade.
+            ...(isAquaGlass ? {} : { opacity: "0.92" }),
             boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             padding: "4px 0px",
             ...(isMobile ? {} : { minWidth: "180px" }),
@@ -196,68 +216,84 @@ const MenubarSubContent = React.forwardRef<
       />
     </MenubarPrimitive.Portal>
   )
-})
+}
 MenubarSubContent.displayName = MenubarPrimitive.SubContent.displayName
 
-const MenubarContent = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Content>
->(
-  (
-    { className, align = "start", alignOffset = 0, sideOffset = 8, style, ...props },
-    ref
-  ) => {
-    const currentTheme = useThemeStore((state) => state.current)
-    const isMacOSTheme = currentTheme === "macosx"
-    const isMobile = useMediaQuery("(max-width: 768px)")
-    const isSwitching = React.useContext(MenubarSwitchingContext)
-
-    return (
-      <MenubarPrimitive.Portal>
-        <MenubarPrimitive.Content
-          ref={ref}
-          align={align}
-          alignOffset={alignOffset}
-          sideOffset={sideOffset}
-          className={cn(
-            // Use z-[10003] to ensure menu content appears above the menubar (z-[10002])
-            // This is critical for Safari where backdrop-filter creates new stacking contexts
-            "z-[10003] min-w-[12rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-            // Only animate when not switching between menus
-            !isSwitching && "data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-            className
-          )}
-          style={{
-            ...(isMacOSTheme && {
-              border: "none",
-              borderRadius: "0px",
-              background: "var(--os-pinstripe-window)",
-              opacity: "0.92",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
-              padding: "4px 0px",
-              ...(isMobile ? {} : { minWidth: style?.minWidth ?? "180px" }),
-            }),
-            ...(isMobile && { minWidth: "unset" }),
-            ...style,
-          }}
-          {...props}
-        />
-      </MenubarPrimitive.Portal>
-    )
+const MenubarContent = (
+  {
+    ref,
+    className,
+    align = "start",
+    alignOffset = 0,
+    sideOffset = 8,
+    style,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Content> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Content>>;
   }
-)
+) => {
+  const { isMacOSTheme, isAquaGlass } = useThemeFlags()
+  const isMobile = useMediaQuery("(max-width: 768px)")
+  const isSwitching = React.use(MenubarSwitchingContext)
+
+  return (
+    <MenubarPrimitive.Portal>
+      <MenubarPrimitive.Content
+        ref={ref}
+        align={align}
+        alignOffset={alignOffset}
+        sideOffset={sideOffset}
+        className={cn(
+          // Use z-[10003] to ensure menu content appears above the menubar (z-[10002])
+          // This is critical for Safari where backdrop-filter creates new stacking contexts
+          "z-[10003] min-w-[12rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+          // origin-[…]: scale from the trigger side instead of the element center.
+          "origin-[var(--radix-menubar-content-transform-origin)]",
+          // Only animate when not switching between menus. Zoom + fade only —
+          // the origin anchors the panel to the trigger, so a slide-in would
+          // add positional drift that reads as a shift when it settles.
+          // NOTE: no `data-[state=closed]:animate-out` here on purpose. Radix
+          // reports value changes from a useEffect, so the `isSwitching` gate
+          // lands one commit after `data-state` flips to closed — an exit
+          // animation would already be running and hover-switching between
+          // menubar menus would lag instead of swapping instantly.
+          !isSwitching && "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          className
+        )}
+        style={{
+          ...(isMacOSTheme && {
+            border: "none",
+            borderRadius: "0px",
+            background: "var(--os-pinstripe-window)",
+            // Aqua Glass gets its translucency from the frosted background in
+            // themes.css; an inline opacity would block the open/close fade.
+            ...(isAquaGlass ? {} : { opacity: "0.92" }),
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+            padding: "4px 0px",
+            ...(isMobile ? {} : { minWidth: style?.minWidth ?? "180px" }),
+          }),
+          ...(isMobile && { minWidth: "unset" }),
+          ...style,
+        }}
+        {...props}
+      />
+    </MenubarPrimitive.Portal>
+  )
+}
 MenubarContent.displayName = MenubarPrimitive.Content.displayName
 
-const MenubarItem = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Item> & {
+const MenubarItem = (
+  {
+    ref,
+    className,
+    inset,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Item> & {
     inset?: boolean
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Item>>
   }
->(({ className, inset, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isMacOSTheme = currentTheme === "macosx"
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98"
-  const isSystem7 = currentTheme === "system7"
+) => {
+  const { isWindowsTheme, isMacOSTheme, isSystem7Theme, isAquaGlass } = useThemeFlags()
 
   return (
     <MenubarPrimitive.Item
@@ -265,31 +301,29 @@ const MenubarItem = React.forwardRef<
       className={cn(
         "relative flex cursor-default select-none items-center gap-2 px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
         // Theme-specific hover/focus styles
-        isSystem7 && "rounded-none focus:bg-black focus:text-white mx-0",
-        isMacOSTheme && "rounded-none focus:bg-[rgba(39,101,202,0.88)] focus:text-white",
-        !isSystem7 && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground",
+        isSystem7Theme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] mx-0",
+        isMacOSTheme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)]",
+        !isSystem7Theme && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground",
         inset && "pl-8",
         className,
         "data-[state=checked]:!bg-transparent data-[state=checked]:text-foreground"
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "13px !important"
-          : undefined,
-        ...(isSystem7 && {
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-item-font-size) !important"
+              : "var(--os-menu-item-font-size)"
+            : undefined,
+        ...(isSystem7Theme && {
           padding: "2px 12px",
           margin: "0",
         }),
         ...(isMacOSTheme && {
           borderRadius: "0px",
-          padding: "6px 20px 6px 16px",
+          padding: isAquaGlass ? "4px 10px" : "6px 12px 6px 16px",
           margin: "1px 0",
           WebkitFontSmoothing: "antialiased",
           textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
@@ -298,17 +332,26 @@ const MenubarItem = React.forwardRef<
       {...props}
     />
   )
-})
+}
 MenubarItem.displayName = MenubarPrimitive.Item.displayName
 
-const MenubarCheckboxItem = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.CheckboxItem>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.CheckboxItem>
->(({ className, children, checked, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isMacOSTheme = currentTheme === "macosx"
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98"
-  const isSystem7 = currentTheme === "system7"
+const MenubarCheckboxItem = (
+  {
+    ref,
+    className,
+    children,
+    checked,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.CheckboxItem> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.CheckboxItem>>;
+  }
+) => {
+  const {
+    isWindowsTheme,
+    isMacOSTheme,
+    isSystem7Theme,
+    isAquaMenuChrome,
+  } = useThemeFlags()
 
   return (
     <MenubarPrimitive.CheckboxItem
@@ -316,34 +359,28 @@ const MenubarCheckboxItem = React.forwardRef<
       className={cn(
         "relative flex cursor-default select-none items-center py-1.5 pl-8 pr-2 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         // Theme-specific hover/focus styles
-        isSystem7 && "rounded-none focus:bg-black focus:text-white hover:bg-black hover:text-white mx-0",
-        isMacOSTheme && "rounded-none focus:bg-[rgba(39,101,202,0.88)] focus:text-white hover:bg-[rgba(39,101,202,0.88)] hover:text-white",
-        !isSystem7 && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+        isSystem7Theme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] hover:bg-[var(--os-color-selection-bg)] hover:text-[var(--os-color-selection-text)] mx-0",
+        isMacOSTheme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] hover:bg-[var(--os-color-selection-bg)] hover:text-[var(--os-color-selection-text)]",
+        !isSystem7Theme && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
         className,
         "data-[state=checked]:text-foreground"
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "13px !important"
-          : undefined,
-        ...(isSystem7 && {
-          padding: "2px 12px 2px 32px",
-          margin: "0",
-        }),
-        ...(isXpTheme && {
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-item-font-size) !important"
+              : "var(--os-menu-item-font-size)"
+            : undefined,
+        ...(!isAquaMenuChrome && {
           padding: "2px 12px 2px 32px",
           margin: "0",
         }),
         ...(isMacOSTheme && {
           borderRadius: "0px",
-          padding: "6px 20px 6px 32px",
+          padding: "6px 12px 6px 32px",
           margin: "1px 0",
           WebkitFontSmoothing: "antialiased",
           textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
@@ -352,25 +389,33 @@ const MenubarCheckboxItem = React.forwardRef<
       checked={checked}
       {...props}
     >
-      <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute left-3 flex size-3.5 items-center justify-center">
         <MenubarPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
+          <Check size={12} weight="bold" />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
     </MenubarPrimitive.CheckboxItem>
   )
-})
+}
 MenubarCheckboxItem.displayName = MenubarPrimitive.CheckboxItem.displayName
 
-const MenubarRadioItem = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.RadioItem>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.RadioItem>
->(({ className, children, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isMacOSTheme = currentTheme === "macosx"
-  const isXpTheme = currentTheme === "xp" || currentTheme === "win98"
-  const isSystem7 = currentTheme === "system7"
+const MenubarRadioItem = (
+  {
+    ref,
+    className,
+    children,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.RadioItem> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.RadioItem>>;
+  }
+) => {
+  const {
+    isWindowsTheme,
+    isMacOSTheme,
+    isSystem7Theme,
+    isAquaMenuChrome,
+  } = useThemeFlags()
 
   return (
     <MenubarPrimitive.RadioItem
@@ -378,34 +423,28 @@ const MenubarRadioItem = React.forwardRef<
       className={cn(
         "relative flex cursor-default select-none items-center py-1.5 pl-8 pr-2 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         // Theme-specific hover/focus styles
-        isSystem7 && "rounded-none focus:bg-black focus:text-white hover:bg-black hover:text-white mx-0",
-        isMacOSTheme && "rounded-none focus:bg-[rgba(39,101,202,0.88)] focus:text-white hover:bg-[rgba(39,101,202,0.88)] hover:text-white",
-        !isSystem7 && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
+        isSystem7Theme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] hover:bg-[var(--os-color-selection-bg)] hover:text-[var(--os-color-selection-text)] mx-0",
+        isMacOSTheme && "rounded-none focus:bg-[var(--os-color-selection-bg)] focus:text-[var(--os-color-selection-text)] hover:bg-[var(--os-color-selection-bg)] hover:text-[var(--os-color-selection-text)]",
+        !isSystem7Theme && !isMacOSTheme && "rounded-sm focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground",
         className,
         "data-[state=checked]:text-foreground"
       )}
       style={{
-        fontFamily: isXpTheme
-          ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-          : isMacOSTheme
-          ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-          : undefined,
-        fontSize: isXpTheme
-          ? "11px"
-          : isMacOSTheme
-          ? "13px !important"
-          : undefined,
-        ...(isSystem7 && {
-          padding: "2px 12px 2px 32px",
-          margin: "0",
-        }),
-        ...(isXpTheme && {
+        fontFamily:
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize:
+          isWindowsTheme || isMacOSTheme
+            ? isMacOSTheme
+              ? "var(--os-menu-item-font-size) !important"
+              : "var(--os-menu-item-font-size)"
+            : undefined,
+        ...(!isAquaMenuChrome && {
           padding: "2px 12px 2px 32px",
           margin: "0",
         }),
         ...(isMacOSTheme && {
           borderRadius: "0px",
-          padding: "6px 20px 6px 32px",
+          padding: "6px 12px 6px 32px",
           margin: "1px 0",
           WebkitFontSmoothing: "antialiased",
           textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
@@ -413,24 +452,29 @@ const MenubarRadioItem = React.forwardRef<
       }}
       {...props}
     >
-      <span className="absolute left-3 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="absolute left-3 flex size-3.5 items-center justify-center">
         <MenubarPrimitive.ItemIndicator>
-          <Circle className="h-2 w-2 fill-current" />
+          <Circle size={6} weight="fill" />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
     </MenubarPrimitive.RadioItem>
   )
-})
+}
 MenubarRadioItem.displayName = MenubarPrimitive.RadioItem.displayName
 
-const MenubarLabel = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Label>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Label> & {
+const MenubarLabel = (
+  {
+    ref,
+    className,
+    inset,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Label> & {
     inset?: boolean
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Label>>
   }
->(({ className, inset, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
+) => {
+  const { isWindowsTheme, isMacOSTheme } = useThemeFlags()
 
   return (
     <MenubarPrimitive.Label
@@ -442,29 +486,25 @@ const MenubarLabel = React.forwardRef<
       )}
       style={{
         fontFamily:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? '"Pixelated MS Sans Serif", "ArkPixel", Arial'
-            : currentTheme === "macosx"
-            ? '"LucidaGrande", "Lucida Grande", "AquaKana", "Hiragino Sans", "Hiragino Sans GB", "Heiti SC", "Lucida Sans Unicode", sans-serif'
-            : undefined,
-        fontSize:
-          currentTheme === "xp" || currentTheme === "win98"
-            ? "11px"
-            : undefined,
+          isWindowsTheme || isMacOSTheme ? "var(--os-font-ui)" : undefined,
+        fontSize: isWindowsTheme ? "var(--os-menu-item-font-size)" : undefined,
       }}
       {...props}
     />
   )
-})
+}
 MenubarLabel.displayName = MenubarPrimitive.Label.displayName
 
-const MenubarSeparator = React.forwardRef<
-  React.ElementRef<typeof MenubarPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Separator>
->(({ className, ...props }, ref) => {
-  const currentTheme = useThemeStore((state) => state.current)
-  const isSystem7 = currentTheme === "system7"
-  const isMacOSTheme = currentTheme === "macosx"
+const MenubarSeparator = (
+  {
+    ref,
+    className,
+    ...props
+  }: React.ComponentPropsWithoutRef<typeof MenubarPrimitive.Separator> & {
+    ref?: React.Ref<React.ElementRef<typeof MenubarPrimitive.Separator>>;
+  }
+) => {
+  const { isSystem7Theme, isMacOSTheme } = useThemeFlags()
 
   return (
     <MenubarPrimitive.Separator
@@ -473,8 +513,8 @@ const MenubarSeparator = React.forwardRef<
         className,
         "-mx-1 my-1 h-[1px] border-b-0",
         !isMacOSTheme && "border-t border-muted",
-        isSystem7 && "border-dotted",
-        !isSystem7 && !isMacOSTheme && "border-solid"
+        isSystem7Theme && "border-dotted",
+        !isSystem7Theme && !isMacOSTheme && "border-solid"
       )}
       style={{
         ...(isMacOSTheme && {
@@ -487,7 +527,7 @@ const MenubarSeparator = React.forwardRef<
       {...props}
     />
   )
-})
+}
 MenubarSeparator.displayName = MenubarPrimitive.Separator.displayName
 
 const MenubarShortcut = ({
@@ -497,7 +537,9 @@ const MenubarShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
+        // Inherit the item's current text color (dimmed) so the hint flips
+        // along with the label on hover/focus instead of staying muted.
+        "ml-auto text-xs tracking-widest opacity-60",
         className
       )}
       {...props}

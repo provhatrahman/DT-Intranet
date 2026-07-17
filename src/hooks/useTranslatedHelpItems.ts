@@ -27,7 +27,7 @@ export function useTranslatedHelpItems(
     pc: ["pcEmulator", "keyboardControls", "mouseCapture", "fullscreenMode", "saveStates", "aspectRatio"],
     terminal: ["basicCommands", "navigation", "commandHistory", "aiAssistant", "fileEditing", "terminalSounds"],
     "applet-viewer": ["appletStore", "createWithRyosChat", "viewApplets", "shareApplets", "openFromFinder", "keepUpdated"],
-    "control-panels": ["appearance", "sounds", "aiModel", "shaderEffects", "backupRestore", "system"],
+    "control-panels": ["appearance", "sounds", "shaderEffects", "international", "softwareUpdate"],
     admin: ["adminAccess", "userManagement", "roomManagement", "statistics"],
     pitch: ["pitchProject", "formFields", "submission"],
     "incoming-offers": [],

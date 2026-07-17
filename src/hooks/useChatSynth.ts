@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as Tone from "tone";
-import { useAppStore } from "@/stores/useAppStore";
+import { useAudioSettingsStore } from "@/stores/useAudioSettingsStore";
 import { useVibration } from "./useVibration";
+import { SYNTH_PRESETS } from "./chatSynthPresets";
+export { SYNTH_PRESETS, type SynthPreset } from "./chatSynthPresets";
 
 // Global synth instance and state
 let globalSynthRef: {
@@ -12,171 +14,6 @@ let globalSynthRef: {
 } | null = null;
 let lastUsedPreset = "classic"; // Default to classic, "off" will be handled
 const DEFAULT_SYNTH_VOLUME = -12;
-
-export type SynthPreset = {
-  name: string;
-  oscillator: {
-    type: OscillatorType;
-  };
-  envelope: {
-    attack: number;
-    decay: number;
-    sustain: number;
-    release: number;
-  };
-  effects: {
-    filter: {
-      frequency: number;
-      rolloff: -12 | -24 | -48 | -96;
-    };
-    tremolo: {
-      frequency: number;
-      depth: number;
-    };
-    reverb: {
-      decay: number;
-      wet: number;
-    };
-  };
-};
-
-// Define valid oscillator types
-type OscillatorType = "triangle" | "sine" | "square" | "sawtooth";
-
-export const SYNTH_PRESETS: Record<string, SynthPreset> = {
-  classic: {
-    name: "Classic",
-    oscillator: {
-      type: "triangle",
-    },
-    envelope: {
-      attack: 0.01,
-      decay: 0.2,
-      sustain: 0.2,
-      release: 0.3,
-    },
-    effects: {
-      filter: {
-        frequency: 2000,
-        rolloff: -12,
-      },
-      tremolo: {
-        frequency: 0.8,
-        depth: 0.3,
-      },
-      reverb: {
-        decay: 1.5,
-        wet: 0.7,
-      },
-    },
-  },
-  ethereal: {
-    name: "Ethereal",
-    oscillator: {
-      type: "sine",
-    },
-    envelope: {
-      attack: 0.1,
-      decay: 0.4,
-      sustain: 0.4,
-      release: 0.8,
-    },
-    effects: {
-      filter: {
-        frequency: 3000,
-        rolloff: -24,
-      },
-      tremolo: {
-        frequency: 0.5,
-        depth: 0.5,
-      },
-      reverb: {
-        decay: 2.5,
-        wet: 0.8,
-      },
-    },
-  },
-  digital: {
-    name: "Digital",
-    oscillator: {
-      type: "square",
-    },
-    envelope: {
-      attack: 0.005,
-      decay: 0.1,
-      sustain: 0.1,
-      release: 0.1,
-    },
-    effects: {
-      filter: {
-        frequency: 4000,
-        rolloff: -12,
-      },
-      tremolo: {
-        frequency: 1.2,
-        depth: 0.2,
-      },
-      reverb: {
-        decay: 0.8,
-        wet: 0.3,
-      },
-    },
-  },
-  retro: {
-    name: "Retro",
-    oscillator: {
-      type: "sawtooth",
-    },
-    envelope: {
-      attack: 0.02,
-      decay: 0.3,
-      sustain: 0.3,
-      release: 0.4,
-    },
-    effects: {
-      filter: {
-        frequency: 1500,
-        rolloff: -24,
-      },
-      tremolo: {
-        frequency: 0.6,
-        depth: 0.4,
-      },
-      reverb: {
-        decay: 1.2,
-        wet: 0.5,
-      },
-    },
-  },
-  off: {
-    name: "Off",
-    oscillator: {
-      type: "sine", // Type doesn't matter much if volume is off
-    },
-    envelope: {
-      // Minimal envelope
-      attack: 0.001,
-      decay: 0.001,
-      sustain: 0,
-      release: 0.001,
-    },
-    effects: {
-      // Minimal effects
-      filter: {
-        frequency: 100, // Low frequency
-        rolloff: -12,
-      },
-      tremolo: {
-        frequency: 0, // No tremolo
-        depth: 0,
-      },
-      reverb: {
-        decay: 0, // No reverb
-        wet: 0,
-      },
-    },
-  },
-};
 
 // Pentatonic scale for an exotic jungle feel
 const notes = ["C4", "D4", "F4", "G4", "A4", "C5", "D5"];
@@ -211,8 +48,8 @@ function createSynthInstance(presetKey: string) {
   }).connect(tremolo);
 
   // Apply global chat synth volume (linear 0-1) as decibel offset
-  const masterVol = useAppStore.getState().chatSynthVolume ?? 1;
-  const globalMasterVolume = useAppStore.getState().masterVolume ?? 1; // Get global masterVolume
+  const masterVol = useAudioSettingsStore.getState().chatSynthVolume ?? 1;
+  const globalMasterVolume = useAudioSettingsStore.getState().masterVolume ?? 1; // Get global masterVolume
   const combinedVolume = masterVol * globalMasterVolume; // Combine volumes
   const volumeDb =
     presetKey === "off"
@@ -236,7 +73,7 @@ function createSynthInstance(presetKey: string) {
 export function useChatSynth() {
   const [isAudioReady, setIsAudioReady] = useState(false);
   // Global preset from store
-  const { synthPreset, setSynthPreset } = useAppStore();
+  const { synthPreset, setSynthPreset } = useAudioSettingsStore();
 
   const [currentPresetKey, setCurrentPresetKey] = useState<string>(
     () => synthPreset || "classic" // Default to classic if store is null
@@ -583,8 +420,8 @@ export function useChatSynth() {
   // Reactively update synth volume when the global chatSynthVolume
   // slider changes, without requiring a re-creation of the synth.
   // ---------------------------------------------------------------
-  const chatSynthVolume = useAppStore((s) => s.chatSynthVolume);
-  const masterVolume = useAppStore((s) => s.masterVolume); // Get masterVolume
+  const chatSynthVolume = useAudioSettingsStore((s) => s.chatSynthVolume);
+  const masterVolume = useAudioSettingsStore((s) => s.masterVolume); // Get masterVolume
 
   useEffect(() => {
     if (synthRef.current) {

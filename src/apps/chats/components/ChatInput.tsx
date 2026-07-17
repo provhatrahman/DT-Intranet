@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AudioInputButton } from "@/components/ui/audio-input-button";
 import { useChatSynth } from "@/hooks/useChatSynth";
 import { useAppStoreShallow } from "@/stores/helpers";
+import { useAudioSettingsStoreShallow } from "@/stores/useAudioSettingsStore";
+import { useDisplaySettingsStore } from "@/stores/useDisplaySettingsStore";
 import { useSound, Sounds } from "@/hooks/useSound";
 import { track } from "@vercel/analytics";
 import {
@@ -114,14 +116,16 @@ export function ChatInput({
   const audioButtonRef = useRef<HTMLButtonElement>(null);
   const { playNote } = useChatSynth();
   const { play: playNudgeSound } = useSound(Sounds.MSN_NUDGE);
-  const { typingSynthEnabled, debugMode, aiModel, keepTalkingEnabled } = useAppStoreShallow(
+  const { aiModel } = useAppStoreShallow((s) => ({
+    aiModel: s.aiModel,
+  }));
+  const { typingSynthEnabled, keepTalkingEnabled } = useAudioSettingsStoreShallow(
     (s) => ({
       typingSynthEnabled: s.typingSynthEnabled,
-      debugMode: s.debugMode,
-      aiModel: s.aiModel,
       keepTalkingEnabled: s.keepTalkingEnabled,
     })
   );
+  const debugMode = useDisplaySettingsStore((s) => s.debugMode);
   const currentTheme = useThemeStore((s) => s.current);
   const isMacTheme = currentTheme === "macosx";
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";

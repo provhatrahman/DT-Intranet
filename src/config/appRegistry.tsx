@@ -119,7 +119,7 @@ const LazyChatsApp = createLazyComponent<unknown>(
 );
 
 const LazyControlPanelsApp = createLazyComponent<ControlPanelsInitialData>(
-  () => import("@/apps/control-panels/components/ControlPanelsAppComponent").then(m => ({ default: m.ControlPanelsAppComponent })),
+  () => import("@/apps/control-panels/components/control-panels-app/ControlPanelsAppComponent").then(m => ({ default: m.ControlPanelsAppComponent })),
   "control-panels"
 );
 
@@ -432,9 +432,9 @@ export const appRegistry = {
     helpItems: controlPanelsHelpItems,
     metadata: controlPanelsMetadata,
     windowConfig: {
-      defaultSize: { width: 365, height: 415 },
-      minSize: { width: 320, height: 415 },
-      maxSize: { width: 365, height: 600 },
+      defaultSize: { width: 400, height: 415 },
+      minSize: { width: 400, height: 415 },
+      maxSize: { width: 560, height: 600 },
     } as WindowConstraints,
   } as BaseApp<ControlPanelsInitialData> & { windowConfig: WindowConstraints },
   ["admin"]: {

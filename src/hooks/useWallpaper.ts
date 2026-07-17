@@ -1,5 +1,8 @@
 import { useMemo, useEffect, useRef } from "react";
-import { useAppStore, INDEXEDDB_PREFIX } from "@/stores/useAppStore";
+import {
+  useDisplaySettingsStore,
+  INDEXEDDB_PREFIX,
+} from "@/stores/useDisplaySettingsStore";
 
 /**
  * Hook exposing wallpaper state & helpers.
@@ -7,13 +10,13 @@ import { useAppStore, INDEXEDDB_PREFIX } from "@/stores/useAppStore";
  */
 export function useWallpaper() {
   // State selectors
-  const currentWallpaper = useAppStore((s) => s.currentWallpaper);
-  const wallpaperSource = useAppStore((s) => s.wallpaperSource);
+  const currentWallpaper = useDisplaySettingsStore((s) => s.currentWallpaper);
+  const wallpaperSource = useDisplaySettingsStore((s) => s.wallpaperSource);
 
   // Actions
-  const setWallpaper = useAppStore((s) => s.setWallpaper);
-  const loadCustomWallpapers = useAppStore((s) => s.loadCustomWallpapers);
-  const getWallpaperData = useAppStore((s) => s.getWallpaperData);
+  const setWallpaper = useDisplaySettingsStore((s) => s.setWallpaper);
+  const loadCustomWallpapers = useDisplaySettingsStore((s) => s.loadCustomWallpapers);
+  const getWallpaperData = useDisplaySettingsStore((s) => s.getWallpaperData);
 
   // Derived helper – detects whether the active wallpaper is a video
   const isVideoWallpaper = useMemo(() => {

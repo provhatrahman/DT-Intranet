@@ -1,31 +1,29 @@
 import i18n from "@/lib/i18n";
+import { useThemeStore } from "@/stores/useThemeStore";
+import type { AppId } from "@/config/appIds";
 
-export type AppId =
-  | "finder"
-  | "soundboard"
-  | "internet-explorer"
-  | "chats"
-  | "textedit"
-  | "paint"
-  | "photo-booth"
-  | "minesweeper"
-  | "videos"
-  | "ipod"
-  | "synth"
-  | "pc"
-  | "terminal"
-  | "applet-viewer"
-  | "control-panels"
-  | "admin"
-  | "incoming-offers"
-  | "active-projects"
-  | "pitch"
-  | "archive";
+export type { AppId } from "@/config/appIds";
 
 /**
- * Get translated app name
+ * Get translated app name with theme-awareness
+ * For certain apps (like control-panels), the name changes based on theme:
+ * - macOS X: "System Preferences"
+ * - System 7, Windows 98, Windows XP: "Control Panels"
  */
 export function getTranslatedAppName(appId: AppId): string {
+  const currentTheme = useThemeStore.getState().current;
+
+  // Theme-specific app names
+  if (appId === "control-panels") {
+    if (currentTheme === "macosx") {
+      const macKey = `apps.${appId}.nameForMacosX`;
+      const macTranslated = i18n.t(macKey);
+      if (macTranslated !== macKey) {
+        return macTranslated;
+      }
+    }
+  }
+
   const key = `apps.${appId}.name`;
   const translated = i18n.t(key);
   // If translation doesn't exist, return the key (fallback)
@@ -51,13 +49,16 @@ export function getTranslatedFolderName(folderPath: string): string {
   const folderKeyMap: Record<string, string> = {
     "/Applications": "applications",
     "/Documents": "documents",
+    "/Desktop": "desktop",
+    "/Downloads": "downloads",
     "/Images": "images",
+    "/Books": "books",
     "/Music": "music",
     "/Videos": "videos",
     "/Sites": "sites",
     "/Applets": "applets",
+    "/System": "system",
     "/Trash": "trash",
-    "/Desktop": "desktop",
   };
 
   const key = folderKeyMap[folderPath];
@@ -65,7 +66,9 @@ export function getTranslatedFolderName(folderPath: string): string {
     const translationKey = `apps.finder.folders.${key}`;
     const translated = i18n.t(translationKey);
     // If translation doesn't exist, return the key (fallback)
-    return translated !== translationKey ? translated : folderPath.split("/").pop() || folderPath;
+    return translated !== translationKey
+      ? translated
+      : folderPath.split("/").pop() || folderPath;
   }
 
   // For subfolders or unknown folders, return the last segment of the path
@@ -78,15 +81,18 @@ export function getTranslatedFolderName(folderPath: string): string {
  */
 export function getTranslatedFolderNameFromName(folderName: string): string {
   const folderNameMap: Record<string, string> = {
-    "Applications": "applications",
-    "Documents": "documents",
-    "Images": "images",
-    "Music": "music",
-    "Videos": "videos",
-    "Sites": "sites",
-    "Applets": "applets",
-    "Trash": "trash",
-    "Desktop": "desktop",
+    Applications: "applications",
+    Documents: "documents",
+    Desktop: "desktop",
+    Downloads: "downloads",
+    Images: "images",
+    Books: "books",
+    Music: "music",
+    Videos: "videos",
+    Sites: "sites",
+    Applets: "applets",
+    System: "system",
+    Trash: "trash",
   };
 
   const key = folderNameMap[folderName];
@@ -109,21 +115,111 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
   description: string;
 }> {
   const helpKeys: Record<AppId, string[]> = {
-    finder: ["browseNavigate", "fileManagement", "viewSort", "quickAccess", "storageInfo", "trash"],
-    soundboard: ["recordSlot", "keyboardPlay", "waveformView", "customizeSlot", "multipleBoards", "importExport"],
-    "internet-explorer": ["browseWeb", "travelThroughTime", "historyReimagined", "saveFavorites", "exploreTimeNodes", "shareJourney"],
-    chats: ["chatWithRyo", "createEditFiles", "controlApps", "joinChatRooms", "pushToTalk", "nudgeDjMode"],
-    textedit: ["richEditing", "formatting", "listsTasks", "fileManagement", "voiceDictation", "slashCommands"],
+    finder: [
+      "browseNavigate",
+      "fileManagement",
+      "viewSort",
+      "quickAccess",
+      "storageInfo",
+      "trash",
+    ],
+    soundboard: [
+      "recordSlot",
+      "keyboardPlay",
+      "waveformView",
+      "customizeSlot",
+      "multipleBoards",
+      "importExport",
+    ],
+    "internet-explorer": [
+      "browseWeb",
+      "travelThroughTime",
+      "historyReimagined",
+      "saveFavorites",
+      "exploreTimeNodes",
+      "shareJourney",
+    ],
+    chats: [
+      "chatWithRyo",
+      "createEditFiles",
+      "controlApps",
+      "joinChatRooms",
+      "pushToTalk",
+      "nudgeDjMode",
+    ],
+    textedit: [
+      "richEditing",
+      "formatting",
+      "listsTasks",
+      "fileManagement",
+      "voiceDictation",
+      "slashCommands",
+    ],
     paint: ["drawingTools", "colors", "undo", "saving", "patterns", "filters"],
-    "photo-booth": ["takingPhoto", "quickSnaps", "applyingEffects", "viewingPhotos", "downloadingPhotos", "switchingCameras"],
-    minesweeper: ["desktopControls", "mobileControls", "gameRules", "timerCounter", "restart"],
+    "photo-booth": [
+      "takingPhoto",
+      "quickSnaps",
+      "applyingEffects",
+      "viewingPhotos",
+      "downloadingPhotos",
+      "switchingCameras",
+    ],
+    minesweeper: [
+      "desktopControls",
+      "mobileControls",
+      "gameRules",
+      "timerCounter",
+      "restart",
+    ],
     videos: ["addVideo", "playback", "loop", "shuffle", "playlist", "retroUi"],
-    ipod: ["addSongs", "wheelNavigation", "playbackControls", "syncedLyrics", "playbackModes", "displayFullscreen"],
-    synth: ["virtualKeyboard", "controlsPanel", "presets", "waveform3d", "effects", "midiInput"],
-    pc: ["pcEmulator", "keyboardControls", "mouseCapture", "fullscreenMode", "saveStates", "aspectRatio"],
-    terminal: ["basicCommands", "navigation", "commandHistory", "aiAssistant", "fileEditing", "terminalSounds"],
-    "applet-viewer": ["appletStore", "createWithRyosChat", "viewApplets", "shareApplets", "openFromFinder", "keepUpdated"],
-    "control-panels": ["appearance", "sounds", "aiModel", "shaderEffects", "backupRestore", "system"],
+    ipod: [
+      "addSongs",
+      "wheelNavigation",
+      "playbackControls",
+      "syncedLyrics",
+      "playbackModes",
+      "displayFullscreen",
+    ],
+    synth: [
+      "virtualKeyboard",
+      "controlsPanel",
+      "presets",
+      "waveform3d",
+      "effects",
+      "midiInput",
+    ],
+    pc: [
+      "pcEmulator",
+      "keyboardControls",
+      "mouseCapture",
+      "fullscreenMode",
+      "saveStates",
+      "aspectRatio",
+    ],
+    terminal: [
+      "basicCommands",
+      "navigation",
+      "commandHistory",
+      "aiAssistant",
+      "fileEditing",
+      "terminalSounds",
+    ],
+    "applet-viewer": [
+      "appletStore",
+      "createWithRyosChat",
+      "viewApplets",
+      "shareApplets",
+      "openFromFinder",
+      "keepUpdated",
+    ],
+    "control-panels": [
+      "appearance",
+      "sounds",
+      "aiModel",
+      "shaderEffects",
+      "backupRestore",
+      "system",
+    ],
     admin: ["adminAccess", "userManagement", "roomManagement", "statistics"],
     pitch: ["pitchProject", "formFields", "submission"],
     "incoming-offers": [],
@@ -135,7 +231,7 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
   return keys.map((key) => {
     const titleKey = `apps.${appId}.help.${key}.title`;
     const descKey = `apps.${appId}.help.${key}.description`;
-    
+
     // Get icon from original help items (we'll need to pass this or store it)
     // For now, return empty icon - components should use original helpItems
     return {

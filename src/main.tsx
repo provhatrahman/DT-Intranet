@@ -8,7 +8,10 @@ import { useLanguageStore } from "./stores/useLanguageStore";
 import { preloadFileSystemData } from "./stores/useFilesStore";
 import { preloadIpodData } from "./stores/useIpodStore";
 import { initPrefetch } from "./utils/prefetch";
-import "./lib/i18n";
+import {
+  initializeI18nForFirstPaint,
+  ensureCurrentLanguageResources,
+} from "./lib/i18n";
 import { primeReactResources } from "./lib/reactResources";
 
 // Prime React 19 resource hints before anything else runs
@@ -35,13 +38,32 @@ preloadIpodData();
 // ============================================================================
 initPrefetch();
 
-// Hydrate theme and language from localStorage before rendering
+// Hydrate theme from localStorage before rendering (first paint attributes
+// are already set by the inline bootstrap script in index.html).
 useThemeStore.getState().hydrate();
-useLanguageStore.getState().hydrate();
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-    <Analytics />
-  </React.StrictMode>
-);
+// i18n now initializes lazily (src/lib/i18n.ts loads only the small "shell"
+// bundle eagerly, then the full per-language translation bundle in the
+// background) instead of as a side effect of importing the module, so it
+// must be awaited before the language store hydrates and the app renders.
+async function bootstrap() {
+  try {
+    await initializeI18nForFirstPaint();
+  } catch (error) {
+    console.error("[ryOS] Failed to initialize i18n during bootstrap:", error);
+  }
+
+  useLanguageStore.getState().hydrate();
+
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <App />
+      <Analytics />
+    </React.StrictMode>
+  );
+
+  // Backfill the rest of the current language's translations after first paint.
+  void ensureCurrentLanguageResources();
+}
+
+void bootstrap();

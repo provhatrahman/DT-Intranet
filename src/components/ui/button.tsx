@@ -4,10 +4,10 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { useSound, Sounds } from "@/hooks/useSound";
 
 import { cn } from "@/lib/utils";
-import { useThemeStore } from "@/stores/useThemeStore";
+import { useThemeFlags } from "@/hooks/useThemeFlags";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -48,199 +48,89 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const { play: playButtonClick } = useSound(Sounds.BUTTON_CLICK);
-    const Comp = asChild ? Slot : "button";
-    const currentTheme = useThemeStore((state) => state.current);
-    const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
-    const isMacTheme = currentTheme === "macosx";
+const Button = (
+  {
+    ref,
+    className,
+    variant,
+    size,
+    asChild = false,
+    ...props
+  }: ButtonProps & {
+    ref?: React.Ref<HTMLButtonElement>;
+  }
+) => {
+  const { play: playButtonClick } = useSound(Sounds.BUTTON_CLICK);
+  const Comp = asChild ? Slot : "button";
+  const { isWindowsTheme, isMacOSTheme, isSystem7Theme } = useThemeFlags();
 
-    const [isFocused, setIsFocused] = React.useState(false);
-    const [isPressed, setIsPressed] = React.useState(false);
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    playButtonClick();
+    props.onClick?.(e);
+  };
 
-    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-      playButtonClick();
-      props.onClick?.(e);
-    };
-
-    // For macOS theme, use aqua variant for default buttons
-    if (isMacTheme && variant === "default") {
-      return (
-        <Comp
-          className={cn("aqua-button primary", className)}
-          ref={ref}
-          style={{ position: "relative", zIndex: 1, ...props.style }}
-          {...props}
-          onClick={handleClick}
-        />
-      );
+  const resolvedClassName = (() => {
+    // macOS: default/secondary/retro → aqua-button
+    if (isMacOSTheme && variant === "default") return cn("aqua-button primary", className);
+    if (isMacOSTheme && variant === "secondary") return cn("aqua-button secondary", className);
+    if (isMacOSTheme && variant === "retro") return cn("aqua-button secondary", className);
+    if (isMacOSTheme && variant === "destructive") {
+      return cn("aqua-button destructive", className);
     }
 
-    // For macOS theme with secondary variant, use aqua secondary
-    if (isMacTheme && variant === "secondary") {
-      return (
-        <Comp
-          className={cn("aqua-button secondary", className)}
-          ref={ref}
-          style={{ position: "relative", zIndex: 1, ...props.style }}
-          {...props}
-          onClick={handleClick}
-        />
-      );
-    }
-
-    // For macOS theme with retro variant, use aqua primary
-    if (isMacTheme && variant === "retro") {
-      return (
-        <Comp
-          className={cn("aqua-button secondary", className)}
-          ref={ref}
-          style={{ position: "relative", zIndex: 1, ...props.style }}
-          {...props}
-          onClick={handleClick}
-        />
-      );
-    }
-
-    // macOS Aqua Select-look variant (matches macOS select trigger styling)
-    if (isMacTheme && variant === "aqua_select") {
+    // macOS: aqua_select → CSS-driven aqua select button
+    if (isMacOSTheme && variant === "aqua_select") {
       const dataState = (props as Record<string, unknown>)["data-state"];
       const ariaPressed = (props as Record<string, unknown>)["aria-pressed"];
       const isActiveSelected = dataState === "on" || ariaPressed === true;
-      return (
-        <Comp
-          className={cn(
-            "macos-select-trigger no-chevron aqua-select-btn inline-flex w-auto items-center justify-center whitespace-nowrap rounded px-2 py-1 text-sm gap-0",
-            isActiveSelected && "aqua-selected",
-            className
-          )}
-          ref={ref}
-          style={{
-            position: "relative",
-            zIndex: 1,
-            height: "22px",
-            lineHeight: 1.5,
-            minWidth: "60px",
-            overflow: "hidden",
-            cursor: "default",
-            border: "none",
-            boxSizing: "border-box",
-            WebkitFontSmoothing: "antialiased",
-            background: isPressed
-              ? "linear-gradient(#9e9e9e, #cbcbcb)"
-              : isActiveSelected
-              ? "linear-gradient(rgb(145 153 156 / 91%), rgb(184 188 192 / 80%))"
-              : "linear-gradient(rgba(160, 160, 160, 0.625), rgba(255, 255, 255, 0.625))",
-            boxShadow: isPressed
-              ? "inset 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.25)"
-              : isFocused
-              ? "0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 0 3px var(--os-color-selection-glow)"
-              : isActiveSelected
-              ? "0 2px 3px rgba(0,0,0,0.22), 0 1px 1px rgba(0,0,0,0.32), 0 0 0 1px rgba(0,0,0,0.42)"
-              : "0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3)",
-            color: "black",
-            textShadow: "0 2px 3px rgba(0, 0, 0, 0.25)",
-            paddingRight: "8px",
-            paddingLeft: "8px",
-            fontSize: "13px",
-            ...(props.style as React.CSSProperties),
-          }}
-          onClick={handleClick}
-          onFocus={(e) => {
-            setIsFocused(true);
-            props.onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setIsFocused(false);
-            props.onBlur?.(e);
-          }}
-          onMouseDown={(e) => {
-            setIsPressed(true);
-            props.onMouseDown?.(e);
-          }}
-          onMouseUp={(e) => {
-            setIsPressed(false);
-            props.onMouseUp?.(e);
-          }}
-          onMouseLeave={(e) => {
-            setIsPressed(false);
-            props.onMouseLeave?.(e);
-          }}
-          {...props}
-        />
+      return cn(
+        "macos-select-trigger no-chevron aqua-select-btn os-btn-aqua-select inline-flex w-auto items-center justify-center whitespace-nowrap rounded px-2 py-1 text-sm gap-0",
+        isActiveSelected && "aqua-selected",
+        className
       );
     }
 
-    // For XP/Win98 themes, use xp.css button class only for default variant
-    // Ghost variant should maintain its clean appearance for menubars
-    if (isXpTheme && variant === "default") {
-      return (
-        <Comp
-          className={cn("button", className)}
-          ref={ref}
-          {...props}
-          onClick={handleClick}
-        />
-      );
+    // XP/Win98: default/aqua_select → xp.css button class
+    if (isWindowsTheme && (variant === "default" || variant === "aqua_select")) return cn("button", className);
+    if (isWindowsTheme && variant === "destructive") {
+      return cn("button text-red-600", className);
     }
 
-    // XP/Win98 fallback for aqua-select: use classic button
-    if (isXpTheme && variant === "aqua_select") {
-      return (
-        <Comp
-          className={cn("button", className)}
-          ref={ref}
-          {...props}
-          onClick={handleClick}
-        />
-      );
+    if (isSystem7Theme && variant === "destructive") {
+      return cn(buttonVariants({ variant: "retro", size }), "text-red-600", className);
     }
 
-    // For XP/Win98 themes with ghost variant, add specific classes to override global button styles
-    if (isXpTheme && variant === "ghost") {
-      return (
-        <Comp
-          className={cn(
-            buttonVariants({ variant, size }),
-            "!border-none !bg-transparent !shadow-none !box-shadow-none !background-none",
-            "[background:transparent!important] [box-shadow:none!important] [border:none!important]",
-            className
-          )}
-          ref={ref}
-          {...props}
-          onClick={handleClick}
-        />
-      );
+    // XP/Win98 + macOS: ghost → transparent reset to fight global button styles
+    if ((isWindowsTheme || isMacOSTheme) && variant === "ghost") {
+      return cn(buttonVariants({ variant, size }), "os-btn-ghost-reset", className);
     }
 
-    // For macOS theme with ghost variant, maintain clean appearance for menubars
-    if (isMacTheme && variant === "ghost") {
-      return (
-        <Comp
-          className={cn(
-            buttonVariants({ variant, size }),
-            "!border-none !bg-transparent !shadow-none !box-shadow-none !background-none",
-            "[background:transparent!important] [box-shadow:none!important] [border:none!important]",
-            className
-          )}
-          ref={ref}
-          {...props}
-          onClick={handleClick}
-        />
-      );
-    }
+    return cn(buttonVariants({ variant, size, className }));
+  })();
 
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-        onClick={handleClick}
-      />
-    );
-  }
-);
+  const resolvedStyle = (() => {
+    if (
+      isMacOSTheme &&
+      (variant === "default" ||
+        variant === "secondary" ||
+        variant === "retro" ||
+        variant === "destructive")
+    ) {
+      return { position: "relative" as const, zIndex: 1, ...props.style };
+    }
+    return props.style;
+  })();
+
+  return (
+    <Comp
+      className={resolvedClassName}
+      ref={ref}
+      style={resolvedStyle}
+      {...props}
+      onClick={handleClick}
+    />
+  );
+};
 Button.displayName = "Button";
 
-export { Button, buttonVariants };
+export { Button };

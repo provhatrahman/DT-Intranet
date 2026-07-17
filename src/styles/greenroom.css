@@ -1,0 +1,470 @@
+/*
+ * Greenroom component-kit CSS
+ *
+ * Domain-specific Aqua surface recipes that this fork adds on top of ryOS's
+ * upstream theme CSS (src/styles/themes/*.css, ported wholesale from MAIN).
+ * These extend the aqua-button / aqua-tab language with variants and
+ * primitives (.aqua-card, .aqua-pill, .aqua-well, .aqua-row, .aqua-toolbar)
+ * used by the Greenroom domain apps (Pitch, Inbox, Active Projects, Archive)
+ * — see src/components/greenroom/*.
+ *
+ * Extracted verbatim from this branch's pre-port src/styles/themes.css
+ * (the +296 line delta vs upstream fork point 499ff1e50) when themes.css was
+ * replaced with MAIN's orchestrator version. Imported from src/index.css
+ * after ./styles/themes.css so these rules layer on top of the upstream
+ * Aqua tokens/recipes.
+ */
+
+/* Emerald variant for aqua button */
+.aqua-button.emerald {
+  background: linear-gradient(
+    rgba(16, 185, 129, 0.75),
+    rgba(52, 211, 153, 0.75),
+    rgba(110, 231, 183, 0.75)
+  );
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(16, 185, 129, 0.4),
+    inset 0 1px 3px rgba(5, 78, 55, 0.6),
+    inset 0 2px 3px 1px rgba(16, 185, 129, 0.7);
+  font-weight: 900;
+}
+.aqua-button.emerald:focus,
+.aqua-button.emerald:active {
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(16, 185, 129, 0.4),
+    inset 0 1px 3px rgba(5, 78, 55, 0.6),
+    inset 0 2px 3px 1px rgba(16, 185, 129, 0.7), 0 0 3px rgba(16, 185, 129, 0.4);
+}
+.aqua-button.emerald,
+.aqua-button.emerald span {
+  color: #065f46;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================================================
+   Greenroom Aqua surfaces
+   Shared visual language for the Greenroom domain apps (Pitch, Inbox,
+   Active Projects, Archive), applied by src/components/greenroom/* when the
+   macosx theme is active. Recipes follow the aqua-button / aqua-tab
+   treatments above (gel gradients, top shine, layered inset strokes).
+   ========================================================================== */
+
+/* Red (destructive) gel variant, matching the orange/emerald recipes */
+.aqua-button.red {
+  background: linear-gradient(
+    rgba(185, 28, 28, 0.85),
+    rgba(220, 38, 38, 0.85),
+    rgba(248, 113, 113, 0.85)
+  );
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(185, 28, 28, 0.5),
+    inset 0 1px 3px rgba(80, 7, 7, 0.8),
+    inset 0 2px 3px 1px rgba(185, 28, 28, 0.75);
+}
+.aqua-button.red:focus,
+.aqua-button.red:active {
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(185, 28, 28, 0.5),
+    inset 0 1px 3px rgba(80, 7, 7, 0.8),
+    inset 0 2px 3px 1px rgba(185, 28, 28, 0.75), 0 0 3px rgba(220, 38, 38, 0.5);
+}
+.aqua-button.red,
+.aqua-button.red span {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Glossy raised card (project/offer/pitch cards) */
+.aqua-card {
+  position: relative;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95),
+    rgba(245, 245, 245, 0.95)
+  );
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14), 0 1px 1px rgba(0, 0, 0, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.05),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.48), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Top shine */
+.aqua-card::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 2px;
+  height: 20px;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.25)
+  );
+  border-radius: 8px 8px 4px 4px;
+  filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Keep card content above the shine */
+.aqua-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hover lift for clickable/actionable cards; hover-capable pointers only so
+   touch devices don't get sticky hover states */
+.aqua-card-interactive {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+@media (hover: hover) {
+  .aqua-card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.18), 0 2px 2px rgba(0, 0, 0, 0.3),
+      inset 0 1px 2px rgba(255, 255, 255, 0.7),
+      inset 0 0 4px rgba(0, 0, 0, 0.05),
+      inset 0 0 0 0.5px rgba(0, 0, 0, 0.48), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Gel status pill (candy-colored badge with shine) */
+.aqua-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 1px 10px;
+  border-radius: 9px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.35);
+  -webkit-font-smoothing: antialiased;
+}
+.aqua-pill::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 1px;
+  height: 45%;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.25)
+  );
+  border-radius: 7px 7px 2px 2px;
+  filter: blur(0.5px);
+  pointer-events: none;
+}
+.aqua-pill > * {
+  position: relative;
+  z-index: 1;
+}
+.aqua-pill.green {
+  background: linear-gradient(
+    to bottom,
+    rgba(187, 239, 190, 0.95),
+    rgba(122, 201, 133, 0.95)
+  );
+  color: #14532d;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.blue {
+  background: linear-gradient(
+    to bottom,
+    rgba(191, 213, 255, 0.95),
+    rgba(133, 172, 240, 0.95)
+  );
+  color: #1e3a8a;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.red {
+  background: linear-gradient(
+    to bottom,
+    rgba(252, 197, 197, 0.95),
+    rgba(238, 130, 130, 0.95)
+  );
+  color: #7f1d1d;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.yellow {
+  background: linear-gradient(
+    to bottom,
+    rgba(253, 235, 176, 0.95),
+    rgba(245, 199, 92, 0.95)
+  );
+  color: #713f12;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.purple {
+  background: linear-gradient(
+    to bottom,
+    rgba(224, 204, 255, 0.95),
+    rgba(185, 150, 240, 0.95)
+  );
+  color: #4c1d95;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+.aqua-pill.gray {
+  background: linear-gradient(
+    to bottom,
+    rgba(233, 233, 233, 0.95),
+    rgba(198, 198, 198, 0.95)
+  );
+  color: #374151;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Pinstripe toolbar strip below the title bar */
+.aqua-toolbar {
+  background-image: var(--os-pinstripe-window);
+  border-bottom: var(--os-metrics-titlebar-border-width, 1px) solid
+    var(--os-color-titlebar-border-inactive, rgba(0, 0, 0, 0.2));
+}
+
+/* Inset content well (info tiles, comments, notice panels) */
+.aqua-well {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+.aqua-well.blue {
+  background: linear-gradient(
+    to bottom,
+    rgba(219, 234, 254, 0.85),
+    rgba(191, 219, 254, 0.85)
+  );
+}
+.aqua-well.yellow {
+  background: linear-gradient(
+    to bottom,
+    rgba(254, 249, 195, 0.9),
+    rgba(254, 240, 138, 0.9)
+  );
+}
+.aqua-well.red {
+  background: linear-gradient(
+    to bottom,
+    rgba(254, 226, 226, 0.9),
+    rgba(254, 202, 202, 0.9)
+  );
+}
+
+/* Sidebar / list row with the Aqua selection gradient. Rows carry a subtle
+   glossy card fill at rest (so they read as separated panels on touch too, not
+   just on hover), brighten + lift slightly on hover, and take the blue Aqua
+   gradient when selected. */
+.aqua-row {
+  border-radius: 8px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.5)
+  );
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.18);
+  transition: background 120ms ease, box-shadow 120ms ease,
+    transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) {
+  .aqua-row:hover:not(.aqua-row-selected) {
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 255, 255, 0.75)
+    );
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.13),
+      inset 0 1px 1px rgba(255, 255, 255, 0.85),
+      inset 0 0 0 0.5px rgba(0, 0, 0, 0.22);
+    transform: translateY(-1px);
+  }
+}
+.aqua-row:active:not(.aqua-row-selected) {
+  background: linear-gradient(
+    to bottom,
+    rgba(240, 240, 240, 0.9),
+    rgba(228, 228, 228, 0.9)
+  );
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.22);
+  transform: translateY(0);
+}
+.aqua-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--os-color-selection-glow, rgba(48, 103, 218, 0.5));
+}
+.aqua-row-selected {
+  background: linear-gradient(to bottom, #5c94e5 0%, #3067da 100%);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.aqua-row-selected .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================================
+ * Dark mode — Greenroom Aqua surfaces
+ *
+ * Same scoping convention as src/styles/themes/dark-aqua.css: everything below
+ * keys off `:root[data-os-theme="macosx"][data-os-color-scheme="dark"]` so
+ * removing the attribute (or leaving macosx in light mode) is a complete
+ * revert to the rules above. Design language mirrors dark-aqua.css:
+ *   - Raised surfaces (card) use the same graphite family as
+ *     `.metal-inset-btn` (#4a4a50 → #3a3a3f), with a dimmed top shine
+ *     (rgba(255,255,255,0.12–0.14) instead of 0.9) and a light-on-dark
+ *     hairline (rgba(255,255,255,0.06–0.12)) replacing the light theme's
+ *     dark inset borders.
+ *   - Recessed surfaces (well, row-at-rest) use translucent black washes
+ *     over whatever they sit on (window or card), matching the recessed
+ *     input/list-well recipe (`inset 0 1px 2px rgba(0,0,0,0.4-0.55)`).
+ *   - The selected-row gradient reuses the dimmed Aqua-blue family from
+ *     `.aqua-tab[data-state="active"]` (rgb(28,76,130) → rgb(70,117,168))
+ *     instead of the light theme's brighter #5c94e5 → #3067da.
+ *   - `.aqua-pill` (candy status badges) and `.aqua-button.red` / `.emerald`
+ *     are deliberately left unchanged: like `.aqua-button.primary` /
+ *     `.orange` / `.destructive` in dark-aqua.css, they're saturated,
+ *     self-contained gel surfaces with their own white text + dark drop
+ *     shadow that don't depend on the surrounding window being light or
+ *     dark, so they keep the same look in both color schemes.
+ * ============================================================================ */
+
+/* --- Card ------------------------------------------------------------------ */
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-card {
+  background: linear-gradient(
+    to bottom,
+    rgba(74, 74, 80, 0.95),
+    rgba(58, 58, 63, 0.95)
+  );
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.14),
+    inset 0 0 4px rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-card::before {
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.04)
+  );
+}
+
+@media (hover: hover) {
+  :root[data-os-theme="macosx"][data-os-color-scheme="dark"]
+    .aqua-card-interactive:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55), 0 2px 3px rgba(0, 0, 0, 0.5),
+      inset 0 1px 2px rgba(255, 255, 255, 0.18),
+      inset 0 0 4px rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(0, 0, 0, 0.6),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* --- Well (+ tints) --------------------------------------------------------- */
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-well {
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-well.blue {
+  background: linear-gradient(
+    to bottom,
+    rgba(30, 64, 110, 0.45),
+    rgba(20, 46, 82, 0.45)
+  );
+}
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-well.yellow {
+  background: linear-gradient(
+    to bottom,
+    rgba(110, 88, 20, 0.4),
+    rgba(80, 62, 10, 0.4)
+  );
+}
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-well.red {
+  background: linear-gradient(
+    to bottom,
+    rgba(110, 30, 30, 0.4),
+    rgba(80, 18, 18, 0.4)
+  );
+}
+
+/* --- Row (list / sidebar) --------------------------------------------------- */
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-row {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.04)
+  );
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+}
+@media (hover: hover) {
+  :root[data-os-theme="macosx"][data-os-color-scheme="dark"]
+    .aqua-row:hover:not(.aqua-row-selected) {
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.14),
+      rgba(255, 255, 255, 0.07)
+    );
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45),
+      inset 0 1px 1px rgba(255, 255, 255, 0.12),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  }
+}
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"]
+  .aqua-row:active:not(.aqua-row-selected) {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.25),
+    rgba(0, 0, 0, 0.35)
+  );
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
+/* `:focus-visible` already uses the `--os-color-selection-glow` token, which
+   dark-aqua.css redefines for dark mode — no override needed here. */
+:root[data-os-theme="macosx"][data-os-color-scheme="dark"] .aqua-row-selected {
+  background: linear-gradient(rgb(28, 76, 130), rgb(70, 117, 168));
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Aqua Glass material ----------------------------------------------------
+ * `.aqua-card` paints a near-opaque fill (0.95 alpha) in both color schemes,
+ * which buries the glass window's backdrop blur under a solid slab — the same
+ * problem aqua-glass.css already solved for `.admin-card`. Reuse that exact
+ * recipe: drop the card's own backdrop-filter (the frosted window pane behind
+ * it already supplies the blur) and thin the fill so the desktop reads
+ * through. `.aqua-well` / `.aqua-row` are left alone — they're already
+ * translucent enough (0.22–0.55 alpha) that they don't clash with glass. */
+:root[data-os-theme="macosx"][data-os-aqua-material="glass"]:not(
+    [data-os-color-scheme="dark"]
+  )
+  .aqua-card {
+  background: rgba(255, 255, 255, 0.32);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-os-theme="macosx"][data-os-aqua-material="glass"][data-os-color-scheme="dark"]
+  .aqua-card {
+  background: rgba(28, 28, 32, 0.52);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+}
