@@ -7,7 +7,11 @@ import { AppManagerState, AppState } from "@/apps/base/types";
 import { AIModel } from "@/types/aiModels";
 import { track } from "@vercel/analytics";
 import { APP_ANALYTICS } from "@/utils/analytics";
-import { getMobileFullHeight, getMobileTopInset } from "@/utils/windowUtils";
+import {
+  getMobileFullHeight,
+  getMobileTopInset,
+  constrainWindowToUsableArea,
+} from "@/utils/windowUtils";
 export type { AIModel } from "@/types/aiModels";
 
 // NOTE: display/wallpaper/shader/screensaver/debug settings live in
@@ -392,6 +396,12 @@ export const useAppStore = create<AppStoreState>()(
             }
           }
 
+          // Clamp the freshly computed geometry so the window opens fully inside
+          // the usable desktop area — below the menu bar and, crucially, above
+          // the Dock — and sized to fit the current screen (desktop + mobile).
+          const { position: finalPosition, size: finalSize } =
+            constrainWindowToUsableArea(position, size, cfg.minSize);
+
           // Check if app is lazy (most are, except Finder which is critical)
           // We can assume non-Finder apps might need loading time
           const isLazy = appId !== "finder";
@@ -406,8 +416,8 @@ export const useAppStore = create<AppStoreState>()(
               isLoading: isLazy,
               initialData,
               title,
-              position,
-              size,
+              position: finalPosition,
+              size: finalSize,
               createdAt: Date.now(),
             },
           } as typeof state.instances;
@@ -861,12 +871,21 @@ export const useAppStore = create<AppStoreState>()(
           if (!inst.position || !inst.size) {
             const cfg = getWindowConfig(inst.appId);
             const isMobile = window.innerWidth < 768;
-            if (!inst.position)
-              inst.position = { x: isMobile ? 0 : 16, y: isMobile ? 28 : 40 };
-            if (!inst.size)
-              inst.size = isMobile
+            const pos =
+              inst.position ?? { x: isMobile ? 0 : 16, y: isMobile ? 28 : 40 };
+            const sz =
+              inst.size ??
+              (isMobile
                 ? { width: window.innerWidth, height: cfg.defaultSize.height }
-                : cfg.defaultSize;
+                : cfg.defaultSize);
+            // Clamp so restored windows also open inside the usable area.
+            const constrained = constrainWindowToUsableArea(
+              pos,
+              sz,
+              cfg.minSize
+            );
+            inst.position = constrained.position;
+            inst.size = constrained.size;
           }
         });
         // Migrate old app states (pre-instance system)

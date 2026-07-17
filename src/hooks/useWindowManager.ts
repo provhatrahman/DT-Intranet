@@ -11,7 +11,11 @@ import { useSound, Sounds } from "./useSound";
 import { getWindowConfig } from "@/config/appRegistry";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useDockStore } from "@/stores/useDockStore";
-import { getMobileFullHeight, getMobileTopInset } from "@/utils/windowUtils";
+import {
+  getMobileFullHeight,
+  getMobileTopInset,
+  constrainWindowToUsableArea,
+} from "@/utils/windowUtils";
 
 interface UseWindowManagerProps {
   appId: AppId;
@@ -54,27 +58,29 @@ export const useWindowManager = ({
     const appIndex = appIds.indexOf(appId);
     const offsetIndex = appIndex >= 0 ? appIndex : 0;
 
-    return {
-      position: {
-        x: isMobile ? 0 : 16 + offsetIndex * 32,
-        y: shouldUseFullHeight
-          ? getMobileTopInset()
-          : isMobile
-          ? 28
-          : 40 + offsetIndex * 20,
-      },
-      size: shouldUseFullHeight
-        ? {
-            width: window.innerWidth,
-            height: getMobileFullHeight(),
-          }
+    const position: WindowPosition = {
+      x: isMobile ? 0 : 16 + offsetIndex * 32,
+      y: shouldUseFullHeight
+        ? getMobileTopInset()
         : isMobile
-        ? {
-            width: window.innerWidth,
-            height: config.defaultSize.height,
-          }
-        : config.defaultSize,
+        ? 28
+        : 40 + offsetIndex * 20,
     };
+    const size: WindowSize = shouldUseFullHeight
+      ? {
+          width: window.innerWidth,
+          height: getMobileFullHeight(),
+        }
+      : isMobile
+      ? {
+          width: window.innerWidth,
+          height: config.defaultSize.height,
+        }
+      : config.defaultSize;
+
+    // Clamp the fallback geometry so windows without stored position/size still
+    // open inside the usable area (never behind the dock).
+    return constrainWindowToUsableArea(position, size, config.minSize);
   };
 
   // Use instance state if available, otherwise fall back to app state
