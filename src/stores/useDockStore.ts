@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { appIds } from "@/config/appIds";
 
 // Dock item can be an app or a file/applet
 export interface DockItem {
@@ -33,6 +34,7 @@ interface DockStoreState {
   setScale: (scale: number) => void;
   setHiding: (hiding: boolean) => void;
   setMagnification: (magnification: boolean) => void;
+  setPinnedItems: (items: DockItem[]) => void; // Bulk replace (settings sync)
   reset: () => void;
 }
 
@@ -128,6 +130,34 @@ export const useDockStore = create<DockStoreState>()(
 
       setMagnification: (magnification: boolean) => {
         set({ magnification });
+      },
+
+      // Bulk-replace the pinned items (used when applying account-synced
+      // settings). Sanitizes: drops malformed entries, dedupes by app id / file
+      // path, drops unknown app ids (removed/renamed apps) while keeping
+      // protected pseudo-items, and guarantees Finder stays pinned at index 0.
+      setPinnedItems: (items: DockItem[]) => {
+        const validAppIds = new Set<string>(appIds as readonly string[]);
+        const seenApps = new Set<string>();
+        const seenPaths = new Set<string>();
+        const sanitized: DockItem[] = [];
+        for (const item of Array.isArray(items) ? items : []) {
+          if (!item || (item.type !== "app" && item.type !== "file")) continue;
+          if (item.type === "app") {
+            if (!item.id) continue;
+            if (!validAppIds.has(item.id) && !PROTECTED_DOCK_ITEMS.has(item.id)) {
+              continue; // unknown app id — skip
+            }
+            if (seenApps.has(item.id)) continue;
+            seenApps.add(item.id);
+          } else {
+            if (!item.path || seenPaths.has(item.path)) continue;
+            seenPaths.add(item.path);
+          }
+          sanitized.push(item);
+        }
+        const withoutFinder = sanitized.filter((i) => i.id !== "finder");
+        set({ pinnedItems: [{ type: "app", id: "finder" }, ...withoutFinder] });
       },
 
       reset: () => {

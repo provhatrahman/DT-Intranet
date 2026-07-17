@@ -222,6 +222,19 @@ interface ThemeState {
    * accent immediately when the current theme is using the `"wallpaper"` accent.
    */
   setWallpaperAccentColor: (hex: string | null) => void;
+  /**
+   * Bulk-apply a synced theme snapshot (from account settings sync). Writes each
+   * theme localStorage key via the existing helpers, then re-runs `hydrate()` so
+   * `<html>` attributes/CSS vars re-apply exactly as at boot — without firing the
+   * per-setter `THEME_CHANGE` analytics that live edits do.
+   */
+  applyThemeSettings: (theme: {
+    current: OsThemeId;
+    darkModeByTheme: DarkModeMap;
+    accentByTheme: AccentMap;
+    aquaMaterial: AquaMaterial;
+    systemFont: SystemFontId;
+  }) => void;
   hydrate: () => void;
 }
 
@@ -615,6 +628,21 @@ const createThemeStore = () => create<ThemeState>((set) => ({
     if (activeAccent === "wallpaper") {
       applyRootAccent(state.current, state.accentByTheme, state.isDark, normalized);
     }
+  },
+  applyThemeSettings: (theme) => {
+    // Persist each key via the same writers the setters use, so the private
+    // storage-key coupling stays inside this store, then hydrate() to re-apply.
+    try {
+      const safe = sanitizeStoredTheme(theme.current);
+      localStorage.setItem(THEME_KEY, safe);
+    } catch {
+      // ignore quota / private-mode errors
+    }
+    writeDarkModeMap(theme.darkModeByTheme ?? {});
+    writeAccentMap(theme.accentByTheme ?? {});
+    if (isAquaMaterial(theme.aquaMaterial)) writeAquaMaterial(theme.aquaMaterial);
+    if (isSystemFontId(theme.systemFont)) writeSystemFont(theme.systemFont);
+    useThemeStore.getState().hydrate();
   },
   hydrate: () => {
     const saved = localStorage.getItem(THEME_KEY);

@@ -20,6 +20,7 @@ import { Download } from "lucide-react";
 import { ScreenSaverOverlay } from "./components/screensavers/ScreenSaverOverlay";
 import { useAuthStore } from "./stores/useAuthStore";
 import { AUTH_ENABLED, AUTH_CALLBACK_PATH } from "./config/auth";
+import { useSettingsSync } from "./hooks/useSettingsSync";
 
 // Convert registry to array, filtering out hidden apps
 const apps: AnyApp[] = Object.values(appRegistry).filter(
@@ -39,6 +40,8 @@ export function App() {
   const isMobile = useIsMobile();
   // Initialize offline detection
   useOffline();
+  // Sync UI customization to the account (dormant unless AUTH_ENABLED + logged in).
+  useSettingsSync();
 
   // Determine toast position and offset based on theme and device
   const toastConfig = useMemo(() => {
