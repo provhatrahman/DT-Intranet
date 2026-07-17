@@ -45,6 +45,12 @@
 :root:not([data-os-theme="macosx"]) .control-panels-mac-body {
   flex-grow: 1;
   min-height: var(--control-panels-mac-body-fill-min-height, 0);
+  /* Safety net: scroll the body vertically when its content is taller than its
+     box so a pane's bottom is always reachable even if the auto-height window
+     can't grow to fit it. No scrollbar shows when the window fits the pane. The
+     tabbed `[data-scrollable]` rules stay more specific and still pin the tab bar
+     + scroll inside the active panel for tall tabbed panes. */
+  overflow-y: auto;
 }
 
 :root:not([data-os-theme="macosx"]) .control-panels-mac-body[data-scrollable] {

@@ -319,7 +319,7 @@ export function WallpaperPicker({ onSelect }: WallpaperPickerProps) {
   };
 
   return (
-    <div className="space-y-4 flex flex-col h-full">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <div className="flex-[3]">
           <Select
@@ -381,7 +381,7 @@ export function WallpaperPicker({ onSelect }: WallpaperPickerProps) {
         />
       )}
 
-      <div className="flex-1">
+      <div>
         <div
           className={`grid gap-2 p-1 ${
             selectedCategory === "tiles" ? "grid-cols-8" : "grid-cols-3"

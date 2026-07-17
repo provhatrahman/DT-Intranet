@@ -68,6 +68,15 @@
 :root[data-os-theme="macosx"] .control-panels-mac-body {
   flex-grow: 1;
   min-height: var(--control-panels-mac-body-fill-min-height, 0);
+  /* Safety net: the body scrolls vertically whenever its content is taller than
+     its box, so a pane's bottom is always reachable even if the auto-height
+     window can't grow to fit it (hit the max cap, ran short of viewport, or a
+     transient under-measure). When the window does fit the pane, content equals
+     the box height and no scrollbar shows. overflow-x stays hidden (Tailwind
+     `overflow-hidden` on the element) so panes never scroll sideways. The tabbed
+     `[data-scrollable]` rules below are more specific and still win, pinning the
+     tab bar and scrolling inside the active panel for tall tabbed panes. */
+  overflow-y: auto;
 }
 
 :root[data-os-theme="macosx"] .control-panels-mac-toolbar {

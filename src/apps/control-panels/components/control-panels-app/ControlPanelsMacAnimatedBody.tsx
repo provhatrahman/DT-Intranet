@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -110,6 +111,31 @@ export function ControlPanelsMacAnimatedBody({
     readNaturalHeight();
     setIsMeasuring(false);
   }, [isMeasuring, readNaturalHeight, navKey]);
+
+  // Belt-and-suspenders re-measure after navigating to a pane. The synchronous
+  // layout-effect measure above can run before the pane's layout has fully
+  // settled — theme CSS applied on the first paint, the toolbar height still
+  // resolving, the async live theme preview / wallpaper thumbnails mounting, or
+  // web fonts swapping in — any of which yields a first read that's too short and
+  // leaves the window sized below the pane so its bottom is clipped with no way to
+  // reach it. Re-read across the next couple of frames, once more shortly after,
+  // and when fonts finish loading. readNaturalHeight only ever grows within a pane
+  // (the high-water guard), so these follow-up reads can only correct an
+  // under-measure upward — they never shrink the window or oscillate.
+  useEffect(() => {
+    let cancelled = false;
+    const measure = () => {
+      if (!cancelled) readNaturalHeight();
+    };
+    const raf = requestAnimationFrame(() => requestAnimationFrame(measure));
+    const timer = setTimeout(measure, 150);
+    document.fonts?.ready?.then(measure).catch(() => {});
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, [navKey, readNaturalHeight]);
 
   const animatedHeight =
     naturalHeight === null ? undefined : Math.min(naturalHeight, maxBodyHeight);
