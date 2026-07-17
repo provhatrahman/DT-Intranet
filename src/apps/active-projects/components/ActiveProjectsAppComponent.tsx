@@ -10,8 +10,6 @@ import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { useUsersStore } from "@/stores/useUsersStore";
 import {
-  PROJECT_ROLES,
-  DEFAULT_PROJECT_ROLE,
   PROJECT_LEAD_ROLE,
   TEAM_MEMBER_ROLE,
   GIG_SIZES,
@@ -21,11 +19,10 @@ import {
 } from "../data";
 import type {
   ProjectDetail,
-  ProjectMember,
   ProjectTeamMember,
   ProjectUpdate,
+  ProjectSuggestion,
 } from "@/lib/api/projects";
-import type { ArtistDetail } from "@/lib/api/artists";
 import {
   useEffectiveGreenroomAccount,
   useIsGreenroomAdmin,
@@ -35,13 +32,11 @@ import {
   AquaCard,
   EmptyState,
   Field,
-  FormDialog,
   SidebarRow,
   StatusBadge,
   useOsTheme,
 } from "@/components/greenroom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -66,11 +61,12 @@ import {
   Music,
   Building2,
   FileText,
-  Mail,
-  Instagram,
   ListChecks,
   Plus,
   X,
+  ThumbsUp,
+  ThumbsDown,
+  Trash2,
   FolderOpen,
   ExternalLink,
   MessageSquare,
@@ -427,7 +423,7 @@ function ProjectDetailView({
   onBack: () => void;
   onMarkComplete: (projectId: number) => void;
 }) {
-  const { updateProject, updateStatus, assignTeam } = useProjectsStore();
+  const { updateProject, updateStatus } = useProjectsStore();
   // Only (frontend-designated) admins can complete/archive a project.
   // See src/config/greenroomAdmins.ts — this gates the UI only; the Greenroom
   // API is anonymous and does not enforce it server-side.
@@ -523,30 +519,6 @@ function ProjectDetailView({
     }
   };
 
-  const handleToggleMember = async (artistId: number, role: string) => {
-    const existing = project.members.find((m) => m.artist_id === artistId);
-    let nextMembers: { artist_id: number; role_in_project: string }[];
-    if (existing) {
-      nextMembers = project.members
-        .filter((m) => m.artist_id !== artistId)
-        .map((m) => ({ artist_id: m.artist_id, role_in_project: m.role_in_project }));
-    } else {
-      nextMembers = [
-        ...project.members.map((m) => ({
-          artist_id: m.artist_id,
-          role_in_project: m.role_in_project,
-        })),
-        { artist_id: artistId, role_in_project: role },
-      ];
-    }
-    try {
-      await assignTeam(project.id, nextMembers);
-      toast.success(existing ? "Removed from lineup" : "Added to lineup");
-    } catch {
-      // error surfaced via store toast
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {isMobile && (
@@ -570,8 +542,8 @@ function ProjectDetailView({
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="overview">
             Overview
           </TabsTrigger>
-          <TabsTrigger className={tabStyles.tabTriggerClasses} value="lineup">
-            Lineup ({project.members.length})
+          <TabsTrigger className={tabStyles.tabTriggerClasses} value="curation">
+            Curation
           </TabsTrigger>
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="tasks">
             Tasks ({project.tasks.length})
@@ -862,19 +834,15 @@ function ProjectDetailView({
           </ScrollArea>
         </TabsContent>
 
-        {/* Lineup */}
+        {/* Curation */}
         <TabsContent
-          value="lineup"
+          value="curation"
           className={cn(
             tabStyles.tabContentClasses,
             "flex-1 flex flex-col min-w-0 min-h-0"
           )}
         >
-          <LineupTab
-            project={project}
-            onToggleMember={handleToggleMember}
-            isMobile={isMobile}
-          />
+          <CurationTab projectId={project.id} />
         </TabsContent>
 
         {/* Tasks */}
@@ -1216,241 +1184,264 @@ function ProjectUpdatesCard({ projectId }: { projectId: number }) {
   );
 }
 
-function LineupTab({
-  project,
-  onToggleMember,
-  isMobile,
-}: {
-  project: ProjectDetail;
-  onToggleMember: (artistId: number, role: string) => void;
-  isMobile: boolean;
-}) {
-  const { artists, getArtistDetail } = useArtistsStore();
-  const { isMacTheme } = useOsTheme();
-  const [search, setSearch] = useState("");
-  const [role, setRole] = useState<string>(DEFAULT_PROJECT_ROLE);
-  const [detailArtist, setDetailArtist] = useState<ArtistDetail | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+// Suggestion links are stored as typed; add a scheme when it's missing so the
+// anchor doesn't resolve relative to the app.
+function externalUrl(link: string): string {
+  return /^https?:\/\//i.test(link) ? link : `https://${link}`;
+}
 
-  const memberIds = useMemo(
-    () => new Set(project.members.map((m) => m.artist_id)),
-    [project.members]
+// Curation: a longlist of artist names for the project. Anyone can type a name
+// (with an optional link to their work) to add it, thumbs up/down any name, or
+// remove one. Names are free text — not artists-table rows — and votes are one
+// per user per name (pressing the same thumb again clears it).
+function CurationTab({ projectId }: { projectId: number }) {
+  const { fetchSuggestions, addSuggestion, voteSuggestion, deleteSuggestion } =
+    useProjectsStore();
+  const { userId } = useEffectiveGreenroomAccount();
+  const { isMacTheme } = useOsTheme();
+  const [suggestions, setSuggestions] = useState<ProjectSuggestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [nameDraft, setNameDraft] = useState("");
+  const [linkDraft, setLinkDraft] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ProjectSuggestion | null>(
+    null
   );
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return artists;
-    return artists.filter(
-      (a) =>
-        a.artist_name.toLowerCase().includes(q) ||
-        (a.preferred_name ?? "").toLowerCase().includes(q)
-    );
-  }, [search, artists]);
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetchSuggestions(projectId)
+      .then((rows) => {
+        if (!cancelled) setSuggestions(rows);
+      })
+      .catch(() => {
+        // error surfaced via store toast
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, fetchSuggestions]);
 
-  const openDetail = async (artistId: number) => {
-    setLoadingDetail(true);
+  const handleAdd = async () => {
+    const name = nameDraft.trim();
+    if (!name || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      const detail = await getArtistDetail(artistId);
-      setDetailArtist(detail);
+      const created = await addSuggestion(
+        projectId,
+        { artist_name: name, link: linkDraft.trim() || undefined },
+        userId
+      );
+      setSuggestions((prev) => [...prev, created]);
+      setNameDraft("");
+      setLinkDraft("");
+      toast.success("Added to the longlist");
     } catch {
-      // ignore; store records the error
+      // error surfaced via store toast (e.g. name already suggested)
     } finally {
-      setLoadingDetail(false);
+      setIsSubmitting(false);
     }
+  };
+
+  const handleVote = async (
+    suggestion: ProjectSuggestion,
+    value: 1 | -1
+  ) => {
+    if (userId == null) {
+      toast.error("Link your Greenroom account to vote");
+      return;
+    }
+    const current =
+      suggestion.votes.find((v) => v.user_id === userId)?.vote_value ?? 0;
+    // Pressing the thumb you already cast clears the vote.
+    const next = current === value ? 0 : value;
+    try {
+      const updated = await voteSuggestion(
+        projectId,
+        suggestion.id,
+        userId,
+        next
+      );
+      // Replace in place — the list only re-ranks on the next load so rows
+      // don't jump around under the cursor mid-voting.
+      setSuggestions((prev) =>
+        prev.map((s) => (s.id === updated.id ? updated : s))
+      );
+    } catch {
+      // error surfaced via store toast
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDelete) return;
+    try {
+      await deleteSuggestion(projectId, pendingDelete.id);
+      setSuggestions((prev) => prev.filter((s) => s.id !== pendingDelete.id));
+      toast.success("Removed from the longlist");
+    } catch {
+      // error surfaced via store toast
+    }
+    setPendingDelete(null);
   };
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <div className="p-4 space-y-4 flex-1 min-h-0 flex flex-col @container">
-        {/* Current lineup */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">Lineup</h3>
-          </div>
-          {project.members.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-2">
-              No artists assigned yet.
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-4 p-4 pr-6 @container">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Music className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                Curation{suggestions.length > 0 ? ` (${suggestions.length})` : ""}
+              </h3>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 @lg:grid-cols-2 @4xl:grid-cols-3 gap-2">
-              {project.members.map((member: ProjectMember) => (
-                <div
-                  key={member.artist_id}
-                  className={cn(
-                    "flex items-center justify-between gap-2 p-2 rounded-md",
-                    isMacTheme ? "aqua-well" : "border"
-                  )}
-                >
-                  <button
-                    className="flex-1 min-w-0 text-left"
-                    onClick={() => openDetail(member.artist_id)}
-                  >
-                    <div className="font-medium text-sm truncate">
-                      {member.artist_name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {member.role_in_project}
-                    </div>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 shrink-0"
-                    onClick={() =>
-                      onToggleMember(member.artist_id, member.role_in_project)
-                    }
-                    title="Remove from lineup"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Add artists */}
-        <div className="space-y-2 pt-2 border-t flex-1 min-h-0 flex flex-col">
-
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs text-muted-foreground font-medium">All artists</span>
+            <p className="text-xs text-muted-foreground">
+              A longlist of artists for this project. Add a name, vote names up
+              or down — the list ranks by votes.
+            </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+
+          <div className="flex flex-col @md:flex-row gap-2">
             <Input
-              placeholder="Search artists..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Artist name"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
               className="flex-1"
             />
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger className="w-full sm:w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROJECT_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {r}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              placeholder="Link to their work (optional)"
+              value={linkDraft}
+              onChange={(e) => setLinkDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              variant="default"
+              onClick={handleAdd}
+              disabled={!nameDraft.trim() || isSubmitting}
+              className="shrink-0 min-h-[32px] touch-manipulation"
+            >
+              <span className="inline-flex items-center">
+                <Plus className="h-4 w-4 mr-1" />
+                {isSubmitting ? "Adding…" : "Add"}
+              </span>
+            </Button>
           </div>
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="space-y-2 pr-3">
-              {filtered.map((artist) => {
-                const assigned = memberIds.has(artist.id);
+
+          {isLoading ? (
+            <div className="text-xs text-muted-foreground py-2">
+              Loading longlist…
+            </div>
+          ) : suggestions.length === 0 ? (
+            <EmptyState
+              title="No names on the longlist yet"
+              hint="Add the first artist above."
+              className="py-6"
+            />
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map((suggestion) => {
+                const myVote =
+                  userId != null
+                    ? suggestion.votes.find((v) => v.user_id === userId)
+                        ?.vote_value ?? 0
+                    : 0;
                 return (
                   <div
-                    key={artist.id}
+                    key={suggestion.id}
                     className={cn(
-                      "flex items-center justify-between gap-2 p-2 rounded-md",
+                      "flex items-center gap-2 p-2 rounded-md",
                       isMacTheme ? "aqua-well" : "border"
                     )}
                   >
-                    <button
-                      className="flex-1 min-w-0 text-left"
-                      onClick={() => openDetail(artist.id)}
-                    >
-                      <div className="font-medium text-sm truncate">
-                        {artist.artist_name}
-                      </div>
-                      {artist.preferred_name &&
-                        artist.preferred_name !== artist.artist_name && (
-                          <div className="text-xs text-muted-foreground truncate">
-                            {artist.preferred_name}
-                          </div>
-                        )}
-                    </button>
-                    <Button
-                      variant={assigned ? "secondary" : "default"}
-                      size="sm"
-                      className="shrink-0 min-h-[32px] touch-manipulation"
-                      onClick={() => onToggleMember(artist.id, role)}
-                    >
-                      {assigned ? (
-                        <span>Assigned</span>
-                      ) : (
-                        <span className="inline-flex items-center">
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium text-sm truncate">
+                          {suggestion.artist_name}
                         </span>
-                      )}
+                        {suggestion.link && (
+                          <a
+                            href={externalUrl(suggestion.link)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={suggestion.link}
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {suggestion.curated_by_username
+                          ? `Suggested by ${suggestion.curated_by_username}`
+                          : "Suggested"}
+                      </div>
+                    </div>
+                    <Button
+                      variant={myVote === 1 ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2 shrink-0 touch-manipulation"
+                      onClick={() => handleVote(suggestion, 1)}
+                      title={myVote === 1 ? "Clear your vote" : "Thumbs up"}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      <span className="ml-1 text-xs tabular-nums">
+                        {suggestion.up_votes}
+                      </span>
+                    </Button>
+                    <Button
+                      variant={myVote === -1 ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2 shrink-0 touch-manipulation"
+                      onClick={() => handleVote(suggestion, -1)}
+                      title={myVote === -1 ? "Clear your vote" : "Thumbs down"}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                      <span className="ml-1 text-xs tabular-nums">
+                        {suggestion.down_votes}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 shrink-0"
+                      onClick={() => setPendingDelete(suggestion)}
+                      title="Remove from longlist"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 );
               })}
-              {filtered.length === 0 && (
-                <div className="text-sm text-muted-foreground py-4 text-center">
-                  No artists found.
-                </div>
-              )}
             </div>
-          </ScrollArea>
+          )}
         </div>
-      </div>
+      </ScrollArea>
 
-      <FormDialog
-        isOpen={detailArtist !== null}
+      <ConfirmDialog
+        isOpen={pendingDelete !== null}
         onOpenChange={(open) => {
-          if (!open) setDetailArtist(null);
+          if (!open) setPendingDelete(null);
         }}
-        title={detailArtist?.artist_name || "Artist"}
-        contentClassName={cn(!isMobile && "max-w-md")}
-      >
-        <div className="py-1">
-          {loadingDetail ? (
-            <div className="py-4 text-sm text-muted-foreground">Loading...</div>
-          ) : detailArtist ? (
-            <div className="space-y-3 text-sm">
-              {detailArtist.preferred_name && (
-                <div className="text-muted-foreground">
-                  {detailArtist.preferred_name}
-                  {detailArtist.pronouns ? ` (${detailArtist.pronouns})` : ""}
-                </div>
-              )}
-              {detailArtist.bio && <p>{detailArtist.bio}</p>}
-              {detailArtist.type_of_act && (
-                <div className="flex items-center gap-1.5">
-                  <Music className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{detailArtist.type_of_act}</span>
-                </div>
-              )}
-              {detailArtist.genres.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {detailArtist.genres.map((g) => (
-                    <Badge key={g} variant="secondary" className="text-xs">
-                      {g}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {detailArtist.locations.length > 0 && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span>
-                    {detailArtist.locations
-                      .map((l) => `${l.city}, ${l.country}`)
-                      .join(" • ")}
-                  </span>
-                </div>
-              )}
-              {detailArtist.primary_email && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5" />
-                  <span className="truncate">{detailArtist.primary_email}</span>
-                </div>
-              )}
-              {detailArtist.instagram && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Instagram className="h-3.5 w-3.5" />
-                  <span className="truncate">{detailArtist.instagram}</span>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-      </FormDialog>
+        onConfirm={handleDeleteConfirm}
+        title="Remove Suggestion"
+        description={`Remove "${pendingDelete?.artist_name ?? ""}" from the longlist? Its votes are removed too.`}
+      />
     </div>
   );
 }

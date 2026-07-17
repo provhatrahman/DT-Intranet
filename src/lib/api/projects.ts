@@ -89,6 +89,33 @@ export interface ProjectUpdate {
   created_at: string;
 }
 
+export type SuggestionVoteValue = 1 | -1 | 0;
+
+export interface SuggestionVote {
+  user_id: number;
+  username: string | null;
+  vote_value: SuggestionVoteValue;
+}
+
+// A curated artist suggestion — a free-text name (not an artists row) that any
+// user can add to a project's longlist and everyone can thumbs up/down.
+export interface ProjectSuggestion {
+  id: number;
+  artist_name: string;
+  link: string | null;
+  suggested_email: string | null;
+  suggested_phone: string | null;
+  curated_by_user_id: number | null;
+  curated_by_username: string | null;
+  notes: string | null;
+  up_votes: number;
+  down_votes: number;
+  score: number;
+  vote_count: number;
+  votes: SuggestionVote[];
+  date_created: string | null;
+}
+
 export interface ProjectDetail extends ProjectListItem {
   // `lineup` exists on detail responses but is empty on every project in the
   // live DB, so its item shape is unverified. Members is the populated list.
@@ -390,6 +417,83 @@ export async function addProjectUpdate(
   }
   const data = await response.json();
   return data.update;
+}
+
+// --- Curation: artist suggestions (longlist) + thumbs up/down votes.
+
+// Ranked by net vote score (up minus down), highest first.
+export async function getProjectSuggestions(
+  id: number
+): Promise<ProjectSuggestion[]> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/suggestions/`
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to fetch suggestions"));
+  }
+  const data = await response.json();
+  return data.suggestions ?? [];
+}
+
+// Rejected (400) if the artist name is already suggested for the project
+// (case-insensitive). As with updates, the author's user_id travels in the body.
+export async function addProjectSuggestion(
+  id: number,
+  payload: { artist_name: string; link?: string; notes?: string },
+  userId: number | null
+): Promise<ProjectSuggestion> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/suggestions/add/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...payload,
+        curated_by_user_id: userId ?? undefined,
+      }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to add suggestion"));
+  }
+  const data = await response.json();
+  return data.suggestion;
+}
+
+// One vote per user, upserted — re-voting replaces. 1 = up, -1 = down, 0 = clear.
+export async function voteProjectSuggestion(
+  id: number,
+  suggestionId: number,
+  userId: number,
+  voteValue: SuggestionVoteValue
+): Promise<ProjectSuggestion> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/suggestions/${suggestionId}/vote/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, vote_value: voteValue }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to record vote"));
+  }
+  const data = await response.json();
+  return data.suggestion;
+}
+
+export async function deleteProjectSuggestion(
+  id: number,
+  suggestionId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${id}/suggestions/${suggestionId}/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to delete suggestion"));
+  }
+  return await response.json();
 }
 
 // Blocked (400) while the project has any members, tasks, wrapups, files,

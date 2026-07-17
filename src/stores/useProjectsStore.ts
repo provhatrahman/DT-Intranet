@@ -5,6 +5,8 @@ import {
   ProjectStatus,
   ProjectWrapup,
   ProjectUpdate,
+  ProjectSuggestion,
+  SuggestionVoteValue,
   CreateProjectPayload,
   UpdateProjectPayload,
   TeamMemberPayload,
@@ -23,6 +25,10 @@ import {
   updateWrapup as apiUpdateWrapup,
   getProjectUpdates as apiGetProjectUpdates,
   addProjectUpdate as apiAddProjectUpdate,
+  getProjectSuggestions as apiGetProjectSuggestions,
+  addProjectSuggestion as apiAddProjectSuggestion,
+  voteProjectSuggestion as apiVoteProjectSuggestion,
+  deleteProjectSuggestion as apiDeleteProjectSuggestion,
 } from "@/lib/api/projects";
 
 // Statuses shown in the Archive app. "archived" is the explicit filing status
@@ -69,6 +75,21 @@ interface ProjectsState {
     body: string,
     userId: number | null
   ) => Promise<ProjectUpdate>;
+  // Curation: artist suggestions (longlist) + thumbs up/down votes. Like
+  // updates/wrapup, these return data to the caller rather than caching.
+  fetchSuggestions: (id: number) => Promise<ProjectSuggestion[]>;
+  addSuggestion: (
+    id: number,
+    payload: { artist_name: string; link?: string; notes?: string },
+    userId: number | null
+  ) => Promise<ProjectSuggestion>;
+  voteSuggestion: (
+    id: number,
+    suggestionId: number,
+    userId: number,
+    voteValue: SuggestionVoteValue
+  ) => Promise<ProjectSuggestion>;
+  deleteSuggestion: (id: number, suggestionId: number) => Promise<void>;
   clearError: () => void;
 }
 
@@ -288,6 +309,59 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to post update";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  fetchSuggestions: async (id: number) => {
+    try {
+      return await apiGetProjectSuggestions(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch suggestions";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  addSuggestion: async (
+    id: number,
+    payload: { artist_name: string; link?: string; notes?: string },
+    userId: number | null
+  ) => {
+    try {
+      return await apiAddProjectSuggestion(id, payload, userId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to add suggestion";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  voteSuggestion: async (
+    id: number,
+    suggestionId: number,
+    userId: number,
+    voteValue: SuggestionVoteValue
+  ) => {
+    try {
+      return await apiVoteProjectSuggestion(id, suggestionId, userId, voteValue);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to record vote";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  deleteSuggestion: async (id: number, suggestionId: number) => {
+    try {
+      await apiDeleteProjectSuggestion(id, suggestionId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete suggestion";
       set({ error: message });
       throw error;
     }
