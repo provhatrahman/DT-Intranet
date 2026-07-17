@@ -1,16 +1,22 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { helpItems, appMetadata } from "../index.tsx";
-import { useProjectsStore } from "@/stores/useProjectsStore";
-import { usePaymentsStore } from "@/stores/usePaymentsStore";
 import {
-  PAYMENT_STATUSES,
-  PAYMENT_STATUS_LABELS,
-} from "../data";
+  useProjectsStore,
+  type WrapupSection,
+} from "@/stores/useProjectsStore";
+import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import {
   formatProjectStatus,
   formatBudget,
@@ -21,8 +27,8 @@ import type {
   ProjectDetail,
   ProjectListItem,
   ProjectUpdate,
+  ProjectWrapup,
 } from "@/lib/api/projects";
-import type { Payment, PaymentStatus } from "@/lib/api/payments";
 import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,13 +39,6 @@ import {
   StatusBadge,
   useOsTheme,
 } from "@/components/greenroom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +58,8 @@ import {
   ListChecks,
   User,
   ExternalLink,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -362,15 +363,23 @@ function ProjectDetailView({
   isMobile: boolean;
   onBack: () => void;
 }) {
-  const { fetchWrapup, saveWrapup, archiveProject, fetchArchivedProjects } =
-    useProjectsStore();
-  const { paymentsByProject, fetchPaymentsForProject, updatePayment } =
-    usePaymentsStore();
+  const {
+    fetchWrapups,
+    addWrapupComment,
+    editWrapupComment,
+    deleteWrapupComment,
+    archiveProject,
+    fetchArchivedProjects,
+  } = useProjectsStore();
+  const { userId: currentUserId } = useEffectiveGreenroomAccount();
 
-  const [summary, setSummary] = useState("");
-  const [lessons, setLessons] = useState("");
-  const [hasExistingWrapup, setHasExistingWrapup] = useState(false);
-  const [isSavingWrapup, setIsSavingWrapup] = useState(false);
+  const [wrapups, setWrapups] = useState<ProjectWrapup[]>([]);
+  const [wentDraft, setWentDraft] = useState("");
+  const [lessonsDraft, setLessonsDraft] = useState("");
+  const [postingSection, setPostingSection] = useState<WrapupSection | null>(
+    null
+  );
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
 
   // Completed and cancelled projects can be formally filed via the backend's
@@ -391,56 +400,71 @@ function ProjectDetailView({
     }
   };
 
-  const payments = paymentsByProject[project.id] ?? [];
+  const reloadWrapups = useCallback(async () => {
+    try {
+      setWrapups(await fetchWrapups(project.id));
+    } catch {
+      // store records error
+    }
+  }, [fetchWrapups, project.id]);
 
-  // Load wrap-up and payments when the project changes.
+  // Load wrap-up comments when the project changes.
   useEffect(() => {
     let cancelled = false;
-    fetchWrapup(project.id)
-      .then((wrapup) => {
-        if (cancelled) return;
-        setSummary(wrapup?.summary ?? "");
-        setLessons(wrapup?.lessons_learned ?? "");
-        setHasExistingWrapup(wrapup !== null);
+    fetchWrapups(project.id)
+      .then((list) => {
+        if (!cancelled) setWrapups(list);
       })
       .catch(() => {
         // store records error
       });
-    fetchPaymentsForProject(project.id).catch(() => {
-      // store records error
-    });
     return () => {
       cancelled = true;
     };
-  }, [project.id, fetchWrapup, fetchPaymentsForProject]);
+  }, [project.id, fetchWrapups]);
 
-  const handleSaveWrapup = async () => {
-    setIsSavingWrapup(true);
+  // Each wrap-up row is one comment; a row belongs to a section based on which
+  // text field it populated. Legacy rows that filled both appear in both.
+  const wentComments = wrapups.filter((w) => w.summary?.trim());
+  const lessonsComments = wrapups.filter((w) => w.lessons_learned?.trim());
+
+  const handlePostComment = async (section: WrapupSection) => {
+    const text = (section === "went" ? wentDraft : lessonsDraft).trim();
+    if (!text) return;
+    setPostingSection(section);
     try {
-      await saveWrapup(
-        project.id,
-        { summary, lessons_learned: lessons },
-        hasExistingWrapup
-      );
-      setHasExistingWrapup(true);
-      toast.success("Wrap-up saved");
+      await addWrapupComment(project.id, section, text, currentUserId);
+      if (section === "went") setWentDraft("");
+      else setLessonsDraft("");
+      await reloadWrapups();
+      toast.success("Comment posted");
     } catch {
       // store records error
     } finally {
-      setIsSavingWrapup(false);
+      setPostingSection(null);
     }
   };
 
-  const handlePaymentStatusChange = async (
-    payment: Payment,
-    status: PaymentStatus
+  const handleEditComment = async (
+    wrapupId: number,
+    section: WrapupSection,
+    text: string
   ) => {
+    await editWrapupComment(project.id, wrapupId, section, text);
+    await reloadWrapups();
+    toast.success("Comment updated");
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (pendingDeleteId == null) return;
     try {
-      await updatePayment(payment.id, project.id, { status });
-      toast.success("Payment status updated");
+      await deleteWrapupComment(project.id, pendingDeleteId);
+      await reloadWrapups();
+      toast.success("Comment deleted");
     } catch {
       // store records error
     }
+    setPendingDeleteId(null);
   };
 
   return (
@@ -464,7 +488,7 @@ function ProjectDetailView({
             Summary
           </TabsTrigger>
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="payments">
-            Payments ({payments.length})
+            Payments
           </TabsTrigger>
           <TabsTrigger className={tabStyles.tabTriggerClasses} value="feedback">
             Wrap-up
@@ -501,65 +525,11 @@ function ProjectDetailView({
         >
           <ScrollArea className="flex-1">
             <div className="space-y-4 p-4 pr-6">
-              <div className="flex items-center gap-2 flex-wrap">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Payments</h3>
-              </div>
-              {payments.length === 0 ? (
-                <EmptyState
-                  icon={DollarSign}
-                  title="No payments recorded for this project"
-                  className="py-8"
-                />
-              ) : (
-                <div className="space-y-3">
-                  {payments.map((payment) => (
-                    <AquaCard key={payment.id}>
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm">
-                              {payment.artist_name}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {payment.invoice_number
-                                ? `Invoice ${payment.invoice_number}`
-                                : "No invoice number"}
-                            </div>
-                          </div>
-                          <div className="text-sm font-semibold shrink-0">
-                            {payment.currency} {payment.amount}
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                          <Select
-                            value={payment.status}
-                            onValueChange={(value: PaymentStatus) =>
-                              handlePaymentStatusChange(payment, value)
-                            }
-                          >
-                            <SelectTrigger className="flex-1 min-w-0">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PAYMENT_STATUSES.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {PAYMENT_STATUS_LABELS[status]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {payment.due_date && (
-                            <span className="text-xs text-muted-foreground">
-                              Due: {payment.due_date}
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </AquaCard>
-                  ))}
-                </div>
-              )}
+              <EmptyState
+                icon={DollarSign}
+                title="Payments coming soon"
+                className="py-12"
+              />
             </div>
           </ScrollArea>
         </TabsContent>
@@ -575,47 +545,247 @@ function ProjectDetailView({
           <ScrollArea className="flex-1">
             <div className="space-y-4 p-4 pr-6 @container">
               <h2 className="text-lg font-semibold">Wrap-up</h2>
-              {/* Side-by-side on wide panes so both areas fill the width while
-                  each stays a readable line length; stacked when narrow. */}
-              <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Summary</Label>
-                  <Textarea
-                    value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
-                    placeholder="Overall summary of how the project went..."
-                    className="min-h-[140px]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Lessons Learned</Label>
-                  <Textarea
-                    value={lessons}
-                    onChange={(e) => setLessons(e.target.value)}
-                    placeholder="What did we learn? What would we do differently?"
-                    className="min-h-[140px]"
-                  />
-                </div>
+              <p className="text-sm text-muted-foreground">
+                Anyone can leave comments. Share how the project went and any
+                lessons learned.
+              </p>
+              {/* Two independent comment threads, side by side on wide panes and
+                  stacked when narrow. */}
+              <div className="grid grid-cols-1 @3xl:grid-cols-2 gap-4 items-start">
+                <WrapupColumn
+                  title="How it went"
+                  placeholder="Share how you thought the project went..."
+                  comments={wentComments}
+                  getText={(w) => w.summary}
+                  draft={wentDraft}
+                  onDraftChange={setWentDraft}
+                  onPost={() => handlePostComment("went")}
+                  isPosting={postingSection === "went"}
+                  currentUserId={currentUserId}
+                  onEdit={(id, text) => handleEditComment(id, "went", text)}
+                  onRequestDelete={setPendingDeleteId}
+                />
+                <WrapupColumn
+                  title="Lessons learned"
+                  placeholder="What did we learn? What would we do differently?"
+                  comments={lessonsComments}
+                  getText={(w) => w.lessons_learned}
+                  draft={lessonsDraft}
+                  onDraftChange={setLessonsDraft}
+                  onPost={() => handlePostComment("lessons")}
+                  isPosting={postingSection === "lessons"}
+                  currentUserId={currentUserId}
+                  onEdit={(id, text) => handleEditComment(id, "lessons", text)}
+                  onRequestDelete={setPendingDeleteId}
+                />
               </div>
-              <Button
-                variant="default"
-                onClick={handleSaveWrapup}
-                disabled={isSavingWrapup || (!summary.trim() && !lessons.trim())}
-                className="min-h-[36px] touch-manipulation"
-              >
-                <span>
-                  {isSavingWrapup
-                    ? "Saving..."
-                    : hasExistingWrapup
-                    ? "Update Wrap-up"
-                    : "Save Wrap-up"}
-                </span>
-              </Button>
             </div>
           </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        isOpen={pendingDeleteId != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete comment"
+        description="Delete this comment? This can't be undone."
+      />
     </div>
+  );
+}
+
+// One wrap-up section: a thread of comments (newest first) plus a composer.
+function WrapupColumn({
+  title,
+  placeholder,
+  comments,
+  getText,
+  draft,
+  onDraftChange,
+  onPost,
+  isPosting,
+  currentUserId,
+  onEdit,
+  onRequestDelete,
+}: {
+  title: string;
+  placeholder: string;
+  comments: ProjectWrapup[];
+  getText: (w: ProjectWrapup) => string | null | undefined;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onPost: () => void;
+  isPosting: boolean;
+  currentUserId: number | null;
+  onEdit: (wrapupId: number, text: string) => Promise<void>;
+  onRequestDelete: (wrapupId: number) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <Label className="text-sm font-medium">{title}</Label>
+      </div>
+
+      <div className="space-y-2">
+        <Textarea
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          placeholder={placeholder}
+          className="min-h-[80px]"
+        />
+        <Button
+          variant="default"
+          size="sm"
+          onClick={onPost}
+          disabled={isPosting || !draft.trim()}
+          className="min-h-[32px] touch-manipulation"
+        >
+          <span>{isPosting ? "Posting..." : "Post"}</span>
+        </Button>
+      </div>
+
+      {comments.length === 0 ? (
+        <EmptyState
+          icon={MessageSquare}
+          title="No comments yet"
+          className="py-6"
+        />
+      ) : (
+        <div className="space-y-2">
+          {comments.map((comment) => (
+            <WrapupComment
+              key={comment.id}
+              comment={comment}
+              text={getText(comment) ?? ""}
+              // Authorship is UI-only gating (the API has no auth); only the
+              // author sees edit/delete on their own comments.
+              isOwn={
+                currentUserId != null &&
+                comment.submitted_by_user_id === currentUserId
+              }
+              onEdit={onEdit}
+              onRequestDelete={onRequestDelete}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A single comment card: read-only for others, editable/deletable for its author.
+function WrapupComment({
+  comment,
+  text,
+  isOwn,
+  onEdit,
+  onRequestDelete,
+}: {
+  comment: ProjectWrapup;
+  text: string;
+  isOwn: boolean;
+  onEdit: (wrapupId: number, text: string) => Promise<void>;
+  onRequestDelete: (wrapupId: number) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState(text);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const startEdit = () => {
+    setEditDraft(text);
+    setIsEditing(true);
+  };
+
+  const saveEdit = async () => {
+    const next = editDraft.trim();
+    if (!next || comment.id == null) return;
+    setIsSaving(true);
+    try {
+      await onEdit(comment.id, next);
+      setIsEditing(false);
+    } catch {
+      // store records error
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <AquaCard>
+      <CardContent className="p-3 space-y-1.5">
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1 min-w-0">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="truncate">{comment.submitted_by ?? "Someone"}</span>
+          </span>
+          {comment.date_created && (
+            <span className="shrink-0">
+              {new Date(comment.date_created).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              className="min-h-[80px]"
+            />
+            <div className="flex gap-1.5">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={saveEdit}
+                disabled={isSaving || !editDraft.trim()}
+                className="min-h-[32px] touch-manipulation"
+              >
+                <span>{isSaving ? "Saving..." : "Save"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+                disabled={isSaving}
+                className="min-h-[32px] touch-manipulation"
+              >
+                <span>Cancel</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
+            {isOwn && comment.id != null && (
+              <div className="flex gap-1 pt-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={startEdit}
+                  className="h-7 px-2 text-xs text-muted-foreground touch-manipulation"
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  <span>Edit</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRequestDelete(comment.id!)}
+                  className="h-7 px-2 text-xs text-muted-foreground touch-manipulation"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  <span>Delete</span>
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </AquaCard>
   );
 }
 

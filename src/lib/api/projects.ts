@@ -175,7 +175,9 @@ export interface TeamMemberPayload {
 export interface WrapupPayload {
   summary?: string;
   lessons_learned?: string;
-  submitted_by_user_id?: number;
+  // Author of the comment. Field name matches the backend create endpoint,
+  // which credits the row to this user.
+  wrapup_by_user_id?: number;
 }
 
 interface ProjectsListResponse {
@@ -577,20 +579,23 @@ export async function deleteProject(
   return await response.json();
 }
 
-export async function getProjectWrapup(
+// Wrap-up is a lightweight forum: each row is one comment, so this returns the
+// full list (newest first). A comment's text lives in `summary` (for the "how
+// it went" section) or `lessons_learned` (for the "lessons learned" section).
+export async function getProjectWrapups(
   id: number
-): Promise<ProjectWrapup | null> {
+): Promise<ProjectWrapup[]> {
   const response = await greenroomFetch(
     `${GREENROOM_API_BASE}/projects/${id}/wrapup/`
   );
   if (response.status === 404) {
-    return null;
+    return [];
   }
   if (!response.ok) {
-    throw new Error(`Failed to fetch wrapup: ${response.statusText}`);
+    throw new Error(`Failed to fetch wrapups: ${response.statusText}`);
   }
   const data = await response.json();
-  return data.wrapup ?? null;
+  return data.wrapups ?? [];
 }
 
 export async function createWrapup(
@@ -611,12 +616,14 @@ export async function createWrapup(
   return await response.json();
 }
 
+// Edit a single wrap-up comment (scoped to its row id).
 export async function updateWrapup(
-  id: number,
+  projectId: number,
+  wrapupId: number,
   payload: WrapupPayload
 ): Promise<{ message: string; wrapup_id: number }> {
   const response = await greenroomFetch(
-    `${GREENROOM_API_BASE}/projects/${id}/wrapup/update/`,
+    `${GREENROOM_API_BASE}/projects/${projectId}/wrapup/${wrapupId}/update/`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -625,6 +632,21 @@ export async function updateWrapup(
   );
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to update wrapup"));
+  }
+  return await response.json();
+}
+
+// Delete a single wrap-up comment (scoped to its row id).
+export async function deleteWrapup(
+  projectId: number,
+  wrapupId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/projects/${projectId}/wrapup/${wrapupId}/delete/`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to delete wrapup"));
   }
   return await response.json();
 }

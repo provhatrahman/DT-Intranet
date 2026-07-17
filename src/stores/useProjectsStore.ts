@@ -23,9 +23,10 @@ import {
   addProjectTeamMember as apiAddProjectTeamMember,
   removeProjectTeamMember as apiRemoveProjectTeamMember,
   archiveProject as apiArchiveProject,
-  getProjectWrapup as apiGetProjectWrapup,
+  getProjectWrapups as apiGetProjectWrapups,
   createWrapup as apiCreateWrapup,
   updateWrapup as apiUpdateWrapup,
+  deleteWrapup as apiDeleteWrapup,
   getProjectUpdates as apiGetProjectUpdates,
   addProjectUpdate as apiAddProjectUpdate,
   getProjectSuggestions as apiGetProjectSuggestions,
@@ -42,6 +43,10 @@ export const ARCHIVE_VIEW_STATUSES: ProjectStatus[] = [
   "cancelled",
   "archived",
 ];
+
+// Wrap-up is a two-section forum. A "went" comment is stored in the row's
+// `summary`; a "lessons" comment in `lessons_learned`.
+export type WrapupSection = "went" | "lessons";
 
 interface ProjectsState {
   activeProjects: ProjectListItem[];
@@ -77,12 +82,20 @@ interface ProjectsState {
   addTeamMember: (id: number, userId: number, role: string) => Promise<void>;
   removeTeamMember: (id: number, userId: number) => Promise<void>;
   archiveProject: (id: number) => Promise<void>;
-  fetchWrapup: (id: number) => Promise<ProjectWrapup | null>;
-  saveWrapup: (
+  fetchWrapups: (id: number) => Promise<ProjectWrapup[]>;
+  addWrapupComment: (
     id: number,
-    payload: WrapupPayload,
-    hasExisting: boolean
+    section: WrapupSection,
+    text: string,
+    userId: number | null
   ) => Promise<void>;
+  editWrapupComment: (
+    id: number,
+    wrapupId: number,
+    section: WrapupSection,
+    text: string
+  ) => Promise<void>;
+  deleteWrapupComment: (id: number, wrapupId: number) => Promise<void>;
   fetchUpdates: (id: number) => Promise<ProjectUpdate[]>;
   postUpdate: (
     id: number,
@@ -384,32 +397,64 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     }
   },
 
-  fetchWrapup: async (id: number) => {
+  fetchWrapups: async (id: number) => {
     try {
-      return await apiGetProjectWrapup(id);
+      return await apiGetProjectWrapups(id);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to fetch wrapup";
+        error instanceof Error ? error.message : "Failed to fetch wrap-up";
       set({ error: message });
       throw error;
     }
   },
 
-  saveWrapup: async (
+  addWrapupComment: async (
     id: number,
-    payload: WrapupPayload,
-    hasExisting: boolean
+    section: WrapupSection,
+    text: string,
+    userId: number | null
   ) => {
     try {
-      if (hasExisting) {
-        await apiUpdateWrapup(id, payload);
-      } else {
-        await apiCreateWrapup(id, payload);
+      const payload: WrapupPayload =
+        section === "went"
+          ? { summary: text }
+          : { lessons_learned: text };
+      if (userId != null) {
+        payload.wrapup_by_user_id = userId;
       }
-      await get().refreshProject(id);
+      await apiCreateWrapup(id, payload);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to save wrapup";
+        error instanceof Error ? error.message : "Failed to post comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  editWrapupComment: async (
+    id: number,
+    wrapupId: number,
+    section: WrapupSection,
+    text: string
+  ) => {
+    try {
+      const payload: WrapupPayload =
+        section === "went" ? { summary: text } : { lessons_learned: text };
+      await apiUpdateWrapup(id, wrapupId, payload);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to edit comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  deleteWrapupComment: async (id: number, wrapupId: number) => {
+    try {
+      await apiDeleteWrapup(id, wrapupId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete comment";
       set({ error: message });
       throw error;
     }
