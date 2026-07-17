@@ -5,9 +5,11 @@ Greenroom = the **frontend** (this repo, `ryos` shell + domain apps) + a separat
 **backend** (Django-on-Lambda) at `c:\Projects\backend`, both hosted in one AWS
 account (`471028617262`, region `eu-west-2`).
 
-> **Auth note:** the Greenroom API currently has **no authentication** — anyone who
-> can reach it can read/write all data. This is a known limitation to be addressed
-> later via development. Don't rely on the frontend "admin" allowlist for security.
+> **Auth note:** Google OAuth login is **built** and works in local dev (see
+> `AUTH_SETUP.md`), but is **OFF by default and not yet enforced in prod**
+> (`VITE_AUTH_ENABLED`/`REQUIRE_AUTH` both off). Until it's enabled in prod, the
+> API is still open — anyone who can reach it can read/write all data, and the
+> frontend "admin" allowlist is UI-only. Don't rely on it for security yet.
 
 ---
 
