@@ -281,6 +281,33 @@ export function ActiveProjectsAppComponent({
     setIsCompleteDialogOpen(true);
   };
 
+  // Completion is the moment lineup bookings start counting toward artist gig
+  // scores, so the confirm dialog flags anything that would make this event
+  // score wrong or invisible. Warn-only: non-event projects (Recording,
+  // Digital) legitimately have no gig size or lineup.
+  const pendingCompleteProject =
+    pendingCompleteProjectId !== null
+      ? projectDetails[pendingCompleteProjectId]
+      : undefined;
+  const completionWarnings: string[] = [];
+  if (pendingCompleteProject) {
+    if (!pendingCompleteProject.gig_size_id) {
+      completionWarnings.push(
+        "no gig size (its artists won't earn gig-score points)"
+      );
+    }
+    if (!pendingCompleteProject.event_date) {
+      completionWarnings.push(
+        'no event date ("last booked" won\'t advance for its artists)'
+      );
+    }
+    if (pendingCompleteProject.lineup.length === 0) {
+      completionWarnings.push(
+        "an empty Final Lineup (no artists will get credit for this event)"
+      );
+    }
+  }
+
   const handleCompleteConfirm = async () => {
     if (pendingCompleteProjectId === null) return;
     setIsCompleting(true);
@@ -461,7 +488,13 @@ export function ActiveProjectsAppComponent({
           description={`Are you sure you want to mark "${
             visibleProjects.find((p) => p.id === pendingCompleteProjectId)?.name ||
             "this project"
-          }" as complete? It will move to the Archive.`}
+          }" as complete? It will move to the Archive.${
+            completionWarnings.length > 0
+              ? ` Heads up — this project has ${completionWarnings.join(
+                  ", and "
+                )}. You can still complete it (fine for non-event projects), or cancel and fill those in first.`
+              : " Its lineup artists' bookings will be marked completed and start counting toward their gig scores."
+          }`}
         />
       </WindowFrame>
     </>
