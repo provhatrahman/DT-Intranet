@@ -25,6 +25,12 @@ Two environments: **dev = your local machine** (local API + the isolated `greenr
 there is **no** separately-deployed dev site) and **prod = the live system**. The flow is always
 **build & test locally → deploy to prod.**
 
+> **Single working branch: `greenroom-develop`** (in both repos). You develop *and* deploy
+> from it. The frontend deploys straight from whatever's checked out, so `.\deploy.ps1` runs
+> on `greenroom-develop`. The backend deploys via CI on push to `main`, so `main` is just a
+> release pointer — fast-forward it from `greenroom-develop` when you ship (see step 6). Keep
+> them in sync; don't accumulate side branches.
+
 1. **Branch:** `git checkout greenroom-develop && git pull` (both repos; optional `feat/<name>`).
 2. **Run the local stack** (§1B): backend `runserver 8000` + frontend with `GREENROOM_API_TARGET=http://localhost:8000`.
 3. **Make changes:** frontend `src/…`; backend `api/views/<domain>.py` + `lambdas/<domain>/urls.py`;
@@ -32,8 +38,9 @@ there is **no** separately-deployed dev site) and **prod = the live system**. Th
 4. **Test on dev:** exercise it in the browser, `curl` the local API, and gate the frontend with
    `bun run lint` + `bun run build`.
 5. **Commit:** `git add -A && git commit -m "…"`.
-6. **Deploy only what changed** (§4): frontend → `.\deploy.ps1`; backend → push to `main` → CI →
-   `update-function-code`; DB → snapshot then run the *same tested SQL* against `DT-Test`.
+6. **Deploy only what changed** (§4): frontend → `.\deploy.ps1` (from `greenroom-develop`, ships
+   auth-gated); backend → fast-forward `main` to `greenroom-develop` and push → CI → `update-function-code`;
+   DB → snapshot then run the *same tested SQL* against `DT-Test` (DDL as `admindaytimers`).
    **Apply DB changes before** the backend code that depends on them.
 
 Rollback: frontend → redeploy previous commit; backend → Lambda version `1` or previous S3 zip;
