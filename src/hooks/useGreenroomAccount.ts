@@ -14,9 +14,9 @@ interface EffectiveGreenroomAccount {
   displayName: string | undefined;
   source: "dev" | "linked" | "none";
   /**
-   * The real underlying user ID, ignoring any active "View as" override. Use
-   * this (not `userId`) to decide whether to *offer* the View-as switch, so an
-   * admin who is previewing as a non-admin doesn't lose access to the toggle.
+   * The real underlying user ID, ignoring any active (local-dev) "View as"
+   * override. Consumers that must act on the genuine signed-in identity rather
+   * than the previewed one (e.g. settings sync) use this instead of `userId`.
    */
   realUserId: number | null;
 }
@@ -96,12 +96,11 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
       };
     }
 
-    // 2) The "View as" override is available to Greenroom admins (and in dev
-    //    builds). When active it forces the *effective* identity to a fixed
-    //    admin/non-admin user, while preserving `realUserId` so the switch
-    //    stays reachable even after previewing as a non-admin.
-    const realIsAdmin = isGreenroomAdminUserId(base.realUserId);
-    if (viewAsRole != null && (isDev || realIsAdmin)) {
+    // 2) The "View as" override is a strictly local-development preview tool.
+    //    When active it forces the *effective* identity to a fixed admin/non-admin
+    //    user, while preserving `realUserId`. Gated on isDev so it can never take
+    //    effect in a built/deployed bundle.
+    if (viewAsRole != null && isDev) {
       const isAdmin = viewAsRole === "admin";
       return {
         userId: isAdmin ? VIEW_AS_ADMIN_USER_ID : VIEW_AS_NON_ADMIN_USER_ID,
@@ -131,16 +130,5 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
 export function useIsGreenroomAdmin(): boolean {
   const { userId } = useEffectiveGreenroomAccount();
   return isGreenroomAdminUserId(userId);
-}
-
-/**
- * Whether the *real* underlying account is a (frontend-designated) admin,
- * ignoring any active "View as" override. Unlike useIsGreenroomAdmin (which
- * follows the previewed identity), this stays true while an admin previews as a
- * non-admin — so it's the right gate for *offering* the View-as switch itself.
- */
-export function useIsRealGreenroomAdmin(): boolean {
-  const { realUserId } = useEffectiveGreenroomAccount();
-  return isGreenroomAdminUserId(realUserId);
 }
 

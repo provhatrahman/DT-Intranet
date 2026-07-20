@@ -8,10 +8,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import {
-  useEffectiveGreenroomAccount,
-  useIsRealGreenroomAdmin,
-} from "@/hooks/useGreenroomAccount";
+import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { useThemeFlags } from "@/hooks/useThemeFlags";
 import {
   useDevViewAsStore,
@@ -24,14 +21,14 @@ import {
  * shown here always matches who pitches/projects are attributed to. Hidden when
  * no account is linked (source: "none").
  *
- * For Greenroom admins (and in dev builds) the name is a dropdown trigger
+ * In local development only (Vite dev server) the name is a dropdown trigger
  * hosting the "View as" switch, which forces the effective Greenroom identity to
- * an admin or non-admin so role-gated UI can be previewed live. For everyone
- * else the name is a plain, non-interactive label.
+ * an admin or non-admin so role-gated UI can be previewed live. In any
+ * built/deployed bundle the switch is absent and the name is a plain,
+ * non-interactive label.
  */
 export function MenuBarAccount() {
   const { userId, displayName } = useEffectiveGreenroomAccount();
-  const isRealAdmin = useIsRealGreenroomAdmin();
   const { isWindowsTheme, isWin98 } = useThemeFlags();
   const viewAs = useDevViewAsStore((s) => s.viewAs);
   const setViewAs = useDevViewAsStore((s) => s.setViewAs);
@@ -39,9 +36,10 @@ export function MenuBarAccount() {
   if (userId == null) return null;
 
   const name = displayName || `User ${userId}`;
-  // The View-as switch is admin-gated (via the real identity, so previewing as
-  // a non-admin doesn't hide it), and always available in dev for previewing.
-  const canViewAs = import.meta.env.DEV || isRealAdmin;
+  // The View-as switch is strictly a local-development preview tool: it is only
+  // available when running the Vite dev server (import.meta.env.DEV) and can
+  // never appear in a built/deployed bundle.
+  const canViewAs = import.meta.env.DEV;
 
   const labelStyle = {
     marginRight: isWindowsTheme ? "4px" : "8px",
