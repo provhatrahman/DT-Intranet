@@ -19,6 +19,7 @@ export const appIds = [
   "incoming-offers",
   "active-projects",
   "pitch",
+  "artists",
   "archive",
   "feedback",
 ] as const;

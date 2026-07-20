@@ -198,6 +198,11 @@ const LazyPitchApp = createLazyComponent<unknown>(
   "pitch"
 );
 
+const LazyArtistsApp = createLazyComponent<unknown>(
+  () => import("@/apps/artists/components/ArtistsAppComponent").then(m => ({ default: m.ArtistsAppComponent })),
+  "artists"
+);
+
 const LazyArchiveApp = createLazyComponent<unknown>(
   () => import("@/apps/archive/components/ArchiveAppComponent").then(m => ({ default: m.ArchiveAppComponent })),
   "archive"
@@ -232,6 +237,7 @@ import { appMetadata as greenroomAdminMetadata, helpItems as greenroomAdminHelpI
 import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
 import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
 import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
+import { appMetadata as artistsMetadata, helpItems as artistsHelpItems } from "@/apps/artists";
 import { appMetadata as archiveMetadata, helpItems as archiveHelpItems } from "@/apps/archive";
 import { appMetadata as feedbackMetadata, helpItems as feedbackHelpItems } from "@/apps/feedback";
 
@@ -517,6 +523,19 @@ export const appRegistry = {
     windowConfig: {
       defaultSize: { width: 600, height: 700 },
       minSize: { width: 500, height: 600 },
+    } as WindowConstraints,
+  },
+  ["artists"]: {
+    id: "artists",
+    name: "Artists",
+    icon: { type: "image", src: artistsMetadata.icon },
+    description: "Search and manage the artist database",
+    component: LazyArtistsApp,
+    helpItems: artistsHelpItems,
+    metadata: artistsMetadata,
+    windowConfig: {
+      defaultSize: { width: 1000, height: 700 },
+      minSize: { width: 800, height: 500 },
     } as WindowConstraints,
   },
   ["archive"]: {

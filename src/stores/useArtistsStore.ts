@@ -3,34 +3,60 @@ import {
   ArtistListItem,
   ArtistDetail,
   CreateArtistPayload,
+  UpdateArtistPayload,
   getArtists as apiGetArtists,
   getArtistById as apiGetArtistById,
   findArtistByName as apiFindArtistByName,
   createArtist as apiCreateArtist,
+  updateArtist as apiUpdateArtist,
 } from "@/lib/api/artists";
+import { ArtistGigScore, getGigScores } from "@/lib/api/analytics";
 
 interface ArtistsState {
   artists: ArtistListItem[];
   artistDetails: Record<number, ArtistDetail>;
+  // Per-artist gig stats keyed by artist id. Artists with no completed
+  // bookings have no entry — treat a missing key as score 0 / never booked.
+  stats: Record<number, ArtistGigScore>;
   isLoading: boolean;
   error: string | null;
   lastFetch: number | null;
 
   fetchArtists: () => Promise<void>;
+  fetchStats: () => Promise<void>;
   getArtistDetail: (id: number) => Promise<ArtistDetail>;
   findByName: (name: string) => Promise<number | null>;
   getArtistById: (id: number) => ArtistListItem | undefined;
   // Creates the artist then refreshes the cached list; returns the new id.
   createArtist: (payload: CreateArtistPayload) => Promise<number>;
+  // Patches the artist, then refreshes both the cached detail and list row.
+  updateArtist: (id: number, payload: UpdateArtistPayload) => Promise<void>;
   clearError: () => void;
 }
 
 export const useArtistsStore = create<ArtistsState>((set, get) => ({
   artists: [],
   artistDetails: {},
+  stats: {},
   isLoading: false,
   error: null,
   lastFetch: null,
+
+  fetchStats: async () => {
+    try {
+      const scores = await getGigScores();
+      const stats: Record<number, ArtistGigScore> = {};
+      for (const score of scores) {
+        stats[score.artist_id] = score;
+      }
+      set({ stats });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch artist stats";
+      set({ error: message });
+      throw error;
+    }
+  },
 
   fetchArtists: async () => {
     set({ isLoading: true, error: null });
@@ -88,6 +114,22 @@ export const useArtistsStore = create<ArtistsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create artist";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  updateArtist: async (id: number, payload: UpdateArtistPayload) => {
+    try {
+      await apiUpdateArtist(id, payload);
+      const detail = await apiGetArtistById(id);
+      set((state) => ({
+        artistDetails: { ...state.artistDetails, [id]: detail },
+      }));
+      await get().fetchArtists();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update artist";
       set({ error: message });
       throw error;
     }

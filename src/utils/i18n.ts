@@ -224,6 +224,7 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
     pitch: ["pitchProject", "formFields", "submission"],
     "incoming-offers": [],
     "active-projects": [],
+    artists: [],
     archive: [],
     "greenroom-admin": [],
     feedback: [],

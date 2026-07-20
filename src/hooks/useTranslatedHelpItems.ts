@@ -32,6 +32,7 @@ export function useTranslatedHelpItems(
     pitch: ["pitchProject", "formFields", "submission"],
     "incoming-offers": [],
     "active-projects": [],
+    artists: [],
     archive: [],
     "greenroom-admin": [],
     feedback: [],

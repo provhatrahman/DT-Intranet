@@ -168,6 +168,33 @@ export async function createArtist(
   return await response.json();
 }
 
+// The update endpoint only patches the artist's own columns — it has no
+// genres/locations handling (those are create-only today). null clears a
+// nullable field; omitted keys are left unchanged.
+export type UpdateArtistPayload = Partial<{
+  [K in keyof Omit<
+    CreateArtistPayload,
+    "genres" | "locations" | "system_user_id"
+  >]: CreateArtistPayload[K] | null;
+}> & { updated_by_user_id?: number };
+
+export async function updateArtist(
+  id: number,
+  payload: UpdateArtistPayload
+): Promise<void> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/artists/${id}/update/`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to update artist"));
+  }
+}
+
 export interface GenreOption {
   id: number;
   name: string;

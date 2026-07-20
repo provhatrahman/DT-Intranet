@@ -4,6 +4,7 @@
 // src/styles/themes.css; every component falls back to the flat shadcn look
 // under the system7/xp/win98 themes.
 export { AquaCard } from "./AquaCard";
+export { ArtistFacts } from "./ArtistFacts";
 export { StatusBadge, type BadgeTone } from "./StatusBadge";
 export { AppToolbar } from "./AppToolbar";
 export { InfoTile } from "./InfoTile";
