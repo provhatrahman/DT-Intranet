@@ -443,6 +443,7 @@ interface IpodScreenProps {
   handlePlay: () => void;
   handlePause: () => void;
   handleReady: () => void;
+  handlePlayerError: (error: unknown) => void;
   loopCurrent: boolean;
   statusMessage: string | null;
   onToggleVideo: () => void;
@@ -483,6 +484,7 @@ export function IpodScreen({
   handlePlay,
   handlePause,
   handleReady,
+  handlePlayerError,
   loopCurrent,
   statusMessage,
   onToggleVideo,
@@ -728,6 +730,7 @@ export function IpodScreen({
               onPlay={!isFullScreen ? handlePlay : undefined}
               onPause={!isFullScreen ? handlePause : undefined}
               onReady={!isFullScreen ? handleReady : undefined}
+              onError={!isFullScreen ? handlePlayerError : undefined}
               loop={loopCurrent}
               volume={finalIpodVolume}
               playsinline={true}
@@ -798,6 +801,8 @@ export function IpodScreen({
               chineseVariant={chineseVariant}
               koreanDisplay={koreanDisplay}
               isTranslating={lyricsControls.isTranslating}
+              matchedTitle={lyricsControls.matchedTitle}
+              matchedArtist={lyricsControls.matchedArtist}
               onAdjustOffset={(deltaMs) => {
                 adjustLyricOffset(deltaMs);
                 const newOffset = lyricOffset + deltaMs;

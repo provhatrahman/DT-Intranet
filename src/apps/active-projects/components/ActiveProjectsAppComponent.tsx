@@ -19,6 +19,7 @@ import {
 import type {
   ProjectDetail,
   ProjectLineupEntry,
+  ProjectStatus,
   ProjectTeamMember,
   ProjectUpdate,
   ProjectSuggestion,
@@ -104,6 +105,32 @@ function extractDriveFolderId(input: string): string {
   return value;
 }
 
+// The statuses the status Select below can produce. "archived" isn't offered
+// here — that's only reachable via the Archive app's "File to Archive" action
+// — so this also doubles as the narrowing list for the Select's string value.
+const SELECTABLE_STATUSES: readonly ProjectStatus[] = [
+  "active",
+  "on_hold",
+  "cancelled",
+  "completed",
+];
+
+function isSelectableStatus(value: string): value is ProjectStatus {
+  return (SELECTABLE_STATUSES as readonly string[]).includes(value);
+}
+
+// Strips common currency formatting (commas, £/$/€, surrounding whitespace) so
+// a pasted "£5,000" still validates; anything left that isn't a plain decimal
+// number is rejected rather than sent to the backend's DecimalField, which
+// 500s on non-numeric input. Returns "" for an empty (cleared) field — a
+// valid, sendable value — and null when the input can't be parsed as a number.
+function normalizeBudgetInput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const stripped = trimmed.replace(/[£$€,\s]/g, "");
+  return /^\d+(\.\d+)?$/.test(stripped) ? stripped : null;
+}
+
 // Titled section panel for the Overview tab: a glossy Aqua card (plain shadcn
 // Card on other themes) with an icon + heading row. Declares itself a
 // container so inner grids respond to the card's own width — this keeps
@@ -146,6 +173,9 @@ export function ActiveProjectsAppComponent({
   const [pendingCompleteProjectId, setPendingCompleteProjectId] = useState<
     number | null
   >(null);
+  // Disables the ConfirmDialog's Confirm button while the completion request
+  // is in flight, so a double-click can't fire it twice.
+  const [isCompleting, setIsCompleting] = useState(false);
   // Viewport-width based (not touch): a touch-enabled desktop keeps the
   // two-pane master-detail layout instead of collapsing to a single pane.
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -253,6 +283,7 @@ export function ActiveProjectsAppComponent({
 
   const handleCompleteConfirm = async () => {
     if (pendingCompleteProjectId === null) return;
+    setIsCompleting(true);
     try {
       // update-status only takes the status; the end date is a normal field.
       const project = projectDetails[pendingCompleteProjectId];
@@ -269,6 +300,7 @@ export function ActiveProjectsAppComponent({
     } catch {
       // error surfaced via store toast
     } finally {
+      setIsCompleting(false);
       setIsCompleteDialogOpen(false);
       setPendingCompleteProjectId(null);
     }
@@ -424,6 +456,7 @@ export function ActiveProjectsAppComponent({
             }
           }}
           onConfirm={handleCompleteConfirm}
+          confirmDisabled={isCompleting}
           title="Mark Project as Complete"
           description={`Are you sure you want to mark "${
             visibleProjects.find((p) => p.id === pendingCompleteProjectId)?.name ||
@@ -450,8 +483,9 @@ function ProjectDetailView({
 }) {
   const { updateProject, updateStatus } = useProjectsStore();
   // Only (frontend-designated) admins can complete/archive a project.
-  // See src/config/greenroomAdmins.ts — this gates the UI only; the Greenroom
-  // API is anonymous and does not enforce it server-side.
+  // See src/config/greenroomAdmins.ts. The completed transition is now gated
+  // server-side too (backend allowlist/is_admin enforcement); other status
+  // transitions remain open.
   const isAdmin = useIsGreenroomAdmin();
 
   const projectToForm = (p: ProjectDetail) => ({
@@ -474,6 +508,10 @@ function ProjectDetailView({
 
   const [form, setForm] = useState(() => projectToForm(project));
   const [isSaving, setIsSaving] = useState(false);
+  // Set by the auto-save below when the Budget field can't be parsed as a
+  // plain number; that save skips sending `budget` entirely rather than
+  // letting a value like "5,000" or "£5000" 500 the backend's DecimalField.
+  const [budgetError, setBudgetError] = useState<string | null>(null);
   // Snapshot of the values last persisted to the backend. The debounced
   // auto-save compares against this so it only fires on genuine edits (and not,
   // e.g., when the form is reset on a project switch).
@@ -495,6 +533,12 @@ function ProjectDetailView({
     if (JSON.stringify(form) === JSON.stringify(savedRef.current)) return;
     const timer = setTimeout(async () => {
       const snapshot = form;
+      const normalizedBudget = normalizeBudgetInput(snapshot.budget);
+      setBudgetError(
+        normalizedBudget === null
+          ? "Budget must be a plain number, e.g. 5000 or 5000.00"
+          : null
+      );
       setIsSaving(true);
       try {
         await updateProject(project.id, {
@@ -503,7 +547,9 @@ function ProjectDetailView({
           project_type: snapshot.project_type || undefined,
           start_date: snapshot.start_date || undefined,
           end_date: snapshot.end_date || undefined,
-          budget: snapshot.budget || undefined,
+          // Skip sending budget entirely when it can't be parsed, rather than
+          // forwarding free text to the backend's DecimalField.
+          budget: normalizedBudget ? normalizedBudget : undefined,
           event_date: snapshot.event_date || undefined,
           event_type: snapshot.event_type || undefined,
           venue_name: snapshot.venue_name || undefined,
@@ -530,14 +576,17 @@ function ProjectDetailView({
   // Drives the Saved / Unsaved changes / Saving… indicator in the header.
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedRef.current);
 
-  const handleStatusChange = async (status: string) => {
-    if (status === project.status) return;
+  const handleStatusChange = async (value: string) => {
+    // The Select only ever offers SELECTABLE_STATUSES, but its onValueChange
+    // hands back a plain string — narrow it before it reaches a
+    // ProjectStatus-typed call.
+    if (!isSelectableStatus(value) || value === project.status) return;
     try {
-      await updateStatus(project.id, status);
+      await updateStatus(project.id, value);
       toast.success(
-        status === "active"
+        value === "active"
           ? "Project set active"
-          : `Project ${formatProjectStatus(status).toLowerCase()}`
+          : `Project ${formatProjectStatus(value).toLowerCase()}`
       );
     } catch {
       // error surfaced via store toast
@@ -733,6 +782,11 @@ function ProjectDetailView({
                       placeholder="e.g., 5000"
                       inputMode="decimal"
                     />
+                    {budgetError && (
+                      <p className="text-red-600 text-xs mt-1">
+                        {budgetError}
+                      </p>
+                    )}
                   </Field>
                 </div>
               </SectionCard>

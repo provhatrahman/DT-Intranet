@@ -39,6 +39,9 @@ export interface BookingListItem {
   // vote endpoints are live; treated as 0 when absent.
   total_votes?: number;
   yes_votes?: number;
+  // Server-recorded creator, used to gate delete server-side (owner-or-admin).
+  // null/undefined on legacy rows created before this field existed.
+  created_by_user_id?: number | null;
 }
 
 // One vote per user on a booking, mirroring PitchVote exactly.

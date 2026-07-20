@@ -20,6 +20,9 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   title: string;
   description: string;
+  // Disable the Confirm button while the confirmed action is in flight, so a
+  // double-click can't fire the (often destructive) action twice.
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -28,6 +31,7 @@ export function ConfirmDialog({
   onConfirm,
   title,
   description,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
@@ -92,6 +96,7 @@ export function ConfirmDialog({
         <Button
           variant={isMacTheme ? "default" : "retro"}
           onClick={onConfirm}
+          disabled={confirmDisabled}
           ref={confirmButtonRef}
           className={cn(
             !isMacTheme && "h-7",

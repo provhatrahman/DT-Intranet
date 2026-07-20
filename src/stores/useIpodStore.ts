@@ -468,8 +468,22 @@ export const useIpodStore = create<IpodState>()(
           await musicApi.removeTrack(id);
         } catch (error) {
           console.error("Failed to remove track from shared library:", error);
-          // Roll back the optimistic removal.
-          set({ tracks: snapshotTracks, currentIndex: snapshotIndex });
+          // Re-sync with the server instead of blindly restoring the
+          // pre-optimistic snapshot: if a periodic syncLibrary() landed while
+          // the delete was in flight, `snapshotTracks` is stale and would
+          // clobber it. fetchSharedLibrary() treats the server as the source
+          // of truth and will naturally re-add this track (the delete never
+          // took effect server-side).
+          try {
+            await get().fetchSharedLibrary();
+          } catch (syncError) {
+            console.error(
+              "Failed to re-sync library after failed removal:",
+              syncError
+            );
+            // Server unreachable — fall back to the pre-optimistic snapshot.
+            set({ tracks: snapshotTracks, currentIndex: snapshotIndex });
+          }
           throw error;
         }
       },
@@ -822,7 +836,8 @@ export const useIpodStore = create<IpodState>()(
               url.hostname === "os.ryo.lu" &&
               url.pathname.startsWith("/ipod/")
             ) {
-              return url.pathname.split("/")[2] || null;
+              const segment = url.pathname.split("/")[2] || "";
+              return /^[a-zA-Z0-9_-]{11}$/.test(segment) ? segment : null;
             }
 
             // Handle YouTube URLs

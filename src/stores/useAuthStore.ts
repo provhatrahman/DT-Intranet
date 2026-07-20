@@ -132,7 +132,11 @@ export const useAuthStore = create<AuthState>()(
             }),
           });
           if (res.status === 403) {
-            set({ status: "error", error: "not_allowlisted", user: null });
+            // 403 carries a specific code (not_allowlisted vs account_disabled)
+            // in the body — surface it so the login screen shows the right copy.
+            const code =
+              (await res.json().catch(() => null))?.error || "not_allowlisted";
+            set({ status: "error", error: code, user: null });
             return;
           }
           if (!res.ok) {
@@ -178,7 +182,11 @@ export const useAuthStore = create<AuthState>()(
             },
           });
           if (res.status === 403) {
-            set({ status: "error", error: "not_allowlisted", user: null });
+            // 403 carries a specific code (not_allowlisted vs account_disabled)
+            // in the body — surface it so the login screen shows the right copy.
+            const code =
+              (await res.json().catch(() => null))?.error || "not_allowlisted";
+            set({ status: "error", error: code, user: null });
             return;
           }
           if (!res.ok) {

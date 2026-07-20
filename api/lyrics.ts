@@ -178,6 +178,28 @@ function scoreSongMatch(
   return combinedScore;
 }
 
+/**
+ * Minimum combined score (see `scoreSongMatch`) required to accept a Kugou
+ * search result as "the" match for a requested (title, artist) pair.
+ *
+ * Score math recap: `calculateSimilarity` maxes out at 0.8 for pure word-overlap
+ * (no exact/substring match), and `scoreSongMatch` blends title*0.55 + artist*0.45
+ * (plus a +0.1 bonus when both sides are strong matches). Worked examples:
+ *   - Only 1 of 4 title words overlaps, artist completely unrelated:
+ *     titleScore = (1/4)*0.8 = 0.2, artistScore = 0 -> combined ~= 0.11
+ *   - Half the title words overlap, artist completely unrelated:
+ *     titleScore = (2/4)*0.8 = 0.4, artistScore = 0 -> combined ~= 0.22
+ *   - Exact title match but artist totally different (classic "cover" case):
+ *     titleScore = 1.0, artistScore = 0 -> combined = 0.55
+ * We want to reject the first two ("clearly wrong" — barely any title overlap
+ * and no artist corroboration at all) while keeping the third and anything
+ * stronger, since that's a genuine ambiguous case best surfaced to the user
+ * rather than silently discarded. 0.25 sits just above the "half title words,
+ * zero artist support" case and comfortably below any match with real
+ * title *or* artist corroboration.
+ */
+const MIN_MATCH_SCORE = 0.25;
+
 // ------------------------------------------------------------------
 // Redis cache helpers
 // ------------------------------------------------------------------
@@ -383,8 +405,40 @@ export default async function handler(req: Request) {
       })),
     });
 
-    // Iterate through sorted results until we successfully fetch lyrics
-    for (const { song } of scoredResults) {
+    // Drop any candidate whose score doesn't clear our confidence bar so we
+    // never fall back to (and cache) a clearly-wrong match just because it
+    // happened to be technically fetchable.
+    const confidentResults = scoredResults.filter(
+      (r) => r.score >= MIN_MATCH_SCORE
+    );
+
+    if (confidentResults.length === 0) {
+      logInfo(requestId, "Best match score below confidence threshold", {
+        bestScore: scoredResults[0]?.score.toFixed(3),
+        threshold: MIN_MATCH_SCORE,
+        topCandidate: scoredResults[0]
+          ? {
+              title: scoredResults[0].song.songname,
+              artist: scoredResults[0].song.singername,
+            }
+          : null,
+      });
+      // Intentionally not cached: this is a rejected weak match, not a
+      // confirmed miss, so we don't want to make it sticky for 30 days.
+      return new Response(
+        JSON.stringify({ error: "No confident lyrics match found" }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": getEffectiveOrigin(req)!,
+          },
+        }
+      );
+    }
+
+    // Iterate through sorted (confident) results until we successfully fetch lyrics
+    for (const { song } of confidentResults) {
       const songHash: string = song.hash;
       const albumId = song.album_id;
 

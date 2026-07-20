@@ -12,6 +12,7 @@ import {
 import { Field, FormDialog, useOsTheme } from "@/components/greenroom";
 import type { UpdateProjectPayload } from "@/lib/api/projects";
 import { GIG_SIZES, PROJECT_TYPES } from "../../active-projects/data";
+import { isValidDecimalAmount } from "../data";
 
 export interface ProjectDetailsFormValues {
   name: string;
@@ -99,6 +100,10 @@ export function ProjectDetailsFormDialog({
     value: ProjectDetailsFormValues[K]
   ) => setValues((prev) => ({ ...prev, [key]: value }));
 
+  const budgetError = isValidDecimalAmount(values.budget)
+    ? null
+    : "Enter a plain number (e.g. 5000 or 5000.50), or leave it blank";
+
   return (
     <FormDialog
       isOpen={isOpen}
@@ -120,7 +125,7 @@ export function ProjectDetailsFormDialog({
           <Button
             variant={isMacTheme ? "default" : "retro"}
             onClick={() => onSave(values)}
-            disabled={isSaving}
+            disabled={isSaving || !!budgetError}
             className="w-full sm:w-auto min-h-[36px]"
           >
             <span>{isSaving ? "Saving..." : "Save Details"}</span>
@@ -169,7 +174,11 @@ export function ProjectDetailsFormDialog({
                   onChange={(e) => set("budget", e.target.value)}
                   placeholder="e.g. 5000"
                   inputMode="decimal"
+                  aria-invalid={!!budgetError}
                 />
+                {budgetError && (
+                  <p className="text-xs text-destructive">{budgetError}</p>
+                )}
               </Field>
               <Field label="Event Date">
                 <Input

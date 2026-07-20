@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field, FormDialog, useOsTheme } from "@/components/greenroom";
+import { isValidDecimalAmount } from "../data";
 
 export interface LogOfferFormValues {
   name: string;
@@ -67,7 +68,11 @@ export function LogOfferDialog({
     value: LogOfferFormValues[K]
   ) => setValues((prev) => ({ ...prev, [key]: value }));
 
-  const canSubmit = values.name.trim() !== "";
+  const feeError = isValidDecimalAmount(values.agreed_fee)
+    ? null
+    : "Enter a plain number (e.g. 1500 or 1500.50), or leave it blank";
+
+  const canSubmit = values.name.trim() !== "" && !feeError;
 
   return (
     <FormDialog
@@ -127,7 +132,11 @@ export function LogOfferDialog({
                   onChange={(e) => set("agreed_fee", e.target.value)}
                   placeholder="e.g. 1500"
                   inputMode="decimal"
+                  aria-invalid={!!feeError}
                 />
+                {feeError && (
+                  <p className="text-xs text-destructive">{feeError}</p>
+                )}
               </Field>
               <Field label="Time" className="sm:col-span-2">
                 <Input

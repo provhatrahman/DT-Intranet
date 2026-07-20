@@ -1211,6 +1211,9 @@ export function IpodAppComponent({
   const lastTrackedSongRef = useRef<{ trackId: string; elapsedTime: number } | null>(null);
   const skipOperationRef = useRef(false);
   const userHasInteractedRef = useRef(false);
+  // Counts consecutive player errors (across tracks) so a library where every
+  // track fails to load doesn't auto-skip forever; resets on a successful play.
+  const consecutivePlayerErrorsRef = useRef(0);
 
   // Auto-update checker for library changes
   const { manualSync } = useLibraryUpdateChecker(
@@ -1954,6 +1957,9 @@ export function IpodAppComponent({
   const handlePlay = useCallback(() => {
     // Always sync playing state when ReactPlayer reports a play event.
     setIsPlaying(true);
+    // Playback succeeded — clear the consecutive-error streak used to guard
+    // against infinite auto-skip loops in handlePlayerError.
+    consecutivePlayerErrorsRef.current = 0;
     if (!skipOperationRef.current) {
       showStatus("▶");
     }
@@ -1997,6 +2003,33 @@ export function IpodAppComponent({
     // if (isPlaying) {
     // }
   }, []);
+
+  const handlePlayerError = useCallback(
+    (error: unknown) => {
+      console.error("[iPod] ReactPlayer error:", error);
+      const failedTrack = tracks[currentIndex];
+      toast.error("Video failed to load", {
+        description: failedTrack?.title,
+      });
+
+      if (tracks.length <= 1) {
+        // Nothing else in the library to skip to.
+        return;
+      }
+
+      consecutivePlayerErrorsRef.current += 1;
+      if (consecutivePlayerErrorsRef.current >= tracks.length) {
+        // We've cycled through the whole library without a single
+        // successful play — stop auto-skipping so we don't loop forever.
+        consecutivePlayerErrorsRef.current = 0;
+        setIsPlaying(false);
+        return;
+      }
+
+      nextTrack();
+    },
+    [tracks, currentIndex, nextTrack, setIsPlaying]
+  );
 
   // Add a watchdog effect to revert play state if playback never starts
   // (e.g., blocked by Mobile Safari's autoplay restrictions).
@@ -2666,6 +2699,7 @@ export function IpodAppComponent({
               handlePlay={handlePlay}
               handlePause={handlePause}
               handleReady={handleReady}
+              handlePlayerError={handlePlayerError}
               loopCurrent={loopCurrent}
               statusMessage={statusMessage}
               onToggleVideo={toggleVideo}
@@ -2780,6 +2814,7 @@ export function IpodAppComponent({
                             onPlay={handlePlay}
                             onPause={handlePause}
                             onReady={handleReady}
+                            onError={handlePlayerError}
                             config={{
                               youtube: {
                                 playerVars: {
@@ -2859,6 +2894,8 @@ export function IpodAppComponent({
                               isTranslating={
                                 fullScreenLyricsControls.isTranslating
                               }
+                              matchedTitle={fullScreenLyricsControls.matchedTitle}
+                              matchedArtist={fullScreenLyricsControls.matchedArtist}
                               textSizeClass="text-[min(10vw,10vh)]"
                               gapClass="gap-0"
                               containerStyle={{

@@ -10,8 +10,7 @@ export type ProjectStatus =
   | "completed"
   | "on_hold"
   | "cancelled"
-  | "archived"
-  | string;
+  | "archived";
 
 export interface ProjectListItem {
   id: number;
@@ -209,7 +208,10 @@ async function parseError(response: Response, fallback: string): Promise<string>
 
 // IMPORTANT (verified live): the unfiltered list returns ONLY active projects.
 // Non-active projects (completed/cancelled/on_hold/archived) are only reachable
-// via an explicit `?status=` — there is no way to fetch all statuses at once.
+// via an explicit `?status=`. The backend's list_projects also supports
+// `?status=all` to fetch every status in one call; callers here still fetch
+// per-status and merge (see fetchActiveProjects/fetchArchivedProjects) so each
+// view only pulls the statuses it actually shows.
 export async function getProjects(
   status?: string
 ): Promise<ProjectListItem[]> {

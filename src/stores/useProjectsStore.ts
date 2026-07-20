@@ -52,6 +52,36 @@ export const ARCHIVE_VIEW_STATUSES: ProjectStatus[] = [
 // ActiveProjectsAppComponent.)
 export const ACTIVE_VIEW_STATUSES: ProjectStatus[] = ["active", "on_hold"];
 
+// Upserts a project into the archived list, preserving fetchArchivedProjects'
+// sort (by end_date, falling back to start_date, newest first) instead of
+// requiring a full refetch just to keep the two lists consistent after a
+// status change.
+function upsertArchived(
+  list: ProjectListItem[],
+  project: ProjectListItem
+): ProjectListItem[] {
+  const withoutExisting = list.filter((p) => p.id !== project.id);
+  return [...withoutExisting, project].sort((a, b) =>
+    (b.end_date ?? b.start_date ?? "").localeCompare(
+      a.end_date ?? a.start_date ?? ""
+    )
+  );
+}
+
+// Upserts a project into the active list. That list has no defined sort
+// (fetchActiveProjects just concatenates active then on_hold), so an upsert
+// only needs to update in place or append.
+function upsertActive(
+  list: ProjectListItem[],
+  project: ProjectListItem
+): ProjectListItem[] {
+  const existingIndex = list.findIndex((p) => p.id === project.id);
+  if (existingIndex === -1) return [...list, project];
+  const next = [...list];
+  next[existingIndex] = project;
+  return next;
+}
+
 // Wrap-up is a two-section forum. A "went" comment is stored in the row's
 // `summary`; a "lessons" comment in `lessons_learned`.
 export type WrapupSection = "went" | "lessons";
@@ -228,17 +258,33 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   updateStatus: async (id: number, status: ProjectStatus) => {
     try {
       await apiUpdateProjectStatus(id, status);
-      await get().refreshProject(id);
-      // The Active Projects view shows active + on_hold. Staying within those
-      // statuses keeps the project in the list (with its badge updated);
-      // moving to a terminal/archive status drops it out.
-      set((state) => ({
-        activeProjects: ACTIVE_VIEW_STATUSES.includes(status)
-          ? state.activeProjects.map((p) =>
-              p.id === id ? { ...p, status } : p
-            )
-          : state.activeProjects.filter((p) => p.id !== id),
-      }));
+      const detail = await get().refreshProject(id);
+      // Keep both lists consistent with the new status: moving to an
+      // archive-view status pulls the project out of Active Projects and
+      // upserts it into Archive (inserted if it wasn't already filed there,
+      // updated in place if it was); moving to an active-view status does
+      // the reverse. Upserting rather than refetching keeps this instant.
+      set((state) => {
+        if (ARCHIVE_VIEW_STATUSES.includes(status)) {
+          return {
+            activeProjects: state.activeProjects.filter((p) => p.id !== id),
+            archivedProjects: upsertArchived(state.archivedProjects, detail),
+          };
+        }
+        if (ACTIVE_VIEW_STATUSES.includes(status)) {
+          return {
+            archivedProjects: state.archivedProjects.filter(
+              (p) => p.id !== id
+            ),
+            activeProjects: upsertActive(state.activeProjects, detail),
+          };
+        }
+        // Not a status either view shows (shouldn't happen given the known
+        // ProjectStatus values) — fall back to just dropping it from active.
+        return {
+          activeProjects: state.activeProjects.filter((p) => p.id !== id),
+        };
+      });
     } catch (error) {
       const message =
         error instanceof Error
@@ -399,12 +445,14 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   archiveProject: async (id: number) => {
     try {
       await apiArchiveProject(id);
-      await get().refreshProject(id);
+      const detail = await get().refreshProject(id);
+      // The old `.map()` here was a no-op unless the project was already in
+      // archivedProjects. Upsert instead: pull it out of activeProjects (if
+      // present) and insert/update it in archivedProjects — detail already
+      // reflects the "archived" status the archive endpoint just set.
       set((state) => ({
         activeProjects: state.activeProjects.filter((p) => p.id !== id),
-        archivedProjects: state.archivedProjects.map((p) =>
-          p.id === id ? { ...p, status: "archived" } : p
-        ),
+        archivedProjects: upsertArchived(state.archivedProjects, detail),
       }));
     } catch (error) {
       const message =

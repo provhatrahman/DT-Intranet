@@ -28,6 +28,9 @@ export interface Offer {
   bookingId?: number;
   projectId?: number;
   artistName?: string;
+  // Server-recorded creator of the booking (owner-or-admin delete gate).
+  // null/undefined for legacy bookings created before the backend tracked this.
+  createdByUserId?: number | null;
 }
 
 // Rollup of the real vote values on a pitch.
@@ -41,3 +44,16 @@ export interface PitchVoteCounts {
 }
 
 export type PitchVoteChoice = "yes" | "no" | "abstain";
+
+// Fee/Budget fields are free text that lands directly in a backend
+// DecimalField. Free text like "TBD" or "£500 + travel" 500s the API (and, in
+// the Log Offer flow, does so *after* the stand-in project has already been
+// created, orphaning it). Validate client-side before submit: empty stays
+// allowed (the backend treats it as unset); anything else must reduce to a
+// plain decimal once currency symbols/commas/whitespace are stripped.
+export function isValidDecimalAmount(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const normalized = trimmed.replace(/[£$€,\s]/g, "");
+  return /^\d+(\.\d+)?$/.test(normalized);
+}

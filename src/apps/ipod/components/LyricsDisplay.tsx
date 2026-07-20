@@ -41,6 +41,10 @@ interface LyricsDisplayProps {
   fontClassName?: string;
   /** Optional inline styles for the outer container (e.g., dynamic gap) */
   containerStyle?: CSSProperties;
+  /** Title of the song the lyrics actually matched, if it differs from what was requested */
+  matchedTitle?: string;
+  /** Artist of the song the lyrics actually matched, if it differs from what was requested */
+  matchedArtist?: string;
 }
 
 const ANIMATION_CONFIG = {
@@ -176,6 +180,8 @@ export function LyricsDisplay({
   gapClass = "gap-2",
   fontClassName = "font-geneva-12",
   containerStyle,
+  matchedTitle,
+  matchedArtist,
 }: LyricsDisplayProps) {
   const chineseConverter = useMemo(
     () => Converter({ from: "cn", to: "tw" }),
@@ -395,6 +401,14 @@ export function LyricsDisplay({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
     >
+      {(matchedTitle || matchedArtist) && (
+        <div className="absolute top-1 inset-x-0 flex justify-center pointer-events-none px-2">
+          <span className="text-white/50 text-[9px] font-geneva-12 truncate max-w-full">
+            Matched: {matchedTitle ?? "—"}
+            {matchedArtist ? ` — ${matchedArtist}` : ""}
+          </span>
+        </div>
+      )}
       <AnimatePresence mode="popLayout">
         {visibleLines.map((line, index) => {
           const isCurrent = line === lines[currentLine];

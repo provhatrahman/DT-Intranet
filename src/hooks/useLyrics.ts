@@ -25,6 +25,24 @@ interface LyricsState {
   isTranslating: boolean; // True when translating lyrics
   error?: string;
   updateCurrentTimeManually: (newTimeInSeconds: number) => void; // Added function to manually update time
+  /** Title of the song the lyrics actually came from (may differ from requested `title`) */
+  matchedTitle?: string;
+  /** Artist of the song the lyrics actually came from (may differ from requested `artist`) */
+  matchedArtist?: string;
+}
+
+/**
+ * Loosely normalize a string for a client-side "does this look like the same
+ * song" comparison (case/punctuation-insensitive). Not meant to be as
+ * thorough as the server-side scoring — just enough to avoid showing a
+ * "matched: X" caption for trivial differences (casing, extra whitespace).
+ */
+function looseNormalize(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -47,6 +65,8 @@ export function useLyrics({
   const [isFetchingOriginal, setIsFetchingOriginal] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [matchedTitle, setMatchedTitle] = useState<string | undefined>();
+  const [matchedArtist, setMatchedArtist] = useState<string | undefined>();
 
   const cachedKeyRef = useRef<string | null>(null);
   // Add a ref to store the last computed time for manual updates
@@ -63,6 +83,8 @@ export function useLyrics({
     setIsFetchingOriginal(true);
     setIsTranslating(false); // Reset translation state
     setError(undefined);
+    setMatchedTitle(undefined);
+    setMatchedArtist(undefined);
 
     if (!title && !artist && !album) {
       setIsFetchingOriginal(false);
@@ -124,6 +146,28 @@ export function useLyrics({
         setOriginalLines(parsed);
         cachedKeyRef.current = cacheKey;
 
+        // Surface what was actually matched so the UI can warn when it
+        // differs meaningfully from what was requested (e.g. a cover or
+        // remix that matched on a weak/ambiguous score). Show the caption
+        // if either the title or the artist differs — a same-title-but-
+        // different-artist "cover" mismatch is just as worth flagging as a
+        // different-title mismatch.
+        const respTitle: string | undefined = json?.title;
+        const respArtist: string | undefined = json?.artist;
+        const titleDiffers =
+          !!respTitle && looseNormalize(respTitle) !== looseNormalize(title);
+        const artistDiffers =
+          !!respArtist &&
+          !!artist &&
+          looseNormalize(respArtist) !== looseNormalize(artist);
+        if (titleDiffers || artistDiffers) {
+          setMatchedTitle(respTitle);
+          setMatchedArtist(respArtist);
+        } else {
+          setMatchedTitle(undefined);
+          setMatchedArtist(undefined);
+        }
+
         // Update iPod store with current lyrics
         useIpodStore.setState({ currentLyrics: { lines: parsed } });
       })
@@ -139,6 +183,8 @@ export function useLyrics({
         }
         setOriginalLines([]);
         setCurrentLine(-1);
+        setMatchedTitle(undefined);
+        setMatchedArtist(undefined);
         // Clear lyrics in iPod store on error
         useIpodStore.setState({ currentLyrics: null });
       })
@@ -305,5 +351,7 @@ export function useLyrics({
     isTranslating,
     error,
     updateCurrentTimeManually,
+    matchedTitle,
+    matchedArtist,
   };
 }

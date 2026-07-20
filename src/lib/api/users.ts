@@ -11,6 +11,9 @@ export interface GreenroomUser {
   role: string | null;
   // Server-derived from `role` (GREENROOM_ADMIN_ROLES). Authoritative admin flag.
   is_admin: boolean;
+  // Disabled users are blocked from signing in (backend rejects with
+  // `account_disabled`), but their history (comments, votes, etc.) is kept.
+  is_active: boolean;
 }
 
 // Roles the backend accepts. Mirrors VALID_ROLES in api/views/users.py.
@@ -23,8 +26,11 @@ export interface CreateUserPayload {
   role: UserRole;
 }
 
-// Partial update — any subset of the editable fields.
-export type UpdateUserPayload = Partial<CreateUserPayload>;
+// Partial update — any subset of the editable fields, plus is_active (not a
+// create-time field; new users are active by default).
+export type UpdateUserPayload = Partial<CreateUserPayload> & {
+  is_active?: boolean;
+};
 
 interface UsersListResponse {
   users: GreenroomUser[];

@@ -5,7 +5,10 @@ import { GreenroomAdminMenuBar } from "./GreenroomAdminMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { useUsersStore } from "@/stores/useUsersStore";
-import { useIsGreenroomAdmin } from "@/hooks/useGreenroomAccount";
+import {
+  useEffectiveGreenroomAccount,
+  useIsGreenroomAdmin,
+} from "@/hooks/useGreenroomAccount";
 import {
   GreenroomUser,
   USER_ROLES,
@@ -52,6 +55,8 @@ import {
   UserPlus,
   AlertTriangle,
   Inbox,
+  Ban,
+  UserCheck,
 } from "lucide-react";
 
 // Role → badge tone. Role values aren't in the shared STATUS_TONES map, so pass
@@ -85,6 +90,11 @@ export function GreenroomAdminAppComponent({
   const [pendingDelete, setPendingDelete] = useState<GreenroomUser | null>(
     null
   );
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [pendingDisable, setPendingDisable] = useState<GreenroomUser | null>(
+    null
+  );
+  const [isTogglingActive, setIsTogglingActive] = useState(false);
 
   const { themeId, isXpTheme, isMacTheme } = useOsTheme();
   const tabStyles = getTabStyles(themeId);
@@ -95,9 +105,20 @@ export function GreenroomAdminAppComponent({
   // real protection is server-side — the backend rejects non-admin tokens on
   // the write endpoints regardless of this UI gate.
   const isAdmin = useIsGreenroomAdmin();
+  // The signed-in user's own id, to hide the Disable control on their own row
+  // (the backend also blocks disabling yourself, but hiding it avoids a
+  // confusing 400 round-trip).
+  const { userId: currentUserId } = useEffectiveGreenroomAccount();
 
-  const { users, isLoading, error, fetchUsers, deleteUser, clearError } =
-    useUsersStore();
+  const {
+    users,
+    isLoading,
+    error,
+    fetchUsers,
+    updateUser,
+    deleteUser,
+    clearError,
+  } = useUsersStore();
 
   // Fetch users when the window opens (admins only — non-admins can't read the
   // richer list and would just hit the Access Denied screen).
@@ -122,14 +143,41 @@ export function GreenroomAdminAppComponent({
   );
 
   const handleDeleteConfirm = async () => {
-    if (!pendingDelete) return;
+    if (!pendingDelete || isDeletingUser) return;
+    setIsDeletingUser(true);
     try {
       await deleteUser(pendingDelete.id);
       toast.success(`Removed ${pendingDelete.username}`);
     } catch {
       // error surfaced via the store error toast
     } finally {
+      setIsDeletingUser(false);
       setPendingDelete(null);
+    }
+  };
+
+  // Enabling is reversible and non-destructive, so it fires immediately —
+  // no confirm step.
+  const handleEnableUser = async (user: GreenroomUser) => {
+    try {
+      await updateUser(user.id, { is_active: true });
+      toast.success(`Enabled ${user.username}`);
+    } catch {
+      // error surfaced via the store error toast
+    }
+  };
+
+  const handleDisableConfirm = async () => {
+    if (!pendingDisable || isTogglingActive) return;
+    setIsTogglingActive(true);
+    try {
+      await updateUser(pendingDisable.id, { is_active: false });
+      toast.success(`Disabled ${pendingDisable.username}`);
+    } catch {
+      // error surfaced via the store error toast
+    } finally {
+      setIsTogglingActive(false);
+      setPendingDisable(null);
     }
   };
 
@@ -245,12 +293,15 @@ export function GreenroomAdminAppComponent({
                   />
                 ) : (
                   <div className="space-y-2">
-                    {sortedUsers.map((user) => (
+                    {sortedUsers.map((user) => {
+                      const isSelf = currentUserId === user.id;
+                      return (
                       <div
                         key={user.id}
                         className={cn(
                           "flex items-center gap-3 p-3 rounded-md",
-                          isMacTheme ? "aqua-well" : "border"
+                          isMacTheme ? "aqua-well" : "border",
+                          !user.is_active && "opacity-60"
                         )}
                       >
                         <div className="flex-1 min-w-0 space-y-0.5">
@@ -269,6 +320,14 @@ export function GreenroomAdminAppComponent({
                             {user.email}
                           </div>
                         </div>
+                        {!user.is_active && (
+                          <StatusBadge
+                            status="disabled"
+                            label="Disabled"
+                            tone="red"
+                            className="shrink-0"
+                          />
+                        )}
                         <StatusBadge
                           status={user.role ?? "none"}
                           label={prettifyRole(user.role)}
@@ -287,6 +346,29 @@ export function GreenroomAdminAppComponent({
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          {user.is_active ? (
+                            !isSelf && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setPendingDisable(user)}
+                                title={`Disable ${user.username}`}
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                            )
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleEnableUser(user)}
+                              title={`Enable ${user.username}`}
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -298,7 +380,8 @@ export function GreenroomAdminAppComponent({
                           </Button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </ScrollArea>
@@ -330,13 +413,27 @@ export function GreenroomAdminAppComponent({
         <ConfirmDialog
           isOpen={pendingDelete !== null}
           onOpenChange={(open) => {
-            if (!open) setPendingDelete(null);
+            if (!open && !isDeletingUser) setPendingDelete(null);
           }}
           onConfirm={handleDeleteConfirm}
           title="Delete User"
-          description={`Remove "${
+          description={`Permanently delete "${
             pendingDelete?.username ?? "this user"
-          }" from Greenroom? They will lose access to the app. This cannot be undone.`}
+          }"? This removes their feedback and team history for good and cannot be undone. To reversibly revoke their access instead, use "Disable."`}
+          confirmDisabled={isDeletingUser}
+        />
+
+        <ConfirmDialog
+          isOpen={pendingDisable !== null}
+          onOpenChange={(open) => {
+            if (!open && !isTogglingActive) setPendingDisable(null);
+          }}
+          onConfirm={handleDisableConfirm}
+          title="Disable User"
+          description={`Disable "${
+            pendingDisable?.username ?? "this user"
+          }"? They will no longer be able to sign in. Their history is kept.`}
+          confirmDisabled={isTogglingActive}
         />
 
         <HelpGuideDialog

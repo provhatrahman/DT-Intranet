@@ -51,6 +51,7 @@ import {
   useOsTheme,
 } from "@/components/greenroom";
 import {
+  AlertCircle,
   Banknote,
   Building2,
   Calendar,
@@ -80,9 +81,12 @@ function extractIsoDate(text: string | undefined): string {
   return match ? match[0] : "";
 }
 
+// Strips currency symbols/commas/etc. down to a plain number, preserving a
+// single decimal point — "£1,500.50" -> "1500.50" — so fee sorting compares
+// magnitudes correctly instead of concatenating digits ("1500.50" used to
+// sort as 150050).
 function digitsOnly(text: string | undefined): string {
-  const digits = (text ?? "").replace(/[^0-9]/g, "");
-  return digits;
+  return (text ?? "").replace(/[^0-9.]/g, "");
 }
 
 // Offer fields are free text from two different backends, so dates arrive as
@@ -188,6 +192,7 @@ export function IncomingOffersAppComponent({
   const [pendingDeclineBookingId, setPendingDeclineBookingId] = useState<
     number | null
   >(null);
+  const [isDeclining, setIsDeclining] = useState(false);
 
   // Delete logged offer confirm (removes the booking + its stand-in project)
   const [pendingDeleteOfferId, setPendingDeleteOfferId] = useState<
@@ -215,6 +220,7 @@ export function IncomingOffersAppComponent({
     updatePitch,
     addComment,
     isLoading: isPitchesLoading,
+    error: pitchesError,
   } = usePitchesStore();
   const {
     createProject,
@@ -233,6 +239,7 @@ export function IncomingOffersAppComponent({
     deleteBooking,
     voteOnBooking,
     isLoading: isBookingsLoading,
+    error: bookingsError,
   } = useBookingsStore();
   const { artists, fetchArtists, findByName } = useArtistsStore();
   const { recordOwnedBooking, forgetOwnedBooking, ownsBooking } =
@@ -240,19 +247,27 @@ export function IncomingOffersAppComponent({
 
   const { isMacTheme, isXpTheme } = useOsTheme();
 
+  // Loads the three backends the inbox depends on. Failures are surfaced via
+  // the stores' own `error` fields (read below) rather than swallowed — an
+  // empty `offers` list caused by a failed fetch renders a distinct
+  // "couldn't load" state instead of the zero-state "Inbox zero" copy.
+  const loadInbox = useCallback(() => {
+    fetchPitches().catch((err) => {
+      console.error("Failed to fetch pitches:", err);
+    });
+    fetchBookings().catch((err) => {
+      console.error("Failed to fetch bookings:", err);
+    });
+    fetchArtists().catch((err) => {
+      console.error("Failed to fetch artists:", err);
+    });
+  }, [fetchPitches, fetchBookings, fetchArtists]);
+
   useEffect(() => {
     if (isWindowOpen) {
-      fetchPitches().catch((err) => {
-        console.error("Failed to fetch pitches:", err);
-      });
-      fetchBookings().catch((err) => {
-        console.error("Failed to fetch bookings:", err);
-      });
-      fetchArtists().catch((err) => {
-        console.error("Failed to fetch artists:", err);
-      });
+      loadInbox();
     }
-  }, [isWindowOpen, fetchPitches, fetchBookings, fetchArtists]);
+  }, [isWindowOpen, loadInbox]);
 
   // Load details (votes) for the pitches shown in the inbox so vote counts
   // and the current user's vote reflect the backend.
@@ -327,6 +342,7 @@ export function IncomingOffersAppComponent({
         bookingId: b.booking_id,
         projectId: b.project_id,
         artistName: b.artist_name,
+        createdByUserId: b.created_by_user_id,
       }));
 
     return [...bookingOffers, ...pitchOffers];
@@ -571,6 +587,7 @@ export function IncomingOffersAppComponent({
   };
 
   const handleApproveConfirm = async () => {
+    if (isApproving) return;
     const offer = offers.find((o) => o.id === pendingApproveOfferId);
     if (!offer || !isAdmin) {
       setIsApproveDialogOpen(false);
@@ -653,37 +670,66 @@ export function IncomingOffersAppComponent({
   };
 
   const handleDeclineBookingConfirm = async () => {
+    if (isDeclining) return;
     if (pendingDeclineBookingId === null) return;
     if (!isAdmin) {
       toast.error("Only admins can decline offers");
       setPendingDeclineBookingId(null);
       return;
     }
+    // The stand-in project the Log Offer flow created (on_hold) would
+    // otherwise become an invisible orphan once its only booking is
+    // declined — every app filters projects by status, and "on_hold" isn't
+    // shown anywhere. Cancel it too so the record surfaces in Archive.
+    const offer = offers.find((o) => o.bookingId === pendingDeclineBookingId);
+    setIsDeclining(true);
     try {
       await setBookingStatus(pendingDeclineBookingId, "declined");
+      if (offer?.projectId != null) {
+        try {
+          await updateStatus(offer.projectId, "cancelled");
+        } catch (projectError) {
+          console.warn(
+            `Declined booking ${pendingDeclineBookingId} but could not cancel project ${offer.projectId}:`,
+            projectError
+          );
+        }
+      }
+      await fetchActiveProjects();
       toast.success("Offer declined");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to decline offer";
       toast.error(message);
     } finally {
+      setIsDeclining(false);
       setPendingDeclineBookingId(null);
     }
   };
 
   // Whether the current user is allowed to delete a given offer card. Only
   // logged (booking) offers are deletable — pitches come from the Pitch app and
-  // have their own reject flow. Admins can delete any logged offer; everyone
-  // else can only delete offers they logged themselves (tracked client-side).
+  // have their own reject flow. Admins can delete any logged offer. For
+  // everyone else, prefer the server-recorded creator (created_by_user_id) —
+  // matching it is now also enforced server-side — and only fall back to the
+  // client-side "did I log this" tracking (ownsBooking) for legacy bookings
+  // that predate the backend field (null/undefined).
   const canDeleteOffer = useCallback(
     (offer: Offer): boolean => {
       if (offer.source !== "booking" || !offer.bookingId) return false;
-      return isAdmin || ownsBooking(greenroomUserId, offer.bookingId);
+      if (isAdmin) return true;
+      if (offer.createdByUserId != null) {
+        return (
+          greenroomUserId != null && offer.createdByUserId === greenroomUserId
+        );
+      }
+      return ownsBooking(greenroomUserId, offer.bookingId);
     },
     [isAdmin, ownsBooking, greenroomUserId]
   );
 
   const handleDeleteConfirm = async () => {
+    if (isDeleting) return;
     const offer = offers.find((o) => o.id === pendingDeleteOfferId);
     if (!offer || !offer.bookingId || !canDeleteOffer(offer)) {
       setPendingDeleteOfferId(null);
@@ -803,7 +849,10 @@ export function IncomingOffersAppComponent({
         const bDate = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
         return bDate - aDate;
       }
-      return (Number(digitsOnly(b.fee)) || 0) - (Number(digitsOnly(a.fee)) || 0);
+      return (
+        (parseFloat(digitsOnly(b.fee)) || 0) -
+        (parseFloat(digitsOnly(a.fee)) || 0)
+      );
     });
 
   const pendingApproveOffer = offers.find(
@@ -894,6 +943,25 @@ export function IncomingOffersAppComponent({
           >
             {offers.length === 0 && (isPitchesLoading || isBookingsLoading) ? (
               <EmptyState icon={Inbox} title="Loading offers…" />
+            ) : offers.length === 0 && (pitchesError || bookingsError) ? (
+              <EmptyState
+                icon={AlertCircle}
+                title="Couldn't load offers"
+                hint={
+                  pitchesError ||
+                  bookingsError ||
+                  "Something went wrong while loading the inbox."
+                }
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={loadInbox}
+                >
+                  Retry
+                </Button>
+              </EmptyState>
             ) : offers.length === 0 ? (
               <EmptyState
                 icon={Inbox}
@@ -991,15 +1059,17 @@ export function IncomingOffersAppComponent({
               ? `Approve "${pendingApproveOffer?.name ?? "this offer"}"? The booking will be confirmed and the project moved to Active Projects. You'll be asked to complete any missing project details.`
               : `Approve "${pendingApproveOffer?.name ?? "this pitch"}"? A project will be created in Active Projects and you'll be asked to complete its details.`
           }
+          confirmDisabled={isApproving}
         />
         <ConfirmDialog
           isOpen={pendingDeclineBookingId !== null}
           onOpenChange={(open) => {
-            if (!open) setPendingDeclineBookingId(null);
+            if (!open && !isDeclining) setPendingDeclineBookingId(null);
           }}
           onConfirm={handleDeclineBookingConfirm}
           title="Decline Offer"
-          description="Decline this offer? The booking will be marked as declined in the backend."
+          description="Decline this offer? The booking will be marked as declined and its project moved to the Archive as cancelled."
+          confirmDisabled={isDeclining}
         />
         <ConfirmDialog
           isOpen={pendingDeleteOfferId !== null}
@@ -1009,6 +1079,7 @@ export function IncomingOffersAppComponent({
           onConfirm={handleDeleteConfirm}
           title="Delete Offer"
           description="Permanently delete this logged offer? The booking and the project it created will be removed. This can't be undone."
+          confirmDisabled={isDeleting}
         />
         <ProjectDetailsFormDialog
           isOpen={detailsProjectId !== null}

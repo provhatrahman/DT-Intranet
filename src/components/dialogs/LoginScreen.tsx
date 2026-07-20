@@ -24,6 +24,7 @@ interface LoginScreenProps {
 // Human-friendly copy for the auth error codes from useAuthStore.
 const ERROR_LABELS: Record<string, string> = {
   not_allowlisted: "This Google account isn't allowed access.",
+  account_disabled: "Your account has been disabled. Contact an administrator.",
   verify_failed: "Couldn't verify your account. Please try again.",
   token_exchange_failed: "Sign-in failed. Please try again.",
   invalid_callback: "Sign-in was interrupted. Please try again.",

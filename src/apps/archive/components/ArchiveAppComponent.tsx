@@ -58,6 +58,7 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
+  ArchiveRestore,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -359,6 +360,7 @@ function ProjectDetailView({
     deleteWrapupComment,
     archiveProject,
     fetchArchivedProjects,
+    updateStatus,
   } = useProjectsStore();
   const { userId: currentUserId } = useEffectiveGreenroomAccount();
 
@@ -370,13 +372,25 @@ function ProjectDetailView({
   );
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  // "File to Archive" is a real status transition (and is recorded in
+  // history), so it gets a confirm step like other consequential actions in
+  // this app (e.g. "Delete comment" below) rather than firing immediately.
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
 
   // Completed and cancelled projects can be formally filed via the backend's
   // archive endpoint, which sets status "archived" and records history.
   const canArchive =
     project.status === "completed" || project.status === "cancelled";
+  // Restore is the inverse of filing: only a project that's actually been
+  // filed to the archive ("archived" status) can be pulled back out. Once
+  // restored it's a normal "active" project again.
+  const canRestore = project.status === "archived";
 
-  const handleArchive = async () => {
+  const handleArchiveClick = () => setIsArchiveDialogOpen(true);
+
+  const handleArchiveConfirm = async () => {
     setIsArchiving(true);
     try {
       await archiveProject(project.id);
@@ -386,6 +400,27 @@ function ProjectDetailView({
       // store records error
     } finally {
       setIsArchiving(false);
+      setIsArchiveDialogOpen(false);
+    }
+  };
+
+  const handleRestoreClick = () => setIsRestoreDialogOpen(true);
+
+  const handleRestoreConfirm = async () => {
+    setIsRestoring(true);
+    try {
+      // updateStatus already moves the project out of archivedProjects and
+      // into activeProjects in the store; the extra fetch below mirrors the
+      // refresh pattern "File to Archive" uses above.
+      await updateStatus(project.id, "active");
+      await fetchArchivedProjects();
+      toast.success("Project restored to Active Projects");
+      onBack();
+    } catch {
+      // store records error
+    } finally {
+      setIsRestoring(false);
+      setIsRestoreDialogOpen(false);
     }
   };
 
@@ -499,7 +534,10 @@ function ProjectDetailView({
               project={project}
               canArchive={canArchive}
               isArchiving={isArchiving}
-              onArchive={handleArchive}
+              onArchive={handleArchiveClick}
+              canRestore={canRestore}
+              isRestoring={isRestoring}
+              onRestore={handleRestoreClick}
             />
           </ScrollArea>
         </TabsContent>
@@ -581,6 +619,28 @@ function ProjectDetailView({
         onConfirm={handleDeleteConfirm}
         title="Delete comment"
         description="Delete this comment? This can't be undone."
+      />
+
+      <ConfirmDialog
+        isOpen={isArchiveDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setIsArchiveDialogOpen(false);
+        }}
+        onConfirm={handleArchiveConfirm}
+        confirmDisabled={isArchiving}
+        title="File to Archive"
+        description={`File "${project.name}" to the archive? This records the move in its status history.`}
+      />
+
+      <ConfirmDialog
+        isOpen={isRestoreDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setIsRestoreDialogOpen(false);
+        }}
+        onConfirm={handleRestoreConfirm}
+        confirmDisabled={isRestoring}
+        title="Restore to Active"
+        description={`Restore "${project.name}" to Active Projects?`}
       />
     </div>
   );
@@ -786,11 +846,17 @@ function ProjectSummary({
   canArchive,
   isArchiving,
   onArchive,
+  canRestore,
+  isRestoring,
+  onRestore,
 }: {
   project: ProjectDetail;
   canArchive: boolean;
   isArchiving: boolean;
   onArchive: () => void;
+  canRestore: boolean;
+  isRestoring: boolean;
+  onRestore: () => void;
 }) {
   const { isMacTheme } = useOsTheme();
 
@@ -812,17 +878,33 @@ function ProjectSummary({
             label={formatProjectStatus(project.status)}
           />
         </div>
-        {canArchive && (
+        {(canArchive || canRestore) && (
           <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant={isMacTheme ? "secondary" : "outline"}
-              onClick={onArchive}
-              disabled={isArchiving}
-              className="min-h-[32px] touch-manipulation"
-            >
-              <span>{isArchiving ? "Archiving..." : "File to Archive"}</span>
-            </Button>
+            {canArchive && (
+              <Button
+                size="sm"
+                variant={isMacTheme ? "secondary" : "outline"}
+                onClick={onArchive}
+                disabled={isArchiving}
+                className="min-h-[32px] touch-manipulation"
+              >
+                <span>{isArchiving ? "Archiving..." : "File to Archive"}</span>
+              </Button>
+            )}
+            {canRestore && (
+              <Button
+                size="sm"
+                variant={isMacTheme ? "secondary" : "outline"}
+                onClick={onRestore}
+                disabled={isRestoring}
+                className="min-h-[32px] touch-manipulation"
+              >
+                <span className="inline-flex items-center">
+                  <ArchiveRestore className="h-3.5 w-3.5 mr-1.5" />
+                  {isRestoring ? "Restoring..." : "Restore to Active"}
+                </span>
+              </Button>
+            )}
           </div>
         )}
       </div>

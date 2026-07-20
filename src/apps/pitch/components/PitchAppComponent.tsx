@@ -552,10 +552,7 @@ export function PitchAppComponent({
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <StatusBadge
                                     status={pitch.status}
-                                    label={
-                                      PITCH_STATUS_LABELS[pitch.status] ??
-                                      "Submitted"
-                                    }
+                                    label={PITCH_STATUS_LABELS[pitch.status]}
                                   />
                                   <button
                                     onClick={(e) => {
