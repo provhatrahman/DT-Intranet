@@ -1,9 +1,9 @@
 {
-  "version": "10.7",
-  "buildNumber": "f1a695d",
-  "commitSha": "f1a695d4ca92deed0ab8b6c4b665a36b40573864",
-  "buildTime": "2026-07-20T18:00:42.405Z",
+  "version": "10.8",
+  "buildNumber": "4b65272",
+  "commitSha": "4b65272e09f92a038399919e251aedbcba0f0b98",
+  "buildTime": "2026-07-20T23:45:22.087Z",
   "majorVersion": 10,
-  "minorVersion": 7,
+  "minorVersion": 8,
   "desktopVersion": "1.0.1"
 }
