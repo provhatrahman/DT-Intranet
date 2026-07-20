@@ -9,6 +9,7 @@ import { getAppComponent, appRegistry } from "@/config/appRegistry";
 import type { AppId } from "@/config/appRegistry";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { extractCodeFromPath } from "@/utils/sharedUrl";
+import { AUTH_CALLBACK_PATH } from "@/config/auth";
 import { toast } from "sonner";
 import { requestCloseWindow } from "@/utils/windowUtils";
 import { useThemeStore } from "@/stores/useThemeStore";
@@ -127,6 +128,12 @@ export function AppManager({ apps }: AppManagerProps) {
     const handleUrlNavigation = async () => {
       const path = window.location.pathname;
       console.log("[AppManager] Checking path:", path); // Keep this log for debugging
+
+      // Never touch the OAuth callback URL — App.tsx owns processing (and
+      // then cleaning) /auth/callback?code=…. The desktop is already mounted
+      // during a silent token renewal, so clobbering the URL here would strip
+      // the ?code before the auth effect reads it and break the round trip.
+      if (path === AUTH_CALLBACK_PATH) return;
 
       const launchAppletViewer = () => {
         toast.info("Opening Applet Store...");

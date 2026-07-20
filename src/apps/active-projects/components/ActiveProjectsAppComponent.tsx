@@ -28,6 +28,7 @@ import {
   useEffectiveGreenroomAccount,
   useIsGreenroomAdmin,
 } from "@/hooks/useGreenroomAccount";
+import { registerDirtyProvider, consumeEntry } from "@/lib/auth/dirtyStash";
 import { CardContent } from "@/components/ui/card";
 import {
   AquaCard,
@@ -549,16 +550,54 @@ function ProjectDetailView({
   // auto-save compares against this so it only fires on genuine edits (and not,
   // e.g., when the form is reset on a project switch).
   const savedRef = useRef(form);
+  // Live mirrors for the dirty-stash provider below — it's registered once,
+  // so it reads current values through refs instead of re-registering on
+  // every keystroke.
+  const formRef = useRef(form);
+  formRef.current = form;
+  const projectIdRef = useRef(project.id);
+  projectIdRef.current = project.id;
 
   // Reset the form only when switching to a *different* project. Keying on the
   // id (not the whole object) means an auto-save's own refresh won't clobber
   // fields the user is still editing.
+  //
+  // On first sight of a project id, also rehydrate any edits stashed across
+  // the token-renewal redirect (see src/lib/auth/dirtyStash.ts): `form` gets
+  // the stashed values while savedRef keeps the server's, so isDirty turns
+  // true and the debounced auto-save below re-persists them with the fresh
+  // token. restoredForRef makes same-id re-runs a full no-op — StrictMode
+  // double-invokes mount effects in dev, and the second pass must not touch
+  // the form again (it would consume nothing and reset a just-restored form
+  // back to server values). Only a genuine project switch re-initializes.
+  const restoredForRef = useRef<number | null>(null);
   useEffect(() => {
-    const next = projectToForm(project);
-    setForm(next);
-    savedRef.current = next;
+    if (restoredForRef.current === project.id) return;
+    restoredForRef.current = project.id;
+    const server = projectToForm(project);
+    const restored = consumeEntry(`active-project-form:${project.id}`);
+    setForm(restored ? (restored as ReturnType<typeof projectToForm>) : server);
+    savedRef.current = server;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
+
+  // While this view is mounted, expose unsaved edits to the auth layer so a
+  // token-expiry redirect can stash them before navigating away.
+  useEffect(
+    () =>
+      registerDirtyProvider("active-project-form", () => {
+        const f = formRef.current;
+        if (JSON.stringify(f) === JSON.stringify(savedRef.current)) {
+          return null; // clean — nothing to stash
+        }
+        return {
+          key: `active-project-form:${projectIdRef.current}`,
+          kind: "active-project-form",
+          data: f,
+        };
+      }),
+    []
+  );
 
   // Auto-save: there's no Save button — edits persist on their own a short
   // moment after the user stops changing fields.

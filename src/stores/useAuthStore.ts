@@ -14,6 +14,10 @@ import {
   decodeJwtPayload,
   randomUrlSafe,
 } from "@/lib/auth/pkce";
+import {
+  captureDirtyToSession,
+  clearDirtyStash,
+} from "@/lib/auth/dirtyStash";
 
 // The identity the backend maps a verified Google account to. Mirrors the
 // agreed POST /api/users/auth/verify response: { user: {...} }.
@@ -203,17 +207,31 @@ export const useAuthStore = create<AuthState>()(
       silentReauth: async () => {
         // A full-page prompt=none redirect. Remember where we were so the
         // callback can restore it. If Google can't renew silently it returns
-        // error=login_required and handleCallback drops us to idle.
+        // error=login_required / interaction_required and handleCallback drops
+        // us to idle (the LoginScreen), keeping the interactive flow as fallback.
         sessionStorage.setItem(
           "greenroom:return_to",
           window.location.pathname + window.location.search + window.location.hash
         );
-        await beginGoogleRedirect({ prompt: "none" });
+        // Stash any unsaved in-app edits so the reload doesn't lose them —
+        // the owning app restores + re-saves them after the callback. (The
+        // token is already dead here, so flushing saves first can't work.)
+        captureDirtyToSession();
+        // Pass login_hint so Google can silently pick the right session without
+        // an account chooser — without it, prompt=none returns
+        // interaction_required even when a valid session exists.
+        const email = get().user?.email;
+        await beginGoogleRedirect({
+          prompt: "none",
+          ...(email ? { login_hint: email } : {}),
+        });
         // Navigation is in flight; treat as not-yet-authenticated for callers.
         return false;
       },
 
       logout: () => {
+        // Never let a later login in this tab resurrect this session's edits.
+        clearDirtyStash();
         set({
           status: "idle",
           idToken: null,

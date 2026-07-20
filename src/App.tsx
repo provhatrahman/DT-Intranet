@@ -21,6 +21,7 @@ import { ScreenSaverOverlay } from "./components/screensavers/ScreenSaverOverlay
 import { useAuthStore } from "./stores/useAuthStore";
 import { AUTH_ENABLED, AUTH_CALLBACK_PATH } from "./config/auth";
 import { useSettingsSync } from "./hooks/useSettingsSync";
+import { useProactiveReauth } from "./hooks/useProactiveReauth";
 
 // Convert registry to array, filtering out hidden apps
 const apps: AnyApp[] = Object.values(appRegistry).filter(
@@ -42,6 +43,10 @@ export function App() {
   useOffline();
   // Sync UI customization to the account (dormant unless AUTH_ENABLED + logged in).
   useSettingsSync();
+  // Renew the Google token shortly before expiry while the tab is idle, and
+  // stash unsaved edits before any full-page navigation (dormant unless
+  // AUTH_ENABLED).
+  useProactiveReauth();
 
   // Determine toast position and offset based on theme and device
   const toastConfig = useMemo(() => {
@@ -95,6 +100,18 @@ export function App() {
     !!authUser &&
     (!authExpiresAt || Date.now() < authExpiresAt);
 
+  // OAuth params captured at FIRST render, before any child effect can touch
+  // the URL. During a silent renewal the desktop is already mounted, and
+  // AppManager's deep-link handler cleans unknown paths with replaceState —
+  // reading window.location lazily in the effect below would race it and find
+  // the ?code already stripped.
+  const callbackSearchRef = useRef<string | null>(
+    typeof window !== "undefined" &&
+      window.location.pathname === AUTH_CALLBACK_PATH
+      ? window.location.search
+      : null
+  );
+
   // Complete the OAuth redirect: exchange ?code, verify, then restore the URL.
   // The ref guard makes this run exactly once per page load — without it,
   // React StrictMode's double-invoke fires handleCallback twice: the first call
@@ -102,15 +119,16 @@ export function App() {
   // gone and clobbers the result with an "invalid_callback" error.
   const callbackHandledRef = useRef(false);
   useEffect(() => {
-    if (!AUTH_ENABLED || !isOnCallback || callbackHandledRef.current) return;
+    const search = callbackSearchRef.current;
+    if (!AUTH_ENABLED || search == null || callbackHandledRef.current) return;
     callbackHandledRef.current = true;
     (async () => {
-      await handleCallback(window.location.search);
+      await handleCallback(search);
       const returnTo = sessionStorage.getItem("greenroom:return_to") || "/";
       sessionStorage.removeItem("greenroom:return_to");
       history.replaceState(null, "", returnTo);
     })();
-  }, [isOnCallback, handleCallback]);
+  }, [handleCallback]);
 
   useEffect(() => {
     applyDisplayMode(displayMode);

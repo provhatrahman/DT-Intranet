@@ -40,3 +40,7 @@ export function getRedirectUri(): string {
 // sessionStorage keys for the in-flight PKCE handshake (not persisted long-term).
 export const PKCE_VERIFIER_KEY = "greenroom:pkce_verifier";
 export const OAUTH_STATE_KEY = "greenroom:oauth_state";
+
+// sessionStorage key for unsaved in-app edits stashed across the token-renewal
+// redirect (written by src/lib/auth/dirtyStash.ts, consumed by the owning app).
+export const DIRTY_STASH_KEY = "greenroom:dirty_stash";

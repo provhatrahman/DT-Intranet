@@ -327,7 +327,7 @@ export function LoginScreen({
           {showRefresh && (
             <div className="flex flex-col items-center gap-1.5 pt-0.5">
               <p className="text-center text-[11px] text-neutral-600">
-                Still stuck? Try refreshing the page.
+                Refreshing the page usually fixes this — give it a try.
               </p>
               <button
                 type="button"
@@ -335,9 +335,9 @@ export function LoginScreen({
                   onRefresh ? onRefresh() : window.location.reload()
                 }
                 className="aqua-button secondary w-full"
-                style={{ fontSize: 13 }}
+                style={{ fontSize: 13, cursor: "pointer" }}
               >
-                <span>Refresh Page</span>
+                <span>Refresh &amp; Try Again</span>
               </button>
             </div>
           )}
