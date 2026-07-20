@@ -1849,63 +1849,15 @@ function MacDock() {
   // Dock magnification state/logic driven by Framer motion value at container level
   const mouseX = useMotionValue<number>(Infinity);
 
-  // Disable magnification on mobile/touch (coarse pointer or no hover)
-  const [magnifyEnabled, setMagnifyEnabled] = useState(true);
-  useEffect(() => {
-    const compute = () => {
-      if (
-        typeof window === "undefined" ||
-        typeof window.matchMedia !== "function"
-      ) {
-        setMagnifyEnabled(true);
-        return;
-      }
-      const coarse = window.matchMedia("(pointer: coarse)").matches;
-      const noHover = window.matchMedia("(hover: none)").matches;
-      setMagnifyEnabled(!(coarse || noHover));
-    };
-    compute();
-
-    const mqlPointerCoarse = window.matchMedia("(pointer: coarse)");
-    const mqlHoverNone = window.matchMedia("(hover: none)");
-
-    const onChange = () => compute();
-
-    const removeListeners: Array<() => void> = [];
-
-    const addListener = (mql: MediaQueryList) => {
-      if (typeof mql.addEventListener === "function") {
-        const listener = onChange as EventListener;
-        mql.addEventListener("change", listener);
-        removeListeners.push(() => mql.removeEventListener("change", listener));
-      } else if (
-        typeof (
-          mql as {
-            addListener?: (
-              this: MediaQueryList,
-              listener: (ev: MediaQueryListEvent) => void
-            ) => void;
-          }
-        ).addListener === "function"
-      ) {
-        const legacyListener = () => onChange();
-        (mql as MediaQueryList).addListener!(legacyListener);
-        removeListeners.push(() =>
-          (mql as MediaQueryList).removeListener!(legacyListener)
-        );
-      }
-    };
-
-    addListener(mqlPointerCoarse);
-    addListener(mqlHoverNone);
-
-    return () => {
-      removeListeners.forEach((fn) => fn());
-    };
-  }, []);
-
-  // Effective magnification: disabled when resizing, on touch devices, or user preference
-  const effectiveMagnifyEnabled = magnifyEnabled && !isResizing && dockMagnification;
+  // Effective magnification: driven by the user's dock preference, disabled only
+  // while resizing. Magnification is cursor-driven (it reacts to pointer
+  // movement over the dock), so it is inherently a no-op on real touch devices
+  // that never emit those events — which means we don't need a pointer/hover
+  // media-query gate here. That gate was removed because some desktop setups
+  // (e.g. remote-desktop / VDI sessions, some external displays) report
+  // `(pointer: coarse)` / `(hover: none)` / no `any-pointer: fine`, which
+  // wrongly disabled magnification on a normal mouse-driven machine.
+  const effectiveMagnifyEnabled = !isResizing && dockMagnification;
 
   // Ensure no magnification state is applied when disabled
   useEffect(() => {
