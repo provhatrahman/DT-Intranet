@@ -80,6 +80,11 @@ This is dev-only and safe — you're altering `greenroom_dev`, never `DT-Test`. 
    ```
 
 ## Refresh the dev DB from prod (re-clone)
+> For a full, verified refresh use the **`greenroom-db-sync`** skill — it drops &
+> recreates schema `public` so it works on a *populated* dev and handles the
+> ownership gotcha. The naive pipe below only works cleanly against an **empty**
+> dev (on a populated one it errors on `already exists` + duplicate `COPY` rows).
+
 `<appdaytimers password>` comes from Secrets Manager — see Credentials.
 ```
 $env:PGPASSWORD = "<appdaytimers password>"
