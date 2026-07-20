@@ -943,9 +943,10 @@ export function ArtistsAppComponent({
                           </InfoTile>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Gig score weights each completed booking by its
-                          event's gig size (XS = 1 … XL = 5), so it reflects how
-                          many opportunities we've given this artist.
+                          Gig score gauges how many opportunities we've given
+                          this artist: legacy roster gigs (S = 1, M = 2, L = 3)
+                          plus completed Greenroom bookings weighted by gig
+                          size (XS = 1 … XL = 5).
                         </p>
                       </div>
 
@@ -1090,9 +1091,21 @@ export function ArtistsAppComponent({
                               : ""
                           }`}
                         />
+                        {(selectedStat?.legacy_gig_score ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Pre-Greenroom history from the roster sheet
+                            contributes {selectedStat?.legacy_gig_score} points
+                            to the gig score
+                            {selectedStat?.last_event_name &&
+                            artistBookings.length === 0
+                              ? ` — most recent: ${selectedStat.last_event_name}`
+                              : ""}
+                            . Only Greenroom-era bookings are itemised below.
+                          </p>
+                        )}
                         {artistBookings.length === 0 ? (
                           <EmptyState
-                            title="No bookings for this artist yet"
+                            title="No Greenroom bookings for this artist yet"
                             hint="Bookings from projects and offers will show up here."
                             className="py-6"
                           />
