@@ -453,7 +453,7 @@ async function saveDefaultContents(
 // Function to generate an empty initial state (just for typing)
 const getEmptyFileSystemState = (): Record<string, FileSystemItem> => ({});
 
-const STORE_VERSION = 10; // Update Applets folder icon
+const STORE_VERSION = 11; // Remove legacy ryOS default docs (README.md / Quick Tips.md)
 const STORE_NAME = "ryos:files";
 
 const initialFilesData: FilesStoreState = {
@@ -1305,6 +1305,23 @@ export const useFilesStore = create<FilesStoreState>()(
           // but we bump it to trigger the one-time sync in useFileSystem
           // which will calculate actual file sizes and set proper timestamps
           return persistedState;
+        }
+
+        if (version < 11) {
+          // Greenroom no longer ships the legacy ryOS default docs.
+          // Remove them from existing libraries so they disappear from Documents.
+          const oldState = persistedState as {
+            items: Record<string, FileSystemItem>;
+            libraryState?: LibraryState;
+          };
+          const newState = { ...oldState.items };
+          delete newState["/Documents/README.md"];
+          delete newState["/Documents/Quick Tips.md"];
+
+          return {
+            items: newState,
+            libraryState: oldState.libraryState || "loaded",
+          };
         }
 
         return persistedState;
