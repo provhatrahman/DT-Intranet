@@ -19,6 +19,14 @@ interface LoginScreenProps {
   busy?: boolean;
   /** Error code/message to surface under the button. */
   errorMessage?: string | null;
+  /**
+   * When true (typically after a sign-in has failed and been retried) an
+   * extra "Refresh page" button is offered as a recovery path — a hard reload
+   * clears stale service-worker / OAuth state that a plain retry can't.
+   */
+  showRefresh?: boolean;
+  /** Refresh handler; defaults to a full page reload. */
+  onRefresh?: () => void;
 }
 
 // Human-friendly copy for the auth error codes from useAuthStore.
@@ -84,6 +92,8 @@ export function LoginScreen({
   onGoogleLogin,
   busy = false,
   errorMessage = null,
+  showRefresh = false,
+  onRefresh,
 }: LoginScreenProps) {
   const [name, setName] = useState(userName);
   const [password, setPassword] = useState("");
@@ -310,6 +320,26 @@ export function LoginScreen({
             <p className="text-center text-[11px] text-red-700">
               {ERROR_LABELS[errorMessage] || "Sign-in failed. Please try again."}
             </p>
+          )}
+
+          {/* After a repeated failure, offer a hard refresh — clears stale
+              service-worker / OAuth state that a plain retry won't. */}
+          {showRefresh && (
+            <div className="flex flex-col items-center gap-1.5 pt-0.5">
+              <p className="text-center text-[11px] text-neutral-600">
+                Still stuck? Try refreshing the page.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  onRefresh ? onRefresh() : window.location.reload()
+                }
+                className="aqua-button secondary w-full"
+                style={{ fontSize: 13 }}
+              >
+                <span>Refresh Page</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

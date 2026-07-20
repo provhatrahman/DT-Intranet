@@ -240,6 +240,10 @@ export function App() {
         busy={authStatus === "authenticating" || isOnCallback}
         errorMessage={authError}
         onGoogleLogin={startLogin}
+        // On any sign-in failure, offer a hard refresh as an escape hatch from
+        // stale service-worker / OAuth state that a plain retry can't clear.
+        showRefresh={!!authError}
+        onRefresh={() => window.location.reload()}
       />
     );
   }
