@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
-import { HelpDialog } from "@/components/dialogs/HelpDialog";
+import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
@@ -13,7 +13,7 @@ import {
   toUpdatePayload,
 } from "./ProjectDetailsFormDialog";
 import { LogOfferDialog, LogOfferFormValues } from "./LogOfferDialog";
-import { helpItems, appMetadata } from "..";
+import { appMetadata } from "..";
 import {
   useEffectiveGreenroomAccount,
   useIsGreenroomAdmin,
@@ -937,11 +937,10 @@ export function IncomingOffersAppComponent({
           </div>
         </div>
 
-        <HelpDialog
+        <HelpGuideDialog
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
-          helpItems={helpItems}
-          appId="incoming-offers"
+          guideId="incoming-offers"
         />
         <AboutDialog
           isOpen={isAboutDialogOpen}

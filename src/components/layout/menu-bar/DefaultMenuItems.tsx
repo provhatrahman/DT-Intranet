@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MenubarMenu,
@@ -6,21 +6,18 @@ import {
   MenubarContent,
   MenubarItem,
   MenubarSeparator,
-  MenubarCheckboxItem,
 } from "@/components/ui/menubar";
 import { ShortcutHint } from "@/components/shared/menubar/ShortcutHint";
-import { HelpDialog } from "@/components/dialogs/HelpDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { useLaunchApp } from "@/hooks/useLaunchApp";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { appMetadata as finderMetadata } from "@/apps/finder";
-import { appRegistry } from "@/config/appRegistry";
 import { getTranslatedAppName, type AppId } from "@/utils/i18n";
-import {
-  generalHelpItems,
-  GENERAL_HELP_APP_NAME,
-  HELP_GUIDE_APP_IDS,
-} from "@/config/helpGuides";
+import { HELP_GUIDE_APP_IDS } from "@/config/helpGuides";
+
+// Lazily loaded so the (eager) desktop menu bar doesn't pull the help-guide
+// mockups + greenroom UI kit into the initial bundle.
+const HelpGuideDialog = lazy(() => import("@/components/help/HelpGuideDialog"));
 
 /**
  * Placeholder Finder-style menu bar shown when no app window is in the
@@ -72,75 +69,6 @@ export function DefaultMenuItems() {
             {t("common.menu.close")}
             <ShortcutHint id="close" />
           </MenubarItem>
-        </MenubarContent>
-      </MenubarMenu>
-
-      {/* Edit Menu */}
-      <MenubarMenu>
-        <MenubarTrigger className="text-md px-2 py-1 border-none focus-visible:ring-0">
-          {t("common.menu.edit")}
-        </MenubarTrigger>
-        <MenubarContent align="start" sideOffset={1} className="px-0">
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.undo")}
-            <ShortcutHint id="undo" />
-          </MenubarItem>
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.redo")}
-            <ShortcutHint id="redo" />
-          </MenubarItem>
-          <MenubarSeparator className="h-[2px] bg-black my-1" />
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.cut")}
-            <ShortcutHint id="cut" />
-          </MenubarItem>
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.copy")}
-            <ShortcutHint id="copy" />
-          </MenubarItem>
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.paste")}
-            <ShortcutHint id="paste" />
-          </MenubarItem>
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.clear")}
-          </MenubarItem>
-          <MenubarSeparator className="h-[2px] bg-black my-1" />
-          <MenubarItem disabled className="text-md h-6 px-3">
-            {t("common.menu.selectAll")}
-            <ShortcutHint id="selectAll" />
-          </MenubarItem>
-        </MenubarContent>
-      </MenubarMenu>
-
-      {/* View Menu */}
-      <MenubarMenu>
-        <MenubarTrigger className="text-md px-2 py-1 border-none focus-visible:ring-0">
-          {t("common.menu.view")}
-        </MenubarTrigger>
-        <MenubarContent align="start" sideOffset={1} className="px-0">
-          <MenubarCheckboxItem checked={false} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.bySmallIcon")}
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={true} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.byIcon")}
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={false} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.byList")}
-          </MenubarCheckboxItem>
-          <MenubarSeparator className="h-[2px] bg-black my-1" />
-          <MenubarCheckboxItem checked={true} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.byName")}
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={false} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.byDate")}
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={false} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.bySize")}
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={false} disabled className="text-md h-6 px-3">
-            {t("apps.finder.menu.byKind")}
-          </MenubarCheckboxItem>
         </MenubarContent>
       </MenubarMenu>
 
@@ -253,21 +181,17 @@ export function DefaultMenuItems() {
         </MenubarContent>
       </MenubarMenu>
 
-      <HelpDialog
-        isOpen={activeHelp !== null}
-        onOpenChange={(open) => {
-          if (!open) setActiveHelp(null);
-        }}
-        appId={activeHelp && activeHelp !== "general" ? activeHelp : undefined}
-        appName={activeHelp === "general" ? GENERAL_HELP_APP_NAME : undefined}
-        helpItems={
-          activeHelp === "general"
-            ? generalHelpItems
-            : activeHelp
-            ? appRegistry[activeHelp].helpItems ?? []
-            : []
-        }
-      />
+      {activeHelp !== null && (
+        <Suspense fallback={null}>
+          <HelpGuideDialog
+            isOpen
+            onOpenChange={(open) => {
+              if (!open) setActiveHelp(null);
+            }}
+            guideId={activeHelp === "general" ? "overview" : activeHelp}
+          />
+        </Suspense>
+      )}
       <AboutDialog
         isOpen={isAboutDialogOpen}
         onOpenChange={setIsAboutDialogOpen}

@@ -9,6 +9,9 @@ export const appMetadata = {
   icon: "/icons/macosx/bento.png",
 };
 
+// @deprecated The Help menu now shows the paged guide in
+// src/components/help/guides/inbox.tsx. This array is retained only because
+// appRegistry still reads `helpItems`; it is no longer user-facing.
 export const helpItems = [
   {
     icon: "📋",

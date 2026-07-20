@@ -8,10 +8,10 @@ import {
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
-import { HelpDialog } from "@/components/dialogs/HelpDialog";
+import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { helpItems, appMetadata } from "../index.tsx";
+import { appMetadata } from "../index.tsx";
 import {
   useProjectsStore,
   type WrapupSection,
@@ -335,11 +335,10 @@ export function ArchiveAppComponent({
         </div>
         </div>
 
-        <HelpDialog
+        <HelpGuideDialog
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
-          helpItems={helpItems}
-          appId="archive"
+          guideId="archive"
         />
         <AboutDialog
           isOpen={isAboutDialogOpen}

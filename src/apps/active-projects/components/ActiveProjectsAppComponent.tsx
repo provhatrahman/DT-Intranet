@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
-import { HelpDialog } from "@/components/dialogs/HelpDialog";
+import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { helpItems, appMetadata } from "..";
+import { appMetadata } from "..";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { useUsersStore } from "@/stores/useUsersStore";
@@ -412,11 +412,10 @@ export function ActiveProjectsAppComponent({
         </div>
         </div>
 
-        <HelpDialog
+        <HelpGuideDialog
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
-          helpItems={helpItems}
-          appId="active-projects"
+          guideId="active-projects"
         />
         <AboutDialog
           isOpen={isAboutDialogOpen}

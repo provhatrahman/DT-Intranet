@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { PitchMenuBar } from "./PitchMenuBar";
-import { HelpDialog } from "@/components/dialogs/HelpDialog";
+import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { helpItems, appMetadata } from "..";
+import { appMetadata } from "..";
 import { useAuth } from "@/hooks/useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
@@ -691,11 +691,10 @@ export function PitchAppComponent({
           </div>
         </div>
 
-        <HelpDialog
+        <HelpGuideDialog
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
-          helpItems={helpItems}
-          appId="pitch"
+          guideId="pitch"
         />
         <AboutDialog
           isOpen={isAboutDialogOpen}
