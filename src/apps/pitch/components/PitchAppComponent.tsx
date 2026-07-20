@@ -3,9 +3,7 @@ import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { PitchMenuBar } from "./PitchMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
-import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { appMetadata } from "..";
 import { useAuth } from "@/hooks/useAuth";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
@@ -51,7 +49,6 @@ export function PitchAppComponent({
   onNavigatePrevious,
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("new");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pitchToDelete, setPitchToDelete] = useState<number | null>(null);
@@ -244,7 +241,6 @@ export function PitchAppComponent({
     <PitchMenuBar
       onClose={onClose}
       onShowHelp={() => setIsHelpDialogOpen(true)}
-      onShowAbout={() => setIsAboutDialogOpen(true)}
     />
   );
 
@@ -695,12 +691,6 @@ export function PitchAppComponent({
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
           guideId="pitch"
-        />
-        <AboutDialog
-          isOpen={isAboutDialogOpen}
-          onOpenChange={setIsAboutDialogOpen}
-          metadata={appMetadata}
-          appId="pitch"
         />
         <ConfirmDialog
           isOpen={deleteConfirmOpen}

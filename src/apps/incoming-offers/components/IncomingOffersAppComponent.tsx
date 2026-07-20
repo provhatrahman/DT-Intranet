@@ -3,7 +3,6 @@ import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
-import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { FeedbackDialog } from "@/components/dialogs/FeedbackDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import {
@@ -13,7 +12,6 @@ import {
   toUpdatePayload,
 } from "./ProjectDetailsFormDialog";
 import { LogOfferDialog, LogOfferFormValues } from "./LogOfferDialog";
-import { appMetadata } from "..";
 import {
   useEffectiveGreenroomAccount,
   useIsGreenroomAdmin,
@@ -157,7 +155,6 @@ export function IncomingOffersAppComponent({
   onNavigatePrevious,
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [sortBy, setSortBy] = useState<
     "date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc"
@@ -817,7 +814,6 @@ export function IncomingOffersAppComponent({
     <IncomingOffersMenuBar
       onClose={onClose}
       onShowHelp={() => setIsHelpDialogOpen(true)}
-      onShowAbout={() => setIsAboutDialogOpen(true)}
       onLogOffer={() => setIsLogOfferOpen(true)}
     />
   );
@@ -941,12 +937,6 @@ export function IncomingOffersAppComponent({
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
           guideId="incoming-offers"
-        />
-        <AboutDialog
-          isOpen={isAboutDialogOpen}
-          onOpenChange={setIsAboutDialogOpen}
-          metadata={appMetadata}
-          appId="incoming-offers"
         />
         <FeedbackDialog
           isOpen={isFeedbackDialogOpen}

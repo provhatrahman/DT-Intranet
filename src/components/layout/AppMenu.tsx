@@ -20,6 +20,15 @@ import { getTranslatedAppName } from "@/utils/i18n";
 // Apps that support multiple windows
 const MULTI_INSTANCE_APPS: AppId[] = ["textedit", "finder", "applet-viewer"];
 
+// Greenroom domain apps that intentionally omit the "About <App>" item from
+// their app menu (also removed from their Help menus).
+const APPS_WITHOUT_ABOUT: AppId[] = [
+  "incoming-offers",
+  "active-projects",
+  "pitch",
+  "archive",
+];
+
 // Apps that support fullscreen mode
 const FULLSCREEN_APPS: AppId[] = ["ipod", "videos", "pc"];
 
@@ -113,9 +122,11 @@ export function AppMenu({ appId, appName, instanceId, onShowAbout }: AppMenuProp
           {translatedAppName}
         </MenubarTrigger>
         <MenubarContent align="start" sideOffset={1} className="px-0">
-          <MenubarItem onClick={handleShowAbout} className="text-md h-6 px-3">
-            {t("common.appMenu.aboutApp", { appName: translatedAppName })}
-          </MenubarItem>
+          {!APPS_WITHOUT_ABOUT.includes(appId) && (
+            <MenubarItem onClick={handleShowAbout} className="text-md h-6 px-3">
+              {t("common.appMenu.aboutApp", { appName: translatedAppName })}
+            </MenubarItem>
+          )}
 
           <MenubarItem
             onSelect={() => setIsShareDialogOpen(true)}

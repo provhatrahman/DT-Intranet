@@ -11,17 +11,14 @@ import { useThemeStore } from "@/stores/useThemeStore";
 interface IncomingOffersMenuBarProps {
   onClose: () => void;
   onShowHelp: () => void;
-  onShowAbout: () => void;
   onLogOffer?: () => void;
 }
 
 export function IncomingOffersMenuBar({
   onClose,
   onShowHelp,
-  onShowAbout,
   onLogOffer,
 }: IncomingOffersMenuBarProps) {
-  const appName = "Inbox";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
 
@@ -53,10 +50,6 @@ export function IncomingOffersMenuBar({
         <MenubarContent align="start" sideOffset={1} className="px-0">
           <MenubarItem onClick={onShowHelp} className="text-md h-6 px-3">
             Help
-          </MenubarItem>
-          <MenubarSeparator className="h-[2px] bg-black my-1" />
-          <MenubarItem onClick={onShowAbout} className="text-md h-6 px-3">
-            About {appName}
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>

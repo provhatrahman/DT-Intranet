@@ -9,9 +9,7 @@ import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
-import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { appMetadata } from "../index.tsx";
 import {
   useProjectsStore,
   type WrapupSection,
@@ -158,7 +156,6 @@ export function ArchiveAppComponent({
   onNavigatePrevious,
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   // Viewport-width based (not touch): a touch-enabled desktop keeps the
   // two-pane master-detail layout instead of collapsing to a single pane.
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -219,7 +216,6 @@ export function ArchiveAppComponent({
     <ArchiveMenuBar
       onClose={onClose}
       onShowHelp={() => setIsHelpDialogOpen(true)}
-      onShowAbout={() => setIsAboutDialogOpen(true)}
     />
   );
 
@@ -339,12 +335,6 @@ export function ArchiveAppComponent({
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
           guideId="archive"
-        />
-        <AboutDialog
-          isOpen={isAboutDialogOpen}
-          onOpenChange={setIsAboutDialogOpen}
-          metadata={appMetadata}
-          appId="archive"
         />
       </WindowFrame>
     </>

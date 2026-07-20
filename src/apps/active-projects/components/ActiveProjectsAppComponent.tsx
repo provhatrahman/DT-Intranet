@@ -3,9 +3,7 @@ import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
-import { AboutDialog } from "@/components/dialogs/AboutDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
-import { appMetadata } from "..";
 import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { useUsersStore } from "@/stores/useUsersStore";
@@ -144,7 +142,6 @@ export function ActiveProjectsAppComponent({
   onNavigatePrevious,
 }: AppProps) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  const [isAboutDialogOpen, setIsAboutDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [pendingCompleteProjectId, setPendingCompleteProjectId] = useState<
     number | null
@@ -246,7 +243,6 @@ export function ActiveProjectsAppComponent({
     <ActiveProjectsMenuBar
       onClose={onClose}
       onShowHelp={() => setIsHelpDialogOpen(true)}
-      onShowAbout={() => setIsAboutDialogOpen(true)}
     />
   );
 
@@ -416,12 +412,6 @@ export function ActiveProjectsAppComponent({
           isOpen={isHelpDialogOpen}
           onOpenChange={setIsHelpDialogOpen}
           guideId="active-projects"
-        />
-        <AboutDialog
-          isOpen={isAboutDialogOpen}
-          onOpenChange={setIsAboutDialogOpen}
-          metadata={appMetadata}
-          appId="active-projects"
         />
         <ConfirmDialog
           isOpen={isCompleteDialogOpen}

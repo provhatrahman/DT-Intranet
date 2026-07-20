@@ -4,22 +4,18 @@ import {
   MenubarTrigger,
   MenubarContent,
   MenubarItem,
-  MenubarSeparator,
 } from "@/components/ui/menubar";
 import { useThemeStore } from "@/stores/useThemeStore";
 
 interface ActiveProjectsMenuBarProps {
   onClose: () => void;
   onShowHelp: () => void;
-  onShowAbout: () => void;
 }
 
 export function ActiveProjectsMenuBar({
   onClose,
   onShowHelp,
-  onShowAbout,
 }: ActiveProjectsMenuBarProps) {
-  const appName = "Active Projects";
   const currentTheme = useThemeStore((state) => state.current);
   const isXpTheme = currentTheme === "xp" || currentTheme === "win98";
 
@@ -43,10 +39,6 @@ export function ActiveProjectsMenuBar({
         <MenubarContent align="start" sideOffset={1} className="px-0">
           <MenubarItem onClick={onShowHelp} className="text-md h-6 px-3">
             Help
-          </MenubarItem>
-          <MenubarSeparator className="h-[2px] bg-black my-1" />
-          <MenubarItem onClick={onShowAbout} className="text-md h-6 px-3">
-            About {appName}
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
