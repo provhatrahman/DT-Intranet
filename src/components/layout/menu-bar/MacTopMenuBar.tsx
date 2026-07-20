@@ -17,7 +17,7 @@ import { Clock } from "./MenuBarClock";
 import { VolumeControl } from "./VolumeControl";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { MenuBarAccount } from "./MenuBarAccount";
-import { ExposeButton } from "./ExposeButton";
+import { RefreshButton } from "./RefreshButton";
 import { useDesktopFullscreen } from "./useDesktopFullscreen";
 import { shouldShowDesktopDragDebugZone } from "./desktopDragDebug";
 
@@ -148,7 +148,7 @@ export function MacTopMenuBar({ children }: MacTopMenuBarProps) {
       >
         <MenuBarAccount />
         <OfflineIndicator />
-        <ExposeButton />
+        <RefreshButton />
         <div className="hidden sm:flex">
           <VolumeControl />
         </div>
