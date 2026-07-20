@@ -13,19 +13,25 @@ One RDS instance `prod-postgres.c76kwqimoyuh.eu-west-2.rds.amazonaws.com:5432` h
 | Env | DB | User | Notes |
 |---|---|---|---|
 | **Dev** | `greenroom_dev` | `devuser` | isolated clone; password = `DB_PASSWORD` in `backend\.env`; blocked from prod |
-| **Prod** | `DT-Test` | `appdaytimers` | real data; app password in Secrets Manager (see Credentials) |
+| **Prod** | `DT-Test` | `appdaytimers` | app/Lambda user — DML only; real data; app password in Secrets Manager (see Credentials) |
+| **Prod (DDL)** | `DT-Test` | `admindaytimers` | master user — **owns the tables on prod**; required for CREATE/ALTER |
+
+**As of 2026-07-20:** new tables `booking_votes`, `project_updates`, `project_team`,
+`ipod_tracks`, `user_settings` (+ new columns on existing tables); artist roster is
+at v2 — 272 active artists.
 
 > `MSYS_NO_PATHCONV=1` is needed in Git Bash for `aws ssm ... --name /prod/...` (leading-slash args get mangled).
 
 ## Credentials
 
 - **`devuser`** (dev app user): password is `DB_PASSWORD` in `backend\.env`. This is what the local backend connects as, and what the running app can read/write.
-- **`appdaytimers`** (table owner, both DBs): password lives in Secrets Manager, NOT SSM. Fetch it with:
+- **`appdaytimers`** (app/Lambda user, both DBs): password lives in Secrets Manager, NOT SSM. Fetch it with:
   ```bash
   aws secretsmanager get-secret-value --profile greenroom-cli --region eu-west-2 \
     --secret-id 'prod/app/db_password' --query SecretString --output text
   ```
-  `appdaytimers` can connect to **either** DB on the RDS instance (same server), including `greenroom_dev` — that's how the re-clone below works, and it's the account you need for DDL on prod-cloned tables (see the ownership gotcha).
+  `appdaytimers` can connect to **either** DB on the RDS instance (same server), including `greenroom_dev` — that's how the re-clone below works. On the **dev** clone it also owns the prod-cloned tables (see the ownership gotcha), so it's the account you need for DDL there. **On prod (`DT-Test`) it does NOT own the tables** — DML only, see `admindaytimers` below.
+- **`admindaytimers`** (master user, prod DDL only): owns the tables on `DT-Test`. Required for any `CREATE`/`ALTER` against prod — `appdaytimers` will fail with `must be owner of table`. Credentials: confirm with the team / Secrets Manager before running DDL on prod (not yet documented here as a fetchable secret ID). After running DDL as `admindaytimers`, `GRANT` DML (`SELECT/INSERT/UPDATE/DELETE`) and sequence `USAGE` on the new/changed objects back to `appdaytimers` so the running Lambdas can use them.
 
 ## ⚠️ Table-ownership gotcha (DDL in dev)
 
@@ -41,7 +47,7 @@ Then **grant the new object to `devuser`** so the app (which connects as `devuse
 ```bash
 psql ... -U appdaytimers -d greenroom_dev -c "GRANT SELECT, INSERT, UPDATE ON <table> TO devuser;"
 ```
-This is dev-only and safe — you're altering `greenroom_dev`, never `DT-Test`. (On prod you already connect as `appdaytimers`, so ownership is a non-issue there.)
+This is dev-only and safe — you're altering `greenroom_dev`, never `DT-Test`. (On prod, DDL has the same shape of problem but a different fix: connect as `admindaytimers` — not `appdaytimers` — since that's the actual table owner on `DT-Test`; see Credentials above.)
 
 ## Connect
 ```
@@ -59,12 +65,18 @@ This is dev-only and safe — you're altering `greenroom_dev`, never `DT-Test`. 
    `appdaytimers` instead and grant to `devuser` (see the ownership gotcha above).
    Run the app locally (`greenroom-local-dev`) and confirm nothing breaks.
 3. If the backend code depends on the change, deploy code together (`greenroom-deploy-backend`).
-4. **Snapshot prod first**, then apply to prod:
+4. **Snapshot prod first**, then apply to prod. **If the change is DDL (CREATE/ALTER),
+   connect as `admindaytimers`, not `appdaytimers`** — `appdaytimers` doesn't own the
+   tables on `DT-Test` and will fail with `must be owner of table`. Pure data
+   fixes (INSERT/UPDATE/DELETE) can still use `appdaytimers`.
    ```
    aws rds create-db-snapshot --profile greenroom-cli --region eu-west-2 \
      --db-instance-identifier prod-postgres --db-snapshot-identifier predev-<yyyymmdd-desc>
    # after snapshot is 'available':
-   psql -h <host> -U appdaytimers -d DT-Test -f change.sql
+   psql -h <host> -U admindaytimers -d DT-Test -f change.sql
+   # then grant DML + sequence usage on the new/changed objects back to the app user:
+   psql -h <host> -U admindaytimers -d DT-Test -c \
+     "GRANT SELECT, INSERT, UPDATE, DELETE ON <table> TO appdaytimers; GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO appdaytimers;"
    ```
 
 ## Refresh the dev DB from prod (re-clone)
@@ -81,8 +93,15 @@ $env:PGPASSWORD = "<appdaytimers password>"
 The `users` table doubles as the Google-login **allowlist**: a person can sign in only if
 their **real Google email** is in `users.email` (case-insensitive), and `is_admin` derives
 from `users.role` (`admin`/`manager`). "Allowlist someone" = INSERT/UPDATE their real email
-on a `users` row (dev now; prod after a snapshot). See `AUTH_SETUP.md`. Note: dev `users`
+on a `users` row (snapshot first on prod). See `AUTH_SETUP.md`. Note: dev `users`
 id 8's email was set to a real Google address for local login testing (`greenroom_dev` only).
+
+**This is no longer just a design for future auth — it's live.** Since 2026-07-20,
+Google OAuth is enforced in prod (frontend gate + `REQUIRE_AUTH=true` on every domain
+Lambda), so the prod `users` table is the **real, backend-enforced access-control
+list** for who can use Greenroom at all, not just a UI allowlist. Real admin emails
+were added to it as part of that rollout — any change to this table on `DT-Test`
+now directly gates production access; treat edits accordingly (snapshot first).
 
 ## Guardrails
 - Never run untested SQL directly on `DT-Test`. Dev-first, snapshot, then prod.

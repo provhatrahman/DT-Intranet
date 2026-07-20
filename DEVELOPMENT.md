@@ -5,11 +5,17 @@ Greenroom = the **frontend** (this repo, `ryos` shell + domain apps) + a separat
 **backend** (Django-on-Lambda) at `c:\Projects\backend`, both hosted in one AWS
 account (`471028617262`, region `eu-west-2`).
 
-> **Auth note:** Google OAuth login is **built** and works in local dev (see
-> `AUTH_SETUP.md`), but is **OFF by default and not yet enforced in prod**
-> (`VITE_AUTH_ENABLED`/`REQUIRE_AUTH` both off). Until it's enabled in prod, the
-> API is still open — anyone who can reach it can read/write all data, and the
-> frontend "admin" allowlist is UI-only. Don't rely on it for security yet.
+> **Auth note:** Google OAuth login is **live and enforced in prod** as of
+> 2026-07-20 (frontend build `1a82122`) — see `AUTH_SETUP.md` for the full
+> design. `VITE_AUTH_ENABLED=true` is baked into the live frontend build (the
+> desktop requires Google sign-in before anything else loads), and
+> `REQUIRE_AUTH=true` on every backend domain Lambda — anonymous `/api/*` calls
+> now return `401`. Only Google accounts allowlisted in the prod `users` table
+> can sign in, and `is_admin` (derived from `users.role`) is enforced
+> server-side, not just UI-only. `deploy.ps1` now **defaults** to a gated build
+> (`VITE_AUTH_ENABLED=true`) — override to `false` only for a deliberately
+> un-gated build. Rollback: frontend `VITE_AUTH_ENABLED=false` + backend
+> `REQUIRE_AUTH=false`.
 
 ---
 
@@ -105,7 +111,11 @@ Workflow for a schema change:
    ```
 3. Verify the app still works locally.
 4. **Apply to prod** — take a snapshot first (see §5), then run the same SQL against
-   the real DB (`-U appdaytimers -d DT-Test`, app password from the Lambda env).
+   the real DB. **DDL on `DT-Test` (CREATE/ALTER) must run as the master user
+   `admindaytimers`, not `appdaytimers`** — `appdaytimers` (the app/Lambda user) owns
+   no tables on prod and cannot CREATE/ALTER them. After running DDL as
+   `admindaytimers`, `GRANT` DML (SELECT/INSERT/UPDATE/DELETE) and sequence `USAGE`
+   back to `appdaytimers` so the running Lambdas can use the new/changed objects.
 
 **Refresh the dev DB from prod** (re-clone data anytime):
 ```powershell
@@ -118,7 +128,12 @@ $env:PGPASSWORD = "<appdaytimers password>"
 | | Host | DB | User | Use |
 |---|---|---|---|---|
 | **Dev** | prod-postgres…rds…com | `greenroom_dev` | `devuser` | local dev (isolated clone) |
-| **Prod** | prod-postgres…rds…com | `DT-Test` | `appdaytimers` | real data — careful |
+| **Prod** | prod-postgres…rds…com | `DT-Test` | `appdaytimers` | app/Lambda user — DML only, real data, careful |
+| **Prod (DDL)** | prod-postgres…rds…com | `DT-Test` | `admindaytimers` | master user — owns the tables; required for CREATE/ALTER |
+
+As of 2026-07-20, `DT-Test` also has: `booking_votes`, `project_updates`,
+`project_team`, `ipod_tracks`, `user_settings` (plus new columns on existing
+tables), and the artist roster is at v2 — 272 active artists.
 
 ---
 
@@ -143,6 +158,16 @@ so build via CI:
      --s3-bucket prod-lambda-artifacts-471028617262 --s3-key <domain>-service.zip
    ```
 **Rollback:** each Lambda has a published version `1` (pre-dev baseline) to revert to.
+
+**As of 2026-07-20** there are **9 active domain Lambdas** — `prod-music-service`
+(collective iPod library; route `/api/music/{proxy+}` on API `jzre02jvh9`, IAM role
+`prod-music-lambda-role`) was added via CLI as the newest. (A legacy `prod-events-service`
+also remains deployed as a **retired orphan** — dead code, `/api/events/` 500s, not
+enforced; it and its route should be removed.) Include `music` alongside the other
+domains in any redeploy that touches shared code. Also new: a **NAT gateway**
+(`nat-004f38aa2518c0fdd`, EIP `51.24.142.253`) in `prod-public-subnet-1`, routed from
+the private subnets' route table — required so the VPC Lambdas can reach
+`oauth2.googleapis.com` for server-side Google OAuth token exchange.
 
 ---
 
@@ -174,4 +199,7 @@ so build via CI:
 - **Live frontend:** https://greenroom.daytimers.org (S3 + CloudFront `E3OF10QS7S5YPV`)
 - **Live API:** https://jzre02jvh9.execute-api.eu-west-2.amazonaws.com/api (trailing slash required)
 - **Backend repo:** `c:\Projects\backend` (github.com/arronS22/greenroom-backend)
+- **Auth:** Google OAuth is live and enforced in prod since 2026-07-20 (frontend gate +
+  `REQUIRE_AUTH=true` on every domain Lambda) — see the Auth note above and `AUTH_SETUP.md`.
+- **Domains:** 9 active domain Lambdas as of 2026-07-20 (added `music` for the collective iPod library; a legacy `events` Lambda remains as a retired orphan).
 - See `DEPLOYMENT.md` for deeper deploy detail; `backend\INFRASTRUCTURE_INTEGRATION.md` for infra.

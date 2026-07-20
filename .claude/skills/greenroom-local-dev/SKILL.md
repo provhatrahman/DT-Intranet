@@ -29,14 +29,25 @@ Runs the whole app against the isolated **`greenroom_dev`** database — never p
    App runs at http://localhost:5173 and reads/writes `greenroom_dev` only.
 
 ## Notes
-- **Auth is off by default** (app is ungated; `:5173` is fine). To develop/test the
-  Google **login gate**, run the frontend on **`:3000`** (the registered OAuth redirect
-  URI) with `VITE_AUTH_ENABLED=true`, and set `GOOGLE_CLIENT_SECRET` in the backend
-  `.env` (then restart the backend). Full procedure + flags: `AUTH_SETUP.md`.
+- **Local dev stays off by default** (app is ungated; `:5173` is fine) — this is
+  intentionally different from **prod, where Google auth has been live and enforced
+  since 2026-07-20** (frontend gate + `REQUIRE_AUTH=true` on all domain Lambdas; see
+  `CLAUDE.md`'s Authentication note). Locally, `VITE_AUTH_ENABLED` and the backend's
+  `REQUIRE_AUTH` are independently toggled and default to off for convenience. To
+  develop/test the Google **login gate** itself, run the frontend on **`:3000`** (the
+  registered OAuth redirect URI) with `VITE_AUTH_ENABLED=true`, and set
+  `GOOGLE_CLIENT_SECRET` in the backend `.env` (then restart the backend). Full
+  procedure + flags: `AUTH_SETUP.md`.
   ```
   # PowerShell:
   $env:PORT="3000"; $env:GREENROOM_API_TARGET="http://localhost:8000"; $env:VITE_AUTH_ENABLED="true"; bun dev
   ```
+- **DB additions as of 2026-07-20** (present in a fresh `greenroom_dev` clone from prod):
+  new tables `booking_votes`, `project_updates`, `project_team`, `ipod_tracks`,
+  `user_settings` (+ new columns on existing tables), and the artist roster is at
+  v2 — 272 active artists. The Google-login allowlist is also just the `users` table
+  (`is_admin` derives from `role`) — see `greenroom-db-change` for schema/DDL details,
+  including the `admindaytimers` vs `appdaytimers` ownership gotcha on prod.
 - Unset `GREENROOM_API_TARGET` (new terminal) → frontend hits the **prod** Greenroom API.
 - Use `bun run dev:vercel` instead of `bun dev` if you need ryOS AI/chat (`/api/*`) routes —
   but that mode calls the prod Greenroom API, not local.

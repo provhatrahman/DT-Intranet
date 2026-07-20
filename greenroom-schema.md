@@ -2,6 +2,14 @@
 
 Generated: 29/12/2025, 21:47:19
 
+> **⚠️ Out of date (2026-07-20).** This is a generated snapshot. Since it was made,
+> these tables were added and are **not** shown below: `booking_votes`,
+> `project_updates`, `project_team`, `ipod_tracks`, `user_settings` — plus new
+> columns on `bookings` (`timings`), `pitch_votes`/`booking_votes` (`wants_involvement`),
+> `project_suggestions` (`link`), `project_suggestion_votes` (`vote_value`), and
+> `artists` (`outside_uk`, `other_social_media`, `previous_work_link`). Regenerate
+> (`bun run` the schema generator) to refresh.
+
 ---
 
 ## artists

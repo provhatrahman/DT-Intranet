@@ -1,5 +1,11 @@
 # Greenroom Backend API Documentation
 
+> **⚠️ Stale — 2026-07-20.** This file predates several changes. Corrections:
+> the API now **requires `Authorization: Bearer <Google id_token>`** (allowlisted
+> users only; `REQUIRE_AUTH=true`, anonymous → 401), a **`music` domain** exists
+> (`/api/music/tracks/`), and there are new tables/columns. For current route
+> shapes see `BACKEND_STATE.md`; for the auth model see `AUTH_SETUP.md`.
+
 ## Base URL
 
 ```

@@ -1,13 +1,15 @@
 # Greenroom Authentication — setup & handoff
 
 Google OAuth (Authorization Code + PKCE) login for the Greenroom desktop.
-This doc covers how it's wired, what still needs configuring by whoever owns
-the Google Cloud project, and the checklist for turning it on in production.
+This doc covers how it's wired and records how it was turned on in production.
 
-**Status:** ✅ Verified working end-to-end in **local dev** (frontend `:3000` +
-local backend `:8000`) — real Google login lands on the desktop. Google Cloud
-OAuth client is configured and the client secret is in the local backend
-`.env`. Remaining work is **production enablement** (see the checklist below).
+**Status:** ✅ **LIVE and ENFORCED in production** (2026-07-20). The desktop at
+greenroom.daytimers.org requires an allowlisted Google login (`VITE_AUTH_ENABLED=true`
+in the live build), and the API rejects anonymous traffic (`REQUIRE_AUTH=true` on all
+9 active domain Lambdas — anonymous `/api/*` → 401). Real admin emails are in the prod
+allowlist and login is verified working end-to-end. Getting there required new infra
+(a NAT gateway) and fixing two Lambda dependency-bundling bugs — see the **Prod
+enablement — DONE** section below for the full runbook and rollback.
 
 ## How it works
 
@@ -34,22 +36,26 @@ OAuth client is configured and the client secret is in the local backend
 A Google account can log in **only if its email exists in `users.email`**. No
 match → `403 not_allowlisted`. `is_admin` is derived from `users.role`
 (`admin`/`manager`). To grant someone access, put their **real Google email**
-on a `users` row (see `greenroom-db-change`). The seeded rows use dummy
-`@greenroom.com` emails, which are not real Google accounts.
+on a `users` row in the prod DB `DT-Test` (see `greenroom-db-change`; DDL/DML on
+`DT-Test` runs as master `admindaytimers`). Real admin emails were added
+2026-07-20; the old seeded `@greenroom.com` rows are dummies and never map to a
+real Google account.
 
 ## Flags & secrets
 
 | Where | Name | Purpose | Default |
 |---|---|---|---|
-| Frontend build (`import.meta.env`) | `VITE_AUTH_ENABLED` | Master switch — gate the desktop behind Google login | `false` |
+| Frontend build (`import.meta.env`) | `VITE_AUTH_ENABLED` | Master switch — gate the desktop behind Google login | code `false` · **prod build: `true`** (deploy.ps1 defaults it on) |
 | Frontend build | `VITE_GOOGLE_CLIENT_ID` | Override the OAuth client ID | hardcoded public default |
-| Backend env | `GOOGLE_CLIENT_SECRET` | **Server-side only.** Code→token exchange | *(empty → exchange returns 503)* |
+| Backend env | `GOOGLE_CLIENT_SECRET` | **Server-side only.** Code→token exchange | *(empty → exchange 503)* · **set on prod-users-service** |
 | Backend env | `GOOGLE_CLIENT_ID` | ID-token audience check | hardcoded public default |
-| Backend env | `REQUIRE_AUTH` | Enforce 401/403 on all `/api/*` (vs. attach-user-only) | `false` |
+| Backend env | `REQUIRE_AUTH` | Enforce 401 on all `/api/*` (vs. attach-user-only) | code `false` · **prod: `true` on all 9 active domain Lambdas** |
 | Backend env | `GREENROOM_ADMIN_ROLES` | Which `users.role` values are admin | `admin,manager` |
 
-Nothing changes for existing users until `VITE_AUTH_ENABLED=true` (frontend)
-and, separately, `REQUIRE_AUTH=true` (backend enforcement).
+In **prod both are ON**: `VITE_AUTH_ENABLED=true` (desktop gated) and
+`REQUIRE_AUTH=true` (API closed). To un-gate the desktop, rebuild/redeploy the
+frontend with `$env:VITE_AUTH_ENABLED="false"`; to reopen the API, set
+`REQUIRE_AUTH=false` on the Lambda envs. The two are independent switches.
 
 ## Local development
 
@@ -81,70 +87,81 @@ The frontend + backend code is done. These are the only things outside the code:
    - *(Authorized JavaScript origins are **not** needed — exchange is server-side.)*
    - **Status: ✅ done** — both registered by the OAuth owner.
 2. **Provide the client secret** (`GOCSPX-…`) so it can be set as
-   `GOOGLE_CLIENT_SECRET` in the backend env (dev `.env`; prod SSM / Lambda env
+   `GOOGLE_CLIENT_SECRET` in the backend env (dev `.env`; prod Lambda env
    on `prod-users-service`). It must never be committed or shipped to the browser.
-   - **Status: ✅ done for dev** — secret is in the local backend `.env`. Prod
-     still needs it set on `prod-users-service` (see checklist item 3).
+   - **Status: ✅ done** — in the local backend `.env` (dev) and set on
+     `prod-users-service` (prod, 2026-07-20).
 
 ---
 
-## Prod enablement runbook — verified 2026-07-17
+## Prod enablement — DONE (2026-07-20)
 
-Deploying the current commits alone will **not** enable auth. State below was
-verified against live prod on 2026-07-17 (✅ = confirmed done, ❌ = outstanding).
-Do these as **one batch**; nothing here has been applied to prod yet.
+Auth is fully enabled in prod. This section records what was applied and how to
+roll back. Everything below is ✅ live unless noted.
 
-1. **Frontend build flag.** ✅ **Wired.** `deploy.ps1` now defaults
-   `VITE_AUTH_ENABLED=true` before `bun run build` (Vite bakes `import.meta.env`
-   at build time). The next frontend deploy ships gated. Override with
-   `$env:VITE_AUTH_ENABLED="false"` to ship ungated.
-2. **Backend auth code → prod — all domains.** ❌ The auth code is on
-   `greenroom-develop` (+ uncommitted working-tree changes), **not on `main`**,
-   so prod 404s `/api/users/auth/*`. Get it onto `main`, let CI build, then
-   `lambda update-function-code` for **all 9** `prod-<domain>-service` (the
-   middleware lives in shared `settings.py` → runs in every domain Lambda).
-   `google-auth` + `requests` are already in `requirements.txt`.
-   ```bash
-   for d in users artists bookings projects tasks pitches payments analytics events; do
-     aws lambda update-function-code --profile greenroom-cli --region eu-west-2 \
-       --function-name prod-$d-service \
-       --s3-bucket prod-lambda-artifacts-471028617262 --s3-key $d-service.zip
-     aws lambda wait function-updated --profile greenroom-cli --region eu-west-2 \
-       --function-name prod-$d-service
-   done
-   ```
-3. **`GOOGLE_CLIENT_SECRET` on `prod-users-service`** ❌ (the Lambda that does the
-   exchange). The value is already in `backend/.env` (same OAuth client). Set it
-   on the Lambda env (merge into existing Environment.Variables, don't clobber).
-4. **CORS at the gateway** — ✅ **already configured.** Verified: OPTIONS + real
-   responses return `access-control-allow-origin: https://greenroom.daytimers.org`
-   and `access-control-allow-headers: authorization,content-type`. No action.
-   *(This doc previously said CORS was unconfigured — that was stale.)*
-5. **CloudFront SPA fallback** ❌ — dist `E3OF10QS7S5YPV` has
-   `DefaultRootObject=index.html` but **0 custom error responses**, so
-   `/auth/callback` returns 403 from S3 today (verified). Add error responses so
-   403/404 → `/index.html` (200). Via `get-distribution-config` → add
-   `CustomErrorResponses` → `update-distribution` with the returned `ETag`:
-   ```json
-   "CustomErrorResponses": { "Quantity": 2, "Items": [
-     {"ErrorCode":403,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":10},
-     {"ErrorCode":404,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":10}
-   ]}
-   ```
-   (Bonus: also fixes hard-navigation to app deep links like `/ipod`, which 403 today.)
-6. **Google Console** — ✅ prod redirect URI `https://greenroom.daytimers.org/auth/callback`
-   registered (see action items above).
-7. **Allowlist in prod DB** (`DT-Test`) ❌ — real Google emails on `users` rows.
-   Snapshot first, then apply `backend/scripts/sql/allowlist_prod.sql` (fill in the
-   real emails). The seeded `@greenroom.com` rows are dummies and won't map.
-8. **Enforcement rollout** ❌ — steps 1–7 leave `REQUIRE_AUTH=false` (API open,
-   but the desktop already requires login and sends tokens). Once confirmed all
-   traffic carries a bearer, set `REQUIRE_AUTH=true` on every Lambda env and
-   redeploy/restart to actually close the open API.
+1. **Frontend build flag** — `deploy.ps1` defaults `VITE_AUTH_ENABLED=true`, and
+   the live build (`1a82122`) shipped gated. The desktop requires Google login.
+2. **Backend auth code → prod — all domains** — `main` promoted, CI built, and
+   all `prod-<domain>-service` Lambdas updated (the middleware is in shared
+   settings → runs in every domain Lambda). Domains are now **10** (added `music`;
+   `events` is retired).
+3. **`GOOGLE_CLIENT_SECRET` on `prod-users-service`** — set (merged into the env,
+   nothing clobbered). Exchange endpoint returns a real Google response (not 503).
+4. **CORS at the gateway** — already configured for `https://greenroom.daytimers.org`
+   (`authorization,content-type`). No change needed.
+5. **CloudFront SPA fallback** — dist `E3OF10QS7S5YPV` now has `CustomErrorResponses`
+   (403/404 → `/index.html`, 200), so `/auth/callback` and app deep links resolve.
+6. **Google Console** — prod redirect URI `https://greenroom.daytimers.org/auth/callback`
+   registered.
+7. **Allowlist in prod DB** (`DT-Test`) — real admin Google emails added to `users`
+   (via `backend/scripts/sql/allowlist_prod.sql`, run as `admindaytimers`). Snapshot
+   `prod-postgres-predeploy-20260717` taken first.
+8. **Enforcement** — `REQUIRE_AUTH=true` on **all 9 active domain Lambdas**
+   (`users, artists, bookings, projects, tasks, pitches, payments, analytics, music`).
+   Verified: anonymous `/api/*` → 401 `missing_token`, bad token → 401 `invalid_token`,
+   real login → desktop loads and authenticated calls succeed.
+   *(A 10th deployed Lambda, `prod-events-service`, is a **retired orphan** — its code
+   and DB were removed months ago, it predates the auth middleware, and `/api/events/`
+   returns 500. It is NOT enforced and exposes no data; it should be removed along with
+   its `ANY /api/events/{proxy+}` gateway route.)*
 
-Order: 2 + 3 + 5 + 7 (with a snapshot) go in the batch; 8 last, after verifying login.
+### Three blockers we hit turning it on (and the fixes)
+
+The commits alone did not make login work — three prod-only issues surfaced in order:
+
+1. **No VPC egress.** The domain Lambdas run in private subnets with no NAT, so the
+   server-side code→token call to `oauth2.googleapis.com` timed out (10s). **Fix:**
+   created NAT gateway `nat-004f38aa2518c0fdd` (EIP `51.24.142.253`) in
+   `prod-public-subnet-1` and added `0.0.0.0/0 → NAT` to the private route table
+   `rtb-08dd35c327cf76fa7`. **This NAT is required for OAuth and costs ~$33/mo.**
+2. **Missing pure-Python deps.** `google-auth`'s deps `rsa` / `cachetools` /
+   `pyasn1-modules` were absent from the bundle (the cross-platform pip resolver
+   drops `py3-none-any` wheels). → ID-token verify raised ImportError → 503.
+3. **Wrong-glibc `cryptography`.** CI (Ubuntu) bundled cryptography's
+   `manylinux_2_34` wheel; the Lambda python3.11 runtime is Amazon Linux 2
+   (**glibc 2.26**), so the native `_rust` binding couldn't load → 503. **Fix:**
+   swapped in the `manylinux_2_17` (glibc 2.17) wheel.
+
+Blockers 2 & 3 were hot-patched into all 9 active Lambda zips, and the **root cause is
+fixed for future builds** in `backend/scripts/build_lambdas.py` (commit `ddebb10`):
+always cross-target `manylinux2014`, plus a second unconstrained pip pass for the
+pure-Python deps.
+
+### Rollback
+- **Reopen the API:** set `REQUIRE_AUTH=false` on the 10 Lambda envs (or roll back
+  to the pre-enforcement Lambda version), then `update-function-configuration`.
+- **Un-gate the desktop:** rebuild + redeploy the frontend with
+  `$env:VITE_AUTH_ENABLED="false"`.
+- **DB:** snapshot `prod-postgres-predeploy-20260717`.
+
+### Known caveat
+Per-domain `/api/<domain>/health/` endpoints now return 401 (the exempt list only
+covers `/api/health`, `/api/docs`, `/api/users/auth/exchange`, `/api/users/auth/verify`).
+Harmless — the top-level `GET /health` (separate `prod-health-check` Lambda) stays
+public and is what monitoring uses. To exempt the per-domain ones, widen
+`_PUBLIC_PREFIXES` in `shared/middleware/auth.py` and redeploy.
 
 ## Dev DB note
-For local testing, dev `users` id 8's email was changed to a real Google
-address so it maps on login. This is `greenroom_dev` only — prod `DT-Test` is
-untouched.
+For local testing, dev `users` id 8's email was changed to a real Google address so
+it maps on login. This is `greenroom_dev` only — prod `DT-Test` was allowlisted
+separately (item 7 above).

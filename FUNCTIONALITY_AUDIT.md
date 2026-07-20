@@ -172,6 +172,21 @@ Type is `PitchVoteChoice = "yes" | "no" | "abstain"` — **no "involved" concept
 
 **Status: ❌ Not possible today — no role or auth model exists in the domain**
 
+**Update 2026-07-20 — no longer accurate; Google auth is now live and enforced in
+prod.** The frontend gate (`VITE_AUTH_ENABLED=true`, baked into build `1a82122`)
+requires Google sign-in to use Greenroom at all, and every domain Lambda now has
+`REQUIRE_AUTH=true`: anonymous `/api/*` calls return `401`, and a valid allowlisted
+Google `id_token` (`Authorization: Bearer`) is required for every request. A real
+allowlist/role model exists too — the `users` table in the prod DB (`DT-Test`) gates
+who can sign in (by Google email) and `is_admin` derives from `users.role`
+(`admin`/`manager`), enforced server-side. The findings below — "no authentication
+anywhere on the Greenroom API," "the whole API is anonymous," and "UI gating only,
+not enforced — the anonymous backend accepts any of these from a direct caller" —
+describe the **pre-2026-07-20** state and are now historical. (Whether the Inbox's
+`greenroomAdmins.ts` numeric-`greenroomUserId` allowlist described further below has
+since been reconciled with the new `users.role` model isn't confirmed here — check
+current code.) Original findings preserved below for context.
+
 **Key architectural facts (verified live 2026-07-14 + BACKEND_STATE.md):**
 - **No `/users/` endpoint** (404) — can't list users or fetch a user record.
 - **No authentication anywhere on the Greenroom API.** Every write is anonymous and

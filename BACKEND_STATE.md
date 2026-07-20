@@ -1,11 +1,26 @@
 # BACKEND_STATE.md — Live Greenroom API Schema Report
 
+> **⚠️ 2026-07-20 — the API is now AUTHENTICATED. Several statements below are stale:**
+> - **Auth required.** Every `/api/*` call now needs `Authorization: Bearer <Google id_token>`
+>   from an allowlisted user (`REQUIRE_AUTH=true` on all 9 active domain Lambdas). Anonymous calls → **401**
+>   (`missing_token`), bad tokens → 401 (`invalid_token`). The curl-without-auth examples below
+>   no longer work as shown. Public paths: `/api/health`, `/api/docs`, `/api/users/auth/*`, and
+>   top-level `GET /health`. (Per-domain `/api/<domain>/health/` now return 401, not 200 — see below.)
+> - **`DEBUG=False` in prod** (since 2026-07-16). 404 pages **no longer enumerate routes**.
+> - **New `music` domain** (`/api/music/tracks/`, collective iPod library) — not listed below.
+> - **New tables** (2026-07-20): `booking_votes`, `project_updates`, `project_team`,
+>   `ipod_tracks`, `user_settings`; new columns on `bookings`, `pitch_votes`,
+>   `project_suggestions`, `project_suggestion_votes`, `artists`; DT Roster v2 (272 artists).
+>
+> The route shapes and field conventions below remain accurate; treat the auth/DEBUG/health
+> notes above as the correction. See `AUTH_SETUP.md` for the auth model.
+
 **Verified against the live backend on 2026-07-06** by curling every endpoint (list,
 detail, create, update, transition, delete) at
 `https://jzre02jvh9.execute-api.eu-west-2.amazonaws.com/api`.
 This document supersedes `API_DOCUMENTATION.md`, which is stale. Route lists below were
-extracted from the backend's own Django URLconf (the API runs with `DEBUG=True`, so 404
-pages enumerate every registered route).
+extracted from the backend's own Django URLconf (at the time the API ran with `DEBUG=True`,
+so 404 pages enumerated every registered route — no longer true, see the banner above).
 
 Conventions observed everywhere:
 
