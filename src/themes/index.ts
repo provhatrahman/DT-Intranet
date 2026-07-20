@@ -19,7 +19,7 @@ export const themes: Record<OsThemeId, OsTheme> = {
 };
 
 export const DEFAULT_OS_THEME_ID: OsThemeId = "macosx";
-export const DEFAULT_AQUA_MATERIAL: AquaMaterial = "glass";
+export const DEFAULT_AQUA_MATERIAL: AquaMaterial = "classic";
 
 export function getTheme(id: OsThemeId): OsTheme {
   return themes[id];

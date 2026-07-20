@@ -1,4 +1,3 @@
-import { themes } from "@/themes";
 import type { OsThemeId } from "@/themes/types";
 import { cn } from "@/lib/utils";
 import type { AccentChrome } from "@/themes/accents";
@@ -15,17 +14,16 @@ const THEME_NAME_KEYS: Record<OsThemeId, string> = {
 export function buildThemeSelectOptions(
   t: (key: string, opts?: Record<string, unknown>) => string
 ): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = [];
-  for (const id of Object.keys(themes) as OsThemeId[]) {
-    options.push({ value: id, label: t(THEME_NAME_KEYS[id]) });
-    if (id === "macosx") {
-      options.push({
-        value: MACOSX_GLASS_THEME_VALUE,
-        label: t("apps.control-panels.themeNames.aquaGlass"),
-      });
-    }
-  }
-  return options;
+  // Only the Aqua family is offered: classic Aqua and Aqua Glass. The other OS
+  // themes (System 7, XP, Windows 98) remain defined/valid but are hidden from
+  // the picker.
+  return [
+    { value: "macosx", label: t(THEME_NAME_KEYS.macosx) },
+    {
+      value: MACOSX_GLASS_THEME_VALUE,
+      label: t("apps.control-panels.themeNames.aquaGlass"),
+    },
+  ];
 }
 
 export function getSelectedThemeSelectValue(

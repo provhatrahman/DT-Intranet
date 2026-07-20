@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useAuth } from "./useAuth";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useGreenroomAccountStore } from "@/stores/useGreenroomAccountStore";
-import { useDevOverridesStore } from "@/stores/useDevOverridesStore";
 import { useDevViewAsStore } from "@/stores/useDevViewAsStore";
 import {
   isGreenroomAdminUserId,
@@ -30,7 +29,6 @@ interface EffectiveGreenroomAccount {
 export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const { username } = useAuth();
   const { getAccount } = useGreenroomAccountStore();
-  const { getUseDevGreenroomAccount } = useDevOverridesStore();
   const viewAsRole = useDevViewAsStore((s) => s.viewAs);
 
   // The authenticated Google identity IS the Greenroom account: the backend's
@@ -57,7 +55,11 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
   const validDevUserId = devUserId && !isNaN(devUserId) && devUserId > 0 ? devUserId : null;
 
   const currentAccount = getAccount(username);
-  const useDevAccount = isDev && validDevUserId && getUseDevGreenroomAccount(username);
+  // In dev, a configured VITE_DEV_GREENROOM_USER_ID is enough to activate the
+  // dev account (the old getUseDevGreenroomAccount() opt-in toggle was removed
+  // from the UI, leaving the env var inert). Guarded by isDev, so prod builds
+  // never use it regardless of env.
+  const useDevAccount = isDev && !!validDevUserId;
 
   return useMemo(() => {
     // 1) Resolve the real underlying identity, ignoring any "View as" override.
