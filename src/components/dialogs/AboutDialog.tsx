@@ -74,29 +74,6 @@ export function AboutDialog({
           {displayName}
         </div>
         <p className="text-gray-500 mb-2">{t("common.dialog.version")} {metadata.version}</p>
-        <p>
-          {t("common.dialog.madeBy")}{" "}
-          <a
-            href={metadata.creator.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {metadata.creator.name}
-          </a>
-        </p>
-        {metadata.github ? (
-          <p>
-            <a
-              href={metadata.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              {t("common.dialog.openInGitHub")}
-            </a>
-          </p>
-        ) : null}
       </div>
     </div>
   );
