@@ -1159,8 +1159,6 @@ export function IpodAppComponent({
   // Track the last processed initialData to avoid duplicates
   const lastProcessedInitialDataRef = useRef<unknown>(null);
 
-  const [lastActivityTime, setLastActivityTime] = useState(Date.now());
-  const backlightTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -1243,7 +1241,6 @@ export function IpodAppComponent({
   }, [showStatus, t]);
 
   const registerActivity = useCallback(() => {
-    setLastActivityTime(Date.now());
     userHasInteractedRef.current = true;
     if (!useIpodStore.getState().backlightOn) {
       toggleBacklight();
@@ -1269,10 +1266,9 @@ export function IpodAppComponent({
       registerActivity();
     } else {
       // Mimic the parts of registerActivity that update activity tracking
-      setLastActivityTime(Date.now());
       userHasInteractedRef.current = true;
     }
-  }, [toggleBacklight, showStatus, registerActivity, setLastActivityTime, t]);
+  }, [toggleBacklight, showStatus, registerActivity, t]);
 
   const memoizedChangeTheme = useCallback(
     (newTheme: "classic" | "black" | "u2") => {
@@ -1336,31 +1332,6 @@ export function IpodAppComponent({
     showStatus(isModern ? "Modern Screen" : "Classic Screen");
     registerActivity();
   }, [toggleUiVariant, showStatus, registerActivity]);
-
-  useEffect(() => {
-    if (backlightTimerRef.current) {
-      clearTimeout(backlightTimerRef.current);
-    }
-
-    if (backlightOn) {
-      backlightTimerRef.current = setTimeout(() => {
-        const currentShowVideo = useIpodStore.getState().showVideo;
-        const currentIsPlaying = useIpodStore.getState().isPlaying;
-        if (
-          Date.now() - lastActivityTime >= 5000 &&
-          !(currentShowVideo && currentIsPlaying)
-        ) {
-          toggleBacklight();
-        }
-      }, 5000);
-    }
-
-    return () => {
-      if (backlightTimerRef.current) {
-        clearTimeout(backlightTimerRef.current);
-      }
-    };
-  }, [backlightOn, lastActivityTime, toggleBacklight]);
 
   useEffect(() => {
     if (isForeground && !prevIsForeground.current) {
