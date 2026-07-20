@@ -225,6 +225,7 @@ export function getTranslatedHelpItems(appId: AppId): Array<{
     "incoming-offers": [],
     "active-projects": [],
     archive: [],
+    "greenroom-admin": [],
   };
 
   const keys = helpKeys[appId] || [];

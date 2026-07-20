@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
 import { getNonFinderApps } from "@/config/appRegistry";
+import { useIsGreenroomAdmin } from "@/hooks/useGreenroomAccount";
 import { useAppContext } from "@/contexts/AppContext";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useAppStore } from "@/stores/useAppStore";
@@ -58,11 +59,12 @@ export function AboutFinderDialog({
   // Get current username for admin check
   const username = useChatsStore((state) => state.username);
   const isAdmin = username?.toLowerCase() === "ryo";
+  const isGreenroomAdmin = useIsGreenroomAdmin();
 
   const memoryUsage = useMemo(() => {
     const totalMemory = 32; // 32MB total memory
     const systemUsage = 8.5; // System takes about 8.5MB
-    const apps = getNonFinderApps(isAdmin);
+    const apps = getNonFinderApps(isAdmin, isGreenroomAdmin);
 
     // Get only open apps
     const openApps = apps.filter((app) => appStates[app.id]?.isOpen);
@@ -85,7 +87,7 @@ export function AboutFinderDialog({
     ];
 
     return appUsages;
-  }, [appStates, isAdmin]);
+  }, [appStates, isAdmin, isGreenroomAdmin]);
 
   const totalUsedMemory = useMemo(() => {
     return memoryUsage.reduce((acc, app) => acc + app.memoryMB, 0);

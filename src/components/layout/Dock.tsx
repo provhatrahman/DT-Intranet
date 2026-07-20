@@ -13,6 +13,7 @@ import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { AppId, getAppIconPath, appRegistry, getNonFinderApps } from "@/config/appRegistry";
 import { getTranslatedAppName, getTranslatedFolderNameFromName } from "@/utils/i18n";
 import { useLaunchApp } from "@/hooks/useLaunchApp";
+import { useIsGreenroomAdmin } from "@/hooks/useGreenroomAccount";
 import { useFinderStore } from "@/stores/useFinderStore";
 import { useFilesStore } from "@/stores/useFilesStore";
 import { useDockStore, PROTECTED_DOCK_ITEMS, type DockItem } from "@/stores/useDockStore";
@@ -565,7 +566,9 @@ function MacDock() {
   // Get current username for admin check
   const username = useChatsStore((state) => state.username);
   const isAdmin = username?.toLowerCase() === "ryo";
-  
+  // Greenroom-admin gate for domain admin apps (e.g. the Admin Portal).
+  const isGreenroomAdmin = useIsGreenroomAdmin();
+
   // Dock store for customization
   const { 
     pinnedItems, 
@@ -1676,7 +1679,7 @@ function MacDock() {
       
       if (folderPath === "/Applications") {
         // Applications is a virtual directory - get apps from registry
-        const apps = getNonFinderApps(isAdmin);
+        const apps = getNonFinderApps(isAdmin, isGreenroomAdmin);
         sortedItems = apps.map((app) => ({
           name: app.name,
           path: `/Applications/${app.name}`,
@@ -1818,7 +1821,7 @@ function MacDock() {
       
       return items;
     },
-    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin]
+    [fileStore, focusFinderAtPathOrLaunch, focusOrLaunchFinder, focusOrLaunchApp, t, getTranslatedAppName, getTranslatedFolderNameFromName, isAdmin, isGreenroomAdmin]
   );
 
   // Handle app context menu

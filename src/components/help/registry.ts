@@ -4,6 +4,7 @@ import { pitchGuide } from "./guides/pitch";
 import { inboxGuide } from "./guides/inbox";
 import { activeProjectsGuide } from "./guides/activeProjects";
 import { archiveGuide } from "./guides/archive";
+import { greenroomAdminGuide } from "./guides/greenroomAdmin";
 
 /**
  * All available help guides, keyed by guide id. Only the five Greenroom
@@ -16,4 +17,5 @@ export const HELP_GUIDES: Partial<Record<HelpGuideId, HelpGuide>> = {
   "incoming-offers": inboxGuide,
   "active-projects": activeProjectsGuide,
   archive: archiveGuide,
+  "greenroom-admin": greenroomAdminGuide,
 };

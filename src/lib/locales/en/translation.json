@@ -414,6 +414,10 @@
       "name": "Archive",
       "description": "Completed and archived projects"
     },
+    "greenroom-admin": {
+      "name": "Admin Portal",
+      "description": "Manage Greenroom users"
+    },
     "finder": {
       "name": "Finder",
       "description": "Browse and manage files",

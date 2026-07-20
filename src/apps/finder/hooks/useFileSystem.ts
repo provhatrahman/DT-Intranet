@@ -6,6 +6,7 @@ export { STORES };
 import { getNonFinderApps, AppId, getAppIconPath } from "@/config/appRegistry";
 import { useChatsStore } from "@/stores/useChatsStore";
 import { useLaunchApp } from "@/hooks/useLaunchApp";
+import { useIsGreenroomAdmin } from "@/hooks/useGreenroomAccount";
 import { useIpodStore } from "@/stores/useIpodStore";
 import { useVideoStore } from "@/stores/useVideoStore";
 import {
@@ -315,6 +316,8 @@ export function useFileSystem(
   // Get current username for admin check
   const username = useChatsStore((state) => state.username);
   const isAdmin = username?.toLowerCase() === "ryo";
+  // Greenroom-admin gate for domain admin apps (e.g. the Admin Portal).
+  const isGreenroomAdmin = useIsGreenroomAdmin();
   const currentTheme = useThemeStore((state) => state.current);
   const finderInstance = instanceId
     ? finderStore.getInstance(instanceId)
@@ -549,7 +552,7 @@ export function useFileSystem(
 
       // 1. Handle Virtual Directories
       if (currentPath === "/Applications") {
-        displayFiles = getNonFinderApps(isAdmin).map((app) => ({
+        displayFiles = getNonFinderApps(isAdmin, isGreenroomAdmin).map((app) => ({
           name: app.name,
           isDirectory: false,
           path: `/Applications/${app.name}`,
@@ -878,6 +881,7 @@ export function useFileSystem(
     videoTracks,
     internetExplorerStore.favorites,
     isAdmin,
+    isGreenroomAdmin,
     currentTheme, // Re-run when theme changes to update Desktop folder visibility
   ]);
 

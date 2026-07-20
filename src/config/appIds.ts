@@ -15,6 +15,7 @@ export const appIds = [
   "applet-viewer",
   "control-panels",
   "admin",
+  "greenroom-admin",
   "incoming-offers",
   "active-projects",
   "pitch",

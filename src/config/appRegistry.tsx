@@ -178,6 +178,11 @@ const LazyAdminApp = createLazyComponent<unknown>(
   "admin"
 );
 
+const LazyGreenroomAdminApp = createLazyComponent<unknown>(
+  () => import("@/apps/greenroom-admin/components/GreenroomAdminAppComponent").then(m => ({ default: m.GreenroomAdminAppComponent })),
+  "greenroom-admin"
+);
+
 const LazyIncomingOffersApp = createLazyComponent<unknown>(
   () => import("@/apps/incoming-offers/components/IncomingOffersAppComponent").then(m => ({ default: m.IncomingOffersAppComponent })),
   "incoming-offers"
@@ -218,6 +223,7 @@ import { appMetadata as terminalMetadata, helpItems as terminalHelpItems } from 
 import { appMetadata as appletViewerMetadata, helpItems as appletViewerHelpItems } from "@/apps/applet-viewer";
 import { appMetadata as controlPanelsMetadata, helpItems as controlPanelsHelpItems } from "@/apps/control-panels";
 import { appMetadata as adminMetadata, helpItems as adminHelpItems } from "@/apps/admin";
+import { appMetadata as greenroomAdminMetadata, helpItems as greenroomAdminHelpItems } from "@/apps/greenroom-admin";
 import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpItems } from "@/apps/incoming-offers";
 import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
 import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
@@ -451,6 +457,23 @@ export const appRegistry = {
       minSize: { width: 600, height: 400 },
     } as WindowConstraints,
   },
+  ["greenroom-admin"]: {
+    id: "greenroom-admin",
+    name: "Admin Portal",
+    icon: { type: "image", src: greenroomAdminMetadata.icon },
+    description: "Manage Greenroom users",
+    component: LazyGreenroomAdminApp,
+    helpItems: greenroomAdminHelpItems,
+    metadata: greenroomAdminMetadata,
+    // Greenroom-admin gate (role admin/manager), distinct from the ryo-only
+    // `adminOnly` flag above. Hidden from non-admins in launchers; the component
+    // also renders Access Denied and the API enforces admin server-side.
+    greenroomAdminOnly: true,
+    windowConfig: {
+      defaultSize: { width: 900, height: 560 },
+      minSize: { width: 640, height: 420 },
+    } as WindowConstraints,
+  },
   ["incoming-offers"]: {
     id: "incoming-offers",
     name: "Inbox",
@@ -519,8 +542,12 @@ export const getAppIconPath = (appId: AppId): string => {
 };
 
 // Helper function to get all apps except Finder
-// Pass isAdmin=true to include admin-only apps
-export const getNonFinderApps = (isAdmin: boolean = false): Array<{
+// Pass isAdmin=true to include ryo-only admin apps, and isGreenroomAdmin=true to
+// include Greenroom-admin-only apps (e.g. the Admin Portal).
+export const getNonFinderApps = (
+  isAdmin: boolean = false,
+  isGreenroomAdmin: boolean = false
+): Array<{
   name: string;
   icon: string;
   id: AppId;
@@ -530,8 +557,14 @@ export const getNonFinderApps = (isAdmin: boolean = false): Array<{
       if (id === "finder") return false;
       // Filter out hidden apps
       if ((app as { hidden?: boolean }).hidden) return false;
-      // Filter out admin-only apps for non-admin users
+      // Filter out ryo-only admin apps for non-admin users
       if ((app as { adminOnly?: boolean }).adminOnly && !isAdmin) return false;
+      // Filter out Greenroom-admin-only apps for non-Greenroom-admins
+      if (
+        (app as { greenroomAdminOnly?: boolean }).greenroomAdminOnly &&
+        !isGreenroomAdmin
+      )
+        return false;
       return true;
     })
     .map(([id, app]) => ({
