@@ -28,20 +28,32 @@ Runs the whole app against the isolated **`greenroom_dev`** database — never p
    ```
    App runs at http://localhost:5173 and reads/writes `greenroom_dev` only.
 
+## Optional: run with the login gate ON (test Google auth + Sign Out)
+
+Default local dev is **ungated** (`:5173`, no login) — intentionally different from prod,
+where Google auth is live + enforced (see `CLAUDE.md`). To exercise the **login screen**,
+**silent re-auth**, or the **Sign Out** menu item, run the frontend gated on **`:3000`**
+(the only registered OAuth redirect URI) pointed at the local backend. **No backend change
+is needed** — `c:\Projects\backend\.env` already has `GOOGLE_CLIENT_SECRET`, so the
+`/api/users/auth/{exchange,verify}` endpoints work as-is.
+
+Keep the backend from Step 1 running, then start the frontend like this instead of Step 2:
+```powershell
+# PowerShell — gated, :3000, proxied to the local backend
+$env:PORT = "3000"; $env:GREENROOM_API_TARGET = "http://localhost:8000"; $env:VITE_AUTH_ENABLED = "true"; bun dev
+```
+Then open **http://localhost:3000** and sign in with an **allowlisted** Google account.
+- The allowlist is the `users` table in `greenroom_dev` (e.g. `provhatr@gmail.com`, admin).
+  A non-allowlisted address (like a `@caddo.com` work email not in the table) is rejected
+  `not_allowlisted`. List them: `SELECT email, role FROM users;` (see `greenroom-db-change`).
+- **Sign Out** lives in the Apple menu (system7/macosx) / Start menu (xp/win98); it only
+  renders when `AUTH_ENABLED` is true + a session exists, and returns to the login screen.
+- Must be **:3000** (redirect URI `http://localhost:3000/auth/callback`). Sanity check the
+  proxy: `GET /greenroom-api/users/auth/verify` → **405** (route exists, wants POST).
+- Plain `bun dev` (no `VITE_AUTH_ENABLED`) reverts to the ungated default. Full auth design:
+  `AUTH_SETUP.md`; launch matrix: `DEVELOPMENT.md` §1C.
+
 ## Notes
-- **Local dev stays off by default** (app is ungated; `:5173` is fine) — this is
-  intentionally different from **prod, where Google auth has been live and enforced
-  since 2026-07-20** (frontend gate + `REQUIRE_AUTH=true` on all domain Lambdas; see
-  `CLAUDE.md`'s Authentication note). Locally, `VITE_AUTH_ENABLED` and the backend's
-  `REQUIRE_AUTH` are independently toggled and default to off for convenience. To
-  develop/test the Google **login gate** itself, run the frontend on **`:3000`** (the
-  registered OAuth redirect URI) with `VITE_AUTH_ENABLED=true`, and set
-  `GOOGLE_CLIENT_SECRET` in the backend `.env` (then restart the backend). Full
-  procedure + flags: `AUTH_SETUP.md`.
-  ```
-  # PowerShell:
-  $env:PORT="3000"; $env:GREENROOM_API_TARGET="http://localhost:8000"; $env:VITE_AUTH_ENABLED="true"; bun dev
-  ```
 - **DB additions as of 2026-07-20** (present in a fresh `greenroom_dev` clone from prod):
   new tables `booking_votes`, `project_updates`, `project_team`, `ipod_tracks`,
   `user_settings` (+ new columns on existing tables), and the artist roster is at

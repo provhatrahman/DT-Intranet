@@ -15,6 +15,8 @@ import { useThemeStore } from "@/stores/useThemeStore";
 import { cn } from "@/lib/utils";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { getTranslatedAppName } from "@/utils/i18n";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { AUTH_ENABLED } from "@/config/auth";
 
 interface AppleMenuProps {
   apps: AnyApp[];
@@ -26,6 +28,15 @@ export function AppleMenu({ apps }: AppleMenuProps) {
   const launchApp = useLaunchApp();
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOsxTheme = currentTheme === "macosx";
+
+  // Sign-out entry, only meaningful when the login gate is active and a session
+  // exists — logout() drops the auth store to "idle", which makes App re-render
+  // the LoginScreen. Hidden entirely when auth is disabled (no gate to return to).
+  const authStatus = useAuthStore((s) => s.status);
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const showLogout =
+    AUTH_ENABLED && authStatus === "authenticated" && !!authUser;
 
   // Filter out admin-only apps from the Apple menu
   const visibleApps = apps.filter((app) => app.id !== "admin");
@@ -82,6 +93,19 @@ export function AppleMenu({ apps }: AppleMenuProps) {
               {getTranslatedAppName(app.id as AppId)}
             </MenubarItem>
           ))}
+          {showLogout && (
+            <>
+              <MenubarSeparator className="h-[2px] bg-black my-1" />
+              <MenubarItem
+                onClick={() => logout()}
+                className="text-md h-6 px-3"
+              >
+                {t("common.appleMenu.logOut", {
+                  username: authUser?.username || authUser?.email || "",
+                })}
+              </MenubarItem>
+            </>
+          )}
         </MenubarContent>
       </MenubarMenu>
 

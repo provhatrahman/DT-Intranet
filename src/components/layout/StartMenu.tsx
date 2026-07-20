@@ -13,6 +13,8 @@ import { AnyApp } from "@/apps/base/types";
 import { AppId } from "@/config/appIds";
 import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { getTranslatedAppName } from "@/utils/i18n";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { AUTH_ENABLED } from "@/config/auth";
 
 interface StartMenuProps {
   apps: AnyApp[];
@@ -25,9 +27,23 @@ export function StartMenu({ apps }: StartMenuProps) {
   const [aboutFinderOpen, setAboutFinderOpen] = useState(false);
   const currentTheme = useThemeStore((state) => state.current);
 
+  // Sign-out entry, only meaningful when the login gate is active and a session
+  // exists — logout() drops the auth store to "idle", which makes App re-render
+  // the LoginScreen. Hidden entirely when auth is disabled (no gate to return to).
+  const authStatus = useAuthStore((s) => s.status);
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const showLogout =
+    AUTH_ENABLED && authStatus === "authenticated" && !!authUser;
+
   const handleAppClick = (appId: string) => {
     launchApp(appId as AppId);
     setIsStartMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    setIsStartMenuOpen(false);
+    logout();
   };
 
   return (
@@ -236,6 +252,33 @@ export function StartMenu({ apps }: StartMenuProps) {
                     {getTranslatedAppName(app.id as AppId)}
                   </DropdownMenuItem>
                 ))}
+
+                {/* Sign Out */}
+                {showLogout && (
+                  <>
+                    <div
+                      className="border-b mx-2 my-1"
+                      style={{ borderColor: "#9e9e9e" }}
+                    />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="h-8 px-3 flex items-center gap-2 hover:bg-blue-500 hover:text-white"
+                      style={{
+                        fontSize: "11px",
+                        color: "#000000",
+                        fontFamily: "var(--font-ms-sans)",
+                        imageRendering: "pixelated",
+                      }}
+                    >
+                      {/* No dedicated logout icon in the set — spacer keeps the
+                          label aligned with the icon'd items above. */}
+                      <div className="w-6 h-6 shrink-0" />
+                      {t("common.appleMenu.logOut", {
+                        username: authUser?.username || authUser?.email || "",
+                      })}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </div>
             </div>
           </div>

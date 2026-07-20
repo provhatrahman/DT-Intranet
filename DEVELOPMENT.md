@@ -84,6 +84,33 @@ bun dev
 Now the app reads/writes `greenroom_dev` only. Unset `GREENROOM_API_TARGET` (new
 terminal) to go back to prod. The proxy switch lives in `vite.config.ts`.
 
+### C) With the login gate ON (test Google auth + Sign Out) — mode B on :3000
+Same as B, but on **port 3000** (the registered OAuth redirect URI) with the frontend
+auth gate enabled. The backend `.env` already has `GOOGLE_CLIENT_SECRET`, so its
+`/api/users/auth/{exchange,verify}` endpoints work as-is — **no backend change needed**.
+```powershell
+# Terminal 1 — local API (same as B)
+cd c:\Projects\backend
+.venv\Scripts\python manage.py runserver 8000
+
+# Terminal 2 — frontend: gated, on :3000, proxied to the local backend
+cd c:\Projects\ryos
+$env:PORT = "3000"
+$env:GREENROOM_API_TARGET = "http://localhost:8000"
+$env:VITE_AUTH_ENABLED = "true"
+bun dev
+```
+Open **http://localhost:3000** → Google login screen → sign in with an **allowlisted**
+Google account. The allowlist is the `users` table in `greenroom_dev` (e.g.
+`provhatr@gmail.com`, admin); a non-allowlisted address (like a `@caddo.com` work email
+not in the table) is rejected `not_allowlisted`. This is the mode to test the login gate
+and **Sign Out** (Apple menu / Start menu → returns to the login screen).
+- Must be **:3000** — only `http://localhost:3000/auth/callback` is registered with Google.
+- Vite exposes `VITE_`-prefixed process-env vars to the client, and `.env.local` does not
+  set `VITE_AUTH_ENABLED`, so the inline `$env:` value wins.
+- Verify the proxy reached Django: `GET /greenroom-api/users/auth/verify` → **405** (route
+  exists, needs POST). Plain `bun dev` (no flag) reverts to the ungated mode B.
+
 ---
 
 ## 2. Changing the backend (code)
