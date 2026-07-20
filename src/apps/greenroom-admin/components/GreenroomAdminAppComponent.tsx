@@ -33,6 +33,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFeedbackStore } from "@/stores/useFeedbackStore";
+import {
+  FeedbackReport,
+  FeedbackStatus,
+  FeedbackAppContext,
+} from "@/lib/api/feedback";
+import { getTabStyles } from "@/utils/tabStyles";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -43,6 +51,7 @@ import {
   ShieldCheck,
   UserPlus,
   AlertTriangle,
+  Inbox,
 } from "lucide-react";
 
 // Role → badge tone. Role values aren't in the shared STATUS_TONES map, so pass
@@ -77,7 +86,9 @@ export function GreenroomAdminAppComponent({
     null
   );
 
-  const { isXpTheme, isMacTheme } = useOsTheme();
+  const { themeId, isXpTheme, isMacTheme } = useOsTheme();
+  const tabStyles = getTabStyles(themeId);
+  const [activeTab, setActiveTab] = useState("users");
 
   // Admin gate. useIsGreenroomAdmin resolves the effective account (real login,
   // dev account, or local-dev "View as"), so this works in dev and prod. The
@@ -180,102 +191,129 @@ export function GreenroomAdminAppComponent({
         menuBar={isXpTheme ? menuBar : undefined}
       >
         <div className="flex flex-col h-full w-full min-h-0">
-          <AppToolbar>
-            <div className="flex items-center gap-2 mr-auto">
-              <h2 className="text-sm font-semibold">Users</h2>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {users.length > 0 ? `(${users.length})` : ""}
-              </span>
-            </div>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setEditingUser(true)}
-              className="min-h-[32px] touch-manipulation"
-            >
-              <span className="inline-flex items-center">
-                <Plus className="h-4 w-4 mr-1" />
-                New User
-              </span>
-            </Button>
-          </AppToolbar>
-
-          <div
-            className={cn(
-              "flex-1 min-h-0 p-4",
-              isMacTheme ? "pt-3" : "bg-background"
-            )}
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex flex-col h-full min-h-0"
           >
-            <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]>div]:block!">
-              {isLoading && users.length === 0 ? (
-                <EmptyState title="Loading users…" className="py-10" />
-              ) : sortedUsers.length === 0 ? (
-                <EmptyState
-                  icon={UserPlus}
-                  title="No users yet"
-                  hint="Add the first user to grant them access to Greenroom."
-                  className="py-10"
-                />
-              ) : (
-                <div className="space-y-2">
-                  {sortedUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-md",
-                        isMacTheme ? "aqua-well" : "border"
-                      )}
-                    >
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-medium text-sm truncate">
-                            {user.username}
-                          </span>
-                          {user.is_admin && (
-                            <ShieldCheck
-                              className="h-3.5 w-3.5 text-muted-foreground shrink-0"
-                              aria-label="Admin access"
-                            />
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {user.email}
-                        </div>
-                      </div>
-                      <StatusBadge
-                        status={user.role ?? "none"}
-                        label={prettifyRole(user.role)}
-                        tone={
-                          user.role ? ROLE_TONES[user.role] ?? "gray" : "gray"
-                        }
-                        className="shrink-0"
-                      />
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setEditingUser(user)}
-                          title={`Edit ${user.username}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setPendingDelete(user)}
-                          title={`Delete ${user.username}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <AppToolbar>
+              <TabsList className={cn(tabStyles.tabListClasses, "w-auto!")}>
+                <TabsTrigger
+                  className={tabStyles.tabTriggerClasses}
+                  value="users"
+                >
+                  Users{users.length > 0 ? ` (${users.length})` : ""}
+                </TabsTrigger>
+                <TabsTrigger
+                  className={tabStyles.tabTriggerClasses}
+                  value="feedback"
+                >
+                  Feedback
+                </TabsTrigger>
+              </TabsList>
+              {activeTab === "users" && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setEditingUser(true)}
+                  className="ml-auto min-h-[32px] touch-manipulation"
+                >
+                  <span className="inline-flex items-center">
+                    <Plus className="h-4 w-4 mr-1" />
+                    New User
+                  </span>
+                </Button>
               )}
-            </ScrollArea>
-          </div>
+            </AppToolbar>
+
+            <TabsContent
+              value="users"
+              className={cn(
+                "flex-1 min-h-0 p-4 mt-0",
+                isMacTheme ? "pt-3" : "bg-background"
+              )}
+            >
+              <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]>div]:block!">
+                {isLoading && users.length === 0 ? (
+                  <EmptyState title="Loading users…" className="py-10" />
+                ) : sortedUsers.length === 0 ? (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="No users yet"
+                    hint="Add the first user to grant them access to Greenroom."
+                    className="py-10"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {sortedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-md",
+                          isMacTheme ? "aqua-well" : "border"
+                        )}
+                      >
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm truncate">
+                              {user.username}
+                            </span>
+                            {user.is_admin && (
+                              <ShieldCheck
+                                className="h-3.5 w-3.5 text-muted-foreground shrink-0"
+                                aria-label="Admin access"
+                              />
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {user.email}
+                          </div>
+                        </div>
+                        <StatusBadge
+                          status={user.role ?? "none"}
+                          label={prettifyRole(user.role)}
+                          tone={
+                            user.role ? ROLE_TONES[user.role] ?? "gray" : "gray"
+                          }
+                          className="shrink-0"
+                        />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setEditingUser(user)}
+                            title={`Edit ${user.username}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setPendingDelete(user)}
+                            title={`Delete ${user.username}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent
+              value="feedback"
+              className={cn(
+                "flex-1 min-h-0 p-4 mt-0",
+                isMacTheme ? "pt-3" : "bg-background"
+              )}
+            >
+              <FeedbackTriageList isMacTheme={isMacTheme} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <UserFormDialog
@@ -433,5 +471,132 @@ function UserFormDialog({
         </CardContent>
       </AquaCard>
     </FormDialog>
+  );
+}
+
+// app_context -> human label for the feedback triage list. Values mirror
+// FEEDBACK_APP_CONTEXTS in src/lib/api/feedback.ts.
+const FEEDBACK_APP_LABELS: Record<FeedbackAppContext, string> = {
+  "incoming-offers": "Inbox",
+  pitch: "Pitch",
+  "active-projects": "Active Projects",
+  archive: "Archive",
+  general: "General",
+};
+
+// status -> badge tone (not in the shared STATUS_TONES map, so passed explicitly).
+const FEEDBACK_STATUS_TONES: Record<FeedbackStatus, BadgeTone> = {
+  open: "yellow",
+  resolved: "green",
+};
+
+function formatFeedbackDate(iso: string): string {
+  const date = new Date(iso);
+  return isNaN(date.getTime()) ? "" : date.toLocaleString();
+}
+
+// Admin-only triage list: every submitted bug report / feedback item, newest
+// first, with a status dropdown to resolve/reopen. Server enforces admin on the
+// list + update endpoints. Rendered inside the Admin Portal's Feedback tab.
+function FeedbackTriageList({ isMacTheme }: { isMacTheme: boolean }) {
+  const { reports, isLoading, error, fetchReports, updateStatus, clearError } =
+    useFeedbackStore();
+
+  useEffect(() => {
+    fetchReports().catch((err) => {
+      console.error("Failed to fetch feedback:", err);
+    });
+  }, [fetchReports]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      clearError();
+    }
+  }, [error, clearError]);
+
+  const handleStatusChange = async (
+    report: FeedbackReport,
+    status: FeedbackStatus
+  ) => {
+    if (status === report.status) return;
+    try {
+      await updateStatus(report.id, status);
+      toast.success(status === "resolved" ? "Marked resolved" : "Reopened");
+    } catch {
+      // error surfaced via the store error toast
+    }
+  };
+
+  return (
+    <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]>div]:block!">
+      {isLoading && reports.length === 0 ? (
+        <EmptyState title="Loading feedback…" className="py-10" />
+      ) : reports.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="No feedback yet"
+          hint="Bug reports and feedback submitted from the Feedback app show up here."
+          className="py-10"
+        />
+      ) : (
+        <div className="space-y-2">
+          {reports.map((report) => (
+            <div
+              key={report.id}
+              className={cn(
+                "flex items-start gap-3 p-3 rounded-md",
+                isMacTheme ? "aqua-well" : "border"
+              )}
+            >
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <StatusBadge
+                    status={report.app_context}
+                    tone="blue"
+                    label={
+                      FEEDBACK_APP_LABELS[report.app_context] ??
+                      report.app_context
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {report.submitter_username ||
+                      report.submitter_email ||
+                      `User ${report.submitter_user_id}`}
+                  </span>
+                </div>
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {report.message}
+                </p>
+                <div className="text-[10px] text-muted-foreground">
+                  {formatFeedbackDate(report.date_created)}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <StatusBadge
+                  status={report.status}
+                  tone={FEEDBACK_STATUS_TONES[report.status] ?? "gray"}
+                  label={report.status === "resolved" ? "Resolved" : "Open"}
+                />
+                <Select
+                  value={report.status}
+                  onValueChange={(v) =>
+                    handleStatusChange(report, v as FeedbackStatus)
+                  }
+                >
+                  <SelectTrigger className="h-7 w-[110px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </ScrollArea>
   );
 }

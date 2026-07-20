@@ -418,6 +418,10 @@
       "name": "Admin Portal",
       "description": "Manage Greenroom users"
     },
+    "feedback": {
+      "name": "Feedback",
+      "description": "Report a bug or send feedback"
+    },
     "finder": {
       "name": "Finder",
       "description": "Browse and manage files",

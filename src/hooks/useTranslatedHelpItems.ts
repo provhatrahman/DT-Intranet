@@ -34,6 +34,7 @@ export function useTranslatedHelpItems(
     "active-projects": [],
     archive: [],
     "greenroom-admin": [],
+    feedback: [],
   };
 
   return useMemo(() => {

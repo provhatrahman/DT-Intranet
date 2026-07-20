@@ -203,6 +203,11 @@ const LazyArchiveApp = createLazyComponent<unknown>(
   "archive"
 );
 
+const LazyFeedbackApp = createLazyComponent<unknown>(
+  () => import("@/apps/feedback/components/FeedbackAppComponent").then(m => ({ default: m.FeedbackAppComponent })),
+  "feedback"
+);
+
 // ============================================================================
 // APP METADATA (loaded eagerly - small)
 // ============================================================================
@@ -228,6 +233,7 @@ import { appMetadata as incomingOffersMetadata, helpItems as incomingOffersHelpI
 import { appMetadata as activeProjectsMetadata, helpItems as activeProjectsHelpItems } from "@/apps/active-projects";
 import { appMetadata as pitchMetadata, helpItems as pitchHelpItems } from "@/apps/pitch";
 import { appMetadata as archiveMetadata, helpItems as archiveHelpItems } from "@/apps/archive";
+import { appMetadata as feedbackMetadata, helpItems as feedbackHelpItems } from "@/apps/feedback";
 
 // ============================================================================
 // APP REGISTRY
@@ -524,6 +530,19 @@ export const appRegistry = {
     windowConfig: {
       defaultSize: { width: 1000, height: 700 },
       minSize: { width: 800, height: 500 },
+    } as WindowConstraints,
+  },
+  ["feedback"]: {
+    id: "feedback",
+    name: "Feedback",
+    icon: { type: "image", src: feedbackMetadata.icon },
+    description: "Report a bug or send feedback",
+    component: LazyFeedbackApp,
+    helpItems: feedbackHelpItems,
+    metadata: feedbackMetadata,
+    windowConfig: {
+      defaultSize: { width: 600, height: 600 },
+      minSize: { width: 480, height: 480 },
     } as WindowConstraints,
   },
 } as const;

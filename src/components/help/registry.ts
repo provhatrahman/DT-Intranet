@@ -4,6 +4,7 @@ import { pitchGuide } from "./guides/pitch";
 import { inboxGuide } from "./guides/inbox";
 import { activeProjectsGuide } from "./guides/activeProjects";
 import { archiveGuide } from "./guides/archive";
+import { feedbackGuide } from "./guides/feedback";
 import { greenroomAdminGuide } from "./guides/greenroomAdmin";
 
 /**
@@ -18,4 +19,5 @@ export const HELP_GUIDES: Partial<Record<HelpGuideId, HelpGuide>> = {
   "active-projects": activeProjectsGuide,
   archive: archiveGuide,
   "greenroom-admin": greenroomAdminGuide,
+  feedback: feedbackGuide,
 };

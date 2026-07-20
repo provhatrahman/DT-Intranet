@@ -16,4 +16,5 @@ export const HELP_GUIDE_APP_IDS: AppId[] = [
   "incoming-offers",
   "active-projects",
   "archive",
+  "feedback",
 ];

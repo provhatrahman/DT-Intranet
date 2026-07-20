@@ -27,6 +27,7 @@ const APPS_WITHOUT_ABOUT: AppId[] = [
   "active-projects",
   "pitch",
   "archive",
+  "feedback",
 ];
 
 // Apps that support fullscreen mode
