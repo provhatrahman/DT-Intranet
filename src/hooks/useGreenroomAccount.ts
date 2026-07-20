@@ -19,6 +19,14 @@ interface EffectiveGreenroomAccount {
    * than the previewed one (e.g. settings sync) use this instead of `userId`.
    */
   realUserId: number | null;
+  /**
+   * Whether this effective identity is a Greenroom admin. Sourced from the
+   * backend's authoritative `is_admin` flag on the signed-in user (derived from
+   * their `users.role`), with the legacy hardcoded ID allowlist kept as a
+   * fallback for dev accounts / manual links. The dev "View as" override forces
+   * this to match the previewed role. See useIsGreenroomAdmin.
+   */
+  isAdmin: boolean;
 }
 
 /**
@@ -70,15 +78,23 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
         displayName: devDisplayName,
         source: "dev",
         realUserId: validDevUserId,
+        // No auth user in the dev-account path — fall back to the ID allowlist.
+        isAdmin: isGreenroomAdminUserId(validDevUserId),
       };
     } else if (authAccount) {
       // A logged-in Google user is auto-linked to their Greenroom account — no
-      // manual linking needed. Wins over the legacy manual link below.
+      // manual linking needed. Wins over the legacy manual link below. Admin
+      // status comes from the backend's authoritative `is_admin` (derived from
+      // the user's role); the legacy ID allowlist is only a fallback so the
+      // seeded 8/9/10 accounts keep working.
       base = {
         userId: authAccount.id,
         displayName: authAccount.username || authAccount.email,
         source: "linked",
         realUserId: authAccount.id,
+        isAdmin:
+          authAccount.is_admin === true ||
+          isGreenroomAdminUserId(authAccount.id),
       };
     } else if (currentAccount?.greenroomUserId) {
       base = {
@@ -86,6 +102,7 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
         displayName: currentAccount.displayName,
         source: "linked",
         realUserId: currentAccount.greenroomUserId,
+        isAdmin: isGreenroomAdminUserId(currentAccount.greenroomUserId),
       };
     } else {
       base = {
@@ -93,6 +110,7 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
         displayName: undefined,
         source: "none",
         realUserId: null,
+        isAdmin: false,
       };
     }
 
@@ -107,6 +125,7 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
         displayName: isAdmin ? "Admin (view as)" : "Non-admin (view as)",
         source: "dev" as const,
         realUserId: base.realUserId,
+        isAdmin,
       };
     }
 
@@ -123,12 +142,16 @@ export function useEffectiveGreenroomAccount(): EffectiveGreenroomAccount {
 }
 
 /**
- * Whether the effective Greenroom account is a (frontend-designated) admin.
- * See src/config/greenroomAdmins.ts — this gates admin-only UI actions such as
- * declining a pitch. NOT enforced server-side (the Greenroom API is anonymous).
+ * Whether the effective Greenroom account is an admin. Gates admin-only UI
+ * actions (approving/rejecting offers in the Inbox, admin actions in Active
+ * Projects, the Admin Portal, etc.). The source of truth is the backend's
+ * `is_admin` flag on the signed-in user (derived from their `users.role`), which
+ * the backend ALSO enforces server-side — the legacy hardcoded ID allowlist in
+ * src/config/greenroomAdmins.ts is only a fallback for dev accounts and manual
+ * links. See useEffectiveGreenroomAccount for how this is resolved.
  */
 export function useIsGreenroomAdmin(): boolean {
-  const { userId } = useEffectiveGreenroomAccount();
-  return isGreenroomAdminUserId(userId);
+  const { isAdmin } = useEffectiveGreenroomAccount();
+  return isAdmin;
 }
 

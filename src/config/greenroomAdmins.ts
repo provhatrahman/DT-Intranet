@@ -1,12 +1,15 @@
 // Greenroom-domain "admin" designation.
 //
-// IMPORTANT: the external Greenroom API has NO authentication and NO user roles
-// (see FUNCTIONALITY_AUDIT.md and BACKEND_STATE.md). Every write is anonymous and
-// credited server-side to a default user. So "admin" here is a **frontend-only**
-// allowlist of Greenroom user IDs — it controls what the UI *offers* (e.g. the
-// admin-only "decline" action on pitches), but it is NOT enforced on the server.
-// Anyone who calls the API directly bypasses it. Treat this as UI gating for a
-// prototype, not real access control. Real enforcement needs backend auth + roles.
+// HISTORICAL NOTE: this list originated as a frontend-only allowlist back when
+// the Greenroom API had no auth or roles. That is no longer the source of truth.
+// Admin status is now driven by the backend's authoritative `is_admin` flag on
+// the signed-in user (derived from their `users.role`), which the backend ALSO
+// enforces server-side. See useEffectiveGreenroomAccount / useIsGreenroomAdmin.
+//
+// This ID list is kept only as a FALLBACK for identities that have no auth user
+// (the local-dev VITE_DEV_GREENROOM_USER_ID account and legacy manual links) and
+// to back the dev-only "View as" preview below. To grant a real (logged-in) user
+// admin, set their role in the backend `users` table — do NOT add their ID here.
 //
 // This is intentionally separate from the ryOS platform admin (`username === "ryo"`),
 // which gates the desktop shell's admin app and is unrelated to Greenroom users.
