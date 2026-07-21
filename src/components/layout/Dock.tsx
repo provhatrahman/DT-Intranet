@@ -39,6 +39,13 @@ import {
 const MAX_SCALE = 2.3; // peak multiplier at cursor center
 const DISTANCE = 140; // px range where magnification is applied
 const BASE_BUTTON_SIZE = 48; // px (w-12)
+// Vertical headroom above the icon row so anything that rises above the dock —
+// the app-launch bounce (y: -20) and the hover/open name label (~34px above the
+// icon: bottom-full + mb-3 + padding) — isn't clipped. On phone the icon row
+// scrolls horizontally (overflow-x: auto), which forces the browser to clip the
+// vertical axis too; this headroom lives inside that clip box so the overshoot
+// stays visible. Must clear the tallest of those (the label).
+const DOCK_TOP_HEADROOM = 48; // px
 
 interface IconButtonProps {
   label: string;
@@ -1849,15 +1856,15 @@ function MacDock() {
   // Dock magnification state/logic driven by Framer motion value at container level
   const mouseX = useMotionValue<number>(Infinity);
 
-  // Effective magnification: driven by the user's dock preference, disabled only
-  // while resizing. Magnification is cursor-driven (it reacts to pointer
-  // movement over the dock), so it is inherently a no-op on real touch devices
-  // that never emit those events — which means we don't need a pointer/hover
-  // media-query gate here. That gate was removed because some desktop setups
-  // (e.g. remote-desktop / VDI sessions, some external displays) report
-  // `(pointer: coarse)` / `(hover: none)` / no `any-pointer: fine`, which
-  // wrongly disabled magnification on a normal mouse-driven machine.
-  const effectiveMagnifyEnabled = !isResizing && dockMagnification;
+  // Effective magnification: driven by the user's dock preference, disabled
+  // while resizing or on a phone. We gate on `isPhone` (touch AND small screen)
+  // rather than a `(pointer: coarse)`/`(hover: none)` media query, because that
+  // query gives false negatives on some desktop setups (remote-desktop / VDI,
+  // certain external displays) and wrongly disabled magnification on a normal
+  // mouse-driven machine. The phone check keeps zoom off on the mobile PWA
+  // (where touch-drag would otherwise trigger it and look wrong) without
+  // misfiring on desktops that merely misreport their pointer type.
+  const effectiveMagnifyEnabled = !isResizing && dockMagnification && !isPhone;
 
   // Ensure no magnification state is applied when disabled
   useEffect(() => {
@@ -1926,10 +1933,11 @@ function MacDock() {
             maxWidth: "min(92vw, 980px)",
             transformOrigin: "center bottom",
             borderRadius: "0px",
-            overflowX: isPhone ? "auto" : "visible",
-            overflowY: "visible",
-            WebkitOverflowScrolling: isPhone ? "touch" : undefined,
-            overscrollBehaviorX: isPhone ? "contain" : undefined,
+            // Overflow is visible so the launch bounce can rise above the dock
+            // (like magnification on desktop). Horizontal scrolling + the
+            // vertical clip it implies now live on the inner row below, which
+            // reserves top headroom so the bounce is never cut off.
+            overflow: "visible",
           }}
           transition={{
             y: {
@@ -1990,6 +1998,25 @@ function MacDock() {
           onDragLeave={handleDockDragLeave}
           onDrop={handleDockDrop}
         >
+          {/* Icon row. Owns the horizontal scroll (phone) and the vertical clip
+              it forces; the top padding + matching negative margin give the
+              launch bounce room to rise above the dock without shifting the
+              icons' resting position, while the parent's visible overflow lets
+              that overshoot paint above the pill. */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "flex-end",
+              boxSizing: "border-box",
+              paddingTop: DOCK_TOP_HEADROOM,
+              marginTop: -DOCK_TOP_HEADROOM,
+              maxWidth: "100%",
+              overflowX: isPhone ? "auto" : "visible",
+              overflowY: "visible",
+              WebkitOverflowScrolling: isPhone ? "touch" : undefined,
+              overscrollBehaviorX: isPhone ? "contain" : undefined,
+            }}
+          >
           <LayoutGroup>
             <AnimatePresence mode="popLayout" initial={false}>
               {/* Left pinned items from dock store */}
@@ -2242,9 +2269,10 @@ function MacDock() {
               })()}
             </AnimatePresence>
           </LayoutGroup>
+          </div>
         </motion.div>
       </div>
-      
+
       {/* Invisible hover zone at bottom edge to trigger dock reveal when hiding is enabled */}
       {dockHiding && !isDockVisible && (
         <div
