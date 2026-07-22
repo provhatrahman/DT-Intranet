@@ -144,7 +144,7 @@ export const artistsGuide: HelpGuide = {
     {
       id: "profile",
       title: "Profiles & gig stats",
-      body: "Select an artist to see their full profile — contact details, socials, genres, and bio — alongside their stats: total gig score (completed bookings weighted by gig size, XS = 1 up to XL = 5), how many gigs they've played, and the last time we booked them. Their full booking history is listed below.",
+      body: "Select an artist to see their full profile — contact details, socials, genres, and bio — alongside their stats: total gig score (completed bookings weighted by gig size, S = 1, M = 2, L = 3), how many gigs they've played, and the last time we booked them. Their full booking history is listed below.",
       snapshot: <ProfileMock />,
     },
     {

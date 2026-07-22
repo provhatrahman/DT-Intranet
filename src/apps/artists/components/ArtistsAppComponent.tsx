@@ -944,9 +944,9 @@ export function ArtistsAppComponent({
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Gig score gauges how many opportunities we've given
-                          this artist: legacy roster gigs (S = 1, M = 2, L = 3)
-                          plus completed Greenroom bookings weighted by gig
-                          size (XS = 1 … XL = 5).
+                          this artist: legacy roster gigs plus completed
+                          Greenroom bookings, both weighted by gig size
+                          (S = 1, M = 2, L = 3).
                         </p>
                       </div>
 

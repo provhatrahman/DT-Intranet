@@ -33,13 +33,13 @@ export const PROJECT_STATUS_LABELS: Record<string, string> = {
 };
 
 // Gig sizes verified against the live backend (gig_size_id → gig_size_code).
-// IDs outside 1–5 are silently ignored by the API.
+// S/M/L only (weights 1/2/3, matching the legacy roster-sheet scale) — the
+// old XS/XL rows were removed and their ids no longer exist, which is why
+// the ids here start at 2. Unknown ids are silently ignored by the API.
 export const GIG_SIZES = [
-  { id: 1, code: "XS" },
   { id: 2, code: "S" },
   { id: 3, code: "M" },
   { id: 4, code: "L" },
-  { id: 5, code: "XL" },
 ] as const;
 
 // Values observed in live project data; the backend treats these as free text.

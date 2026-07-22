@@ -4,7 +4,8 @@ import { greenroomFetch } from "@/lib/api/client";
 // Per-artist gig stats from the analytics service: legacy roster-sheet
 // history plus live Greenroom bookings. Legacy gigs (imported from "DT Roster
 // Database v2.xlsx") were weighted S/M/L = 1/2/3; live COMPLETED bookings
-// contribute their project's gig-size weight (XS=1 … XL=5). total_gig_score
+// contribute their project's gig-size weight (same S/M/L = 1/2/3 scale — the
+// old XS…XL = 1…5 sizes were collapsed to match legacy). total_gig_score
 // and gig_count sum both sources; last_booked_date/last_event_name reflect
 // whichever gig is most recent. Artists with no gigs in either source are
 // absent from the response entirely.
