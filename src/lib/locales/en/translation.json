@@ -415,6 +415,10 @@
       "name": "Archive",
       "description": "Completed and archived projects"
     },
+    "artists": {
+      "name": "Artists",
+      "description": "Search and manage the artist database"
+    },
     "greenroom-admin": {
       "name": "Admin Portal",
       "description": "Manage Greenroom users"
