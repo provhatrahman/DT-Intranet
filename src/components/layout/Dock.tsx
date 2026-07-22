@@ -207,6 +207,27 @@ const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(
     const maxButtonSize = Math.round(baseButtonSize * MAX_SCALE);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const isPresent = useIsPresent();
+
+    // Keep the hover/open name label on-screen: a label centered over an edge
+    // icon can extend past the viewport on narrow screens. Measure once the
+    // label shows and shift the bubble back inside (the pointer arrow is
+    // counter-shifted so it stays over the icon).
+    const labelRef = useRef<HTMLDivElement | null>(null);
+    const [labelShift, setLabelShift] = useState(0);
+    useEffect(() => {
+      if (!isHovered) {
+        setLabelShift(0);
+        return;
+      }
+      const el = labelRef.current;
+      if (!el || typeof window === "undefined") return;
+      const rect = el.getBoundingClientRect();
+      const margin = 6;
+      const overRight = rect.right - (window.innerWidth - margin);
+      const overLeft = margin - rect.left;
+      if (overRight > 0) setLabelShift((s) => s - overRight);
+      else if (overLeft > 0) setLabelShift((s) => s + overLeft);
+    }, [isHovered, label]);
     
     // Use a motion value for target size that we can imperatively update
     const targetSize = useMotionValue(baseButtonSize);
@@ -332,23 +353,31 @@ const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(
         <AnimatePresence>
           {isHovered && (
             <motion.div
+              ref={labelRef}
               initial={{ opacity: 0, y: 10, x: "-50%" }}
-              animate={{ 
-                opacity: 1, 
-                y: 0, 
+              animate={{
+                opacity: 1,
+                y: 0,
                 x: "-50%",
                 transition: { duration: isSwapping ? 0 : 0.05 }
               }}
-              exit={{ 
-                opacity: 0, 
-                y: 5, 
+              exit={{
+                opacity: 0,
+                y: 5,
                 x: "-50%",
                 transition: { duration: isSwapping ? 0 : 0.15 }
               }}
-              className="absolute bottom-full mb-3 left-1/2 px-3 py-1 bg-gray-800 text-white/90 text-sm font-medium rounded-full shadow-xl whitespace-nowrap pointer-events-none z-50"
+              className="absolute bottom-full mb-3 px-3 py-1 bg-gray-800 text-white/90 text-sm font-medium rounded-full shadow-xl whitespace-nowrap pointer-events-none z-50"
+              // left carries the viewport clamp; framer-motion owns transform
+              // (x: -50%), so the shift can't live there.
+              style={{ left: `calc(50% + ${labelShift}px)` }}
             >
               {label}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-gray-800" />
+              {/* Counter-shift keeps the arrow pointing at the icon center. */}
+              <div
+                className="absolute top-full -translate-x-1/2 w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-gray-800"
+                style={{ left: `calc(50% - ${labelShift}px)` }}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -595,7 +624,15 @@ function MacDock() {
   } | null>(null);
   const dockContainerRef = useRef<HTMLDivElement | null>(null);
   const dockBarRef = useRef<HTMLDivElement | null>(null);
+  const iconRowRef = useRef<HTMLDivElement | null>(null);
   const iconRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Whether the icon row is actually wider than the space available. Only then
+  // do we turn on horizontal scrolling (overflow-x: auto) — which also clips
+  // vertically and horizontally, cutting off the launch bounce and the
+  // hover/open labels. When the icons fit (the common case, especially on a
+  // phone with a handful of icons) we keep overflow visible so those escape the
+  // dock like they do on desktop.
+  const [iconRowOverflows, setIconRowOverflows] = useState(false);
   
   // App context menu state
   const [appContextMenu, setAppContextMenu] = useState<{
@@ -671,6 +708,33 @@ function MacDock() {
   const scaledButtonSize = Math.round(BASE_BUTTON_SIZE * dockScale);
   const scaledDockHeight = Math.round(56 * dockScale); // Base dock height is 56px
   const scaledPadding = Math.round(4 * dockScale); // Base padding is 4px (py-1, px-1)
+
+  // Track whether the icon row overflows its available width so we only enable
+  // horizontal scroll (and the clipping it forces) when the icons genuinely
+  // don't fit. Re-measured on size changes (ResizeObserver) and whenever the
+  // icon set or scale changes.
+  useEffect(() => {
+    const el = iconRowRef.current;
+    if (!el) return;
+    const measure = () => {
+      // Measure the ICONS' extent via first/last child rects rather than
+      // scrollWidth: the hover/open name labels are absolutely positioned and
+      // overhang the edge icons, so they inflate scrollWidth — which would
+      // flip the row into scroll mode (whose clipping is exactly what cuts
+      // the labels off) the moment a label shows. Child rects ignore
+      // absolutely-positioned descendants.
+      const first = el.firstElementChild?.getBoundingClientRect();
+      const last = el.lastElementChild?.getBoundingClientRect();
+      const needed = first && last ? last.right - first.left : 0;
+      // +1 guards against sub-pixel rounding falsely reporting overflow.
+      setIconRowOverflows(needed > el.clientWidth + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pinnedItems.length, instanceOrder.length, dockScale, isPhone]);
 
   // Resize handlers for divider drag (only on desktop)
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -2004,6 +2068,7 @@ function MacDock() {
               icons' resting position, while the parent's visible overflow lets
               that overshoot paint above the pill. */}
           <div
+            ref={iconRowRef}
             style={{
               display: "inline-flex",
               alignItems: "flex-end",
@@ -2011,10 +2076,15 @@ function MacDock() {
               paddingTop: DOCK_TOP_HEADROOM,
               marginTop: -DOCK_TOP_HEADROOM,
               maxWidth: "100%",
-              overflowX: isPhone ? "auto" : "visible",
+              // Only scroll (and thus clip the bounce/labels) when the icons
+              // actually overflow; otherwise stay visible so they escape the
+              // dock like on desktop.
+              overflowX: isPhone && iconRowOverflows ? "auto" : "visible",
               overflowY: "visible",
-              WebkitOverflowScrolling: isPhone ? "touch" : undefined,
-              overscrollBehaviorX: isPhone ? "contain" : undefined,
+              WebkitOverflowScrolling:
+                isPhone && iconRowOverflows ? "touch" : undefined,
+              overscrollBehaviorX:
+                isPhone && iconRowOverflows ? "contain" : undefined,
             }}
           >
           <LayoutGroup>
