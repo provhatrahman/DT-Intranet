@@ -500,14 +500,17 @@ export function PitchAppComponent({
                                 ? ("no" as const)
                                 : null,
                           }));
-                        const plainComments = (detail?.comments || []).map(
-                          (c) => ({
+                        // Public, named comments (comment_type "public") live
+                        // in the Inbox's own comment thread and must never
+                        // leak into this anonymized feedback block.
+                        const plainComments = (detail?.comments || [])
+                          .filter((c) => c.comment_type !== "public")
+                          .map((c) => ({
                             key: `comment-${c.id}`,
                             userId: c.user_id,
                             text: c.comment,
                             sentiment: null,
-                          })
-                        );
+                          }));
                         // Anonymise feedback for the submitter — they see the
                         // comment and the vote sentiment, but never who left
                         // it. Each distinct reviewer gets a stable "Anonymous N"

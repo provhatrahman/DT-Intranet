@@ -13,6 +13,8 @@ import {
   deletePitch as apiDeletePitch,
   voteOnPitch as apiVoteOnPitch,
   addComment as apiAddComment,
+  updateComment as apiUpdateComment,
+  deleteComment as apiDeleteComment,
   approvePitch as apiApprovePitch,
   closePitch as apiClosePitch,
 } from "@/lib/api/pitches";
@@ -33,6 +35,17 @@ interface PitchesState {
     payload: VotePayload
   ) => Promise<void>;
   addComment: (id: number, payload: CommentPayload) => Promise<void>;
+  updateComment: (
+    id: number,
+    commentId: number,
+    comment: string,
+    userId: number
+  ) => Promise<void>;
+  deleteComment: (
+    id: number,
+    commentId: number,
+    userId: number
+  ) => Promise<void>;
   // POST /pitches/{id}/approve/ — creates a project from the pitch and links
   // it. Returns the new project id so the caller can fill in project fields.
   approvePitch: (id: number) => Promise<number>;
@@ -177,6 +190,35 @@ export const usePitchesStore = create<PitchesState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to add comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  updateComment: async (
+    id: number,
+    commentId: number,
+    comment: string,
+    userId: number
+  ) => {
+    try {
+      await apiUpdateComment(id, commentId, { comment, user_id: userId });
+      await get().refreshPitch(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  deleteComment: async (id: number, commentId: number, userId: number) => {
+    try {
+      await apiDeleteComment(id, commentId, userId);
+      await get().refreshPitch(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete comment";
       set({ error: message });
       throw error;
     }

@@ -4,6 +4,7 @@ import {
   BookingDetail,
   BookingStatus,
   BookingVotePayload,
+  BookingCommentPayload,
   CreateBookingPayload,
   UpdateBookingPayload,
   getBookings as apiGetBookings,
@@ -12,6 +13,9 @@ import {
   updateBooking as apiUpdateBooking,
   deleteBooking as apiDeleteBooking,
   voteOnBooking as apiVoteOnBooking,
+  addComment as apiAddComment,
+  updateComment as apiUpdateComment,
+  deleteComment as apiDeleteComment,
 } from "@/lib/api/bookings";
 
 interface BookingsState {
@@ -28,6 +32,18 @@ interface BookingsState {
   setBookingStatus: (id: number, status: BookingStatus) => Promise<void>;
   deleteBooking: (id: number) => Promise<void>;
   voteOnBooking: (id: number, payload: BookingVotePayload) => Promise<void>;
+  addComment: (id: number, payload: BookingCommentPayload) => Promise<void>;
+  updateComment: (
+    id: number,
+    commentId: number,
+    comment: string,
+    userId: number
+  ) => Promise<void>;
+  deleteComment: (
+    id: number,
+    commentId: number,
+    userId: number
+  ) => Promise<void>;
   getPendingBookings: () => BookingListItem[];
   clearError: () => void;
 }
@@ -105,6 +121,47 @@ export const useBookingsStore = create<BookingsState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to vote on booking";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  addComment: async (id: number, payload: BookingCommentPayload) => {
+    try {
+      await apiAddComment(id, payload);
+      await get().refreshBooking(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to add comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  updateComment: async (
+    id: number,
+    commentId: number,
+    comment: string,
+    userId: number
+  ) => {
+    try {
+      await apiUpdateComment(id, commentId, { comment, user_id: userId });
+      await get().refreshBooking(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update comment";
+      set({ error: message });
+      throw error;
+    }
+  },
+
+  deleteComment: async (id: number, commentId: number, userId: number) => {
+    try {
+      await apiDeleteComment(id, commentId, userId);
+      await get().refreshBooking(id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete comment";
       set({ error: message });
       throw error;
     }

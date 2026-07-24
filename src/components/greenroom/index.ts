@@ -13,4 +13,5 @@ export { SidebarRow } from "./SidebarRow";
 export { Field } from "./Field";
 export { FormDialog } from "./FormDialog";
 export { NoticePanel, type NoticeTone } from "./NoticePanel";
+export { CommentThread, type ThreadComment } from "./CommentThread";
 export { useOsTheme } from "@/hooks/useOsTheme";

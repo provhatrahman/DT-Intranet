@@ -43,6 +43,10 @@ export interface PitchComment {
   comment: string;
   parent_comment_id: number | null;
   date_created: string;
+  date_last_updated: string | null;
+  // "feedback" = rejection reasons / anonymized to the submitter (legacy
+  // default). "public" = named, threaded comments shown on the Inbox card.
+  comment_type: "public" | "feedback";
 }
 
 export interface CreatePitchPayload {
@@ -77,6 +81,7 @@ export interface CommentPayload {
   user_id: number;
   comment: string;
   parent_comment_id?: number | null;
+  comment_type?: "public" | "feedback";
 }
 
 export interface PitchesListResponse {
@@ -292,6 +297,52 @@ export async function addComment(
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: response.statusText }));
     throw new Error(error.error || `Failed to add comment: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+export async function updateComment(
+  pitchId: number,
+  commentId: number,
+  payload: { comment: string; user_id: number }
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/pitches/${pitchId}/comments/${commentId}/update/`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || `Failed to update comment: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+// user_id is included so dev-mode (no auth header) ownership checks behave
+// like prod — harmless in prod, where the auth token wins.
+export async function deleteComment(
+  pitchId: number,
+  commentId: number,
+  userId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/pitches/${pitchId}/comments/${commentId}/delete/`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id: userId }),
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || `Failed to delete comment: ${response.statusText}`);
   }
   return await response.json();
 }

@@ -46,9 +46,11 @@ import { Input } from "@/components/ui/input";
 import {
   AquaCard,
   AppToolbar,
+  CommentThread,
   EmptyState,
   StatusBadge,
   useOsTheme,
+  type ThreadComment,
 } from "@/components/greenroom";
 import {
   AlertCircle,
@@ -56,8 +58,10 @@ import {
   Building2,
   Calendar,
   CalendarClock,
+  ChevronDown,
   Clock,
   Inbox,
+  MessageSquare,
   SearchX,
   Trash2,
 } from "lucide-react";
@@ -200,6 +204,13 @@ export function IncomingOffersAppComponent({
   >(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Delete comment confirm (public comment thread on a pitch/offer card)
+  const [pendingDeleteComment, setPendingDeleteComment] = useState<{
+    offer: Offer;
+    commentId: number;
+  } | null>(null);
+  const [isDeletingComment, setIsDeletingComment] = useState(false);
+
   // Log external offer
   const [isLogOfferOpen, setIsLogOfferOpen] = useState(false);
   const [isLoggingOffer, setIsLoggingOffer] = useState(false);
@@ -218,7 +229,9 @@ export function IncomingOffersAppComponent({
     voteOnPitch,
     approvePitch,
     updatePitch,
-    addComment,
+    addComment: addPitchComment,
+    updateComment: updatePitchComment,
+    deleteComment: deletePitchComment,
     isLoading: isPitchesLoading,
     error: pitchesError,
   } = usePitchesStore();
@@ -238,6 +251,9 @@ export function IncomingOffersAppComponent({
     createBooking,
     deleteBooking,
     voteOnBooking,
+    addComment: addBookingComment,
+    updateComment: updateBookingComment,
+    deleteComment: deleteBookingComment,
     isLoading: isBookingsLoading,
     error: bookingsError,
   } = useBookingsStore();
@@ -364,6 +380,27 @@ export function IncomingOffersAppComponent({
       }
       if (offer.source === "booking" && offer.bookingId) {
         return bookingDetails[offer.bookingId]?.votes ?? [];
+      }
+      return [];
+    },
+    [pitchDetails, bookingDetails]
+  );
+
+  // Public, named comments on an offer, from whichever backend backs it.
+  // Pre-filtered to comment_type === "public" so the anonymous vote-comment
+  // and rejection-reason channels (comment_type "feedback") never leak into
+  // the Inbox's own comment thread.
+  const getOfferComments = useCallback(
+    (offer: Offer): ThreadComment[] => {
+      if (offer.source === "pitch" && offer.pitchId) {
+        return (pitchDetails[offer.pitchId]?.comments ?? []).filter(
+          (c) => c.comment_type === "public"
+        );
+      }
+      if (offer.source === "booking" && offer.bookingId) {
+        return (bookingDetails[offer.bookingId]?.comments ?? []).filter(
+          (c) => c.comment_type === "public"
+        );
       }
       return [];
     },
@@ -545,10 +582,13 @@ export function IncomingOffersAppComponent({
       } else if (offer.pitchId) {
         // Reject the pitch outright: record the reason as a comment (visible
         // to the submitter in the Pitch app) and set status to rejected.
+        // Explicitly "feedback" — keeps rejection reasons in the anonymous
+        // channel, distinct from the Inbox's public comment thread.
         if (feedback.trim()) {
-          await addComment(offer.pitchId, {
+          await addPitchComment(offer.pitchId, {
             user_id: greenroomUserId,
             comment: feedback.trim(),
+            comment_type: "feedback",
           });
         }
         await updatePitch(offer.pitchId, { status: "rejected" });
@@ -765,6 +805,105 @@ export function IncomingOffersAppComponent({
     } finally {
       setIsDeleting(false);
       setPendingDeleteOfferId(null);
+    }
+  };
+
+  // Public comment thread on an offer card. Independent of voting — no vote
+  // requirement or check anywhere in this path.
+  const handlePostComment = async (
+    offer: Offer,
+    text: string,
+    parentCommentId: number | null
+  ) => {
+    if (!greenroomUserId) {
+      toast.error("Please set up your Greenroom account to comment");
+      throw new Error("No Greenroom account");
+    }
+    try {
+      if (offer.source === "pitch" && offer.pitchId) {
+        await addPitchComment(offer.pitchId, {
+          user_id: greenroomUserId,
+          comment: text,
+          parent_comment_id: parentCommentId,
+          comment_type: "public",
+        });
+      } else if (offer.source === "booking" && offer.bookingId) {
+        await addBookingComment(offer.bookingId, {
+          user_id: greenroomUserId,
+          comment: text,
+          parent_comment_id: parentCommentId,
+          comment_type: "public",
+        });
+      }
+      toast.success("Comment posted");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to post comment";
+      toast.error(message);
+      throw error;
+    }
+  };
+
+  const handleEditComment = async (
+    offer: Offer,
+    commentId: number,
+    text: string
+  ) => {
+    if (!greenroomUserId) {
+      toast.error("Please set up your Greenroom account to edit comments");
+      throw new Error("No Greenroom account");
+    }
+    try {
+      if (offer.source === "pitch" && offer.pitchId) {
+        await updatePitchComment(
+          offer.pitchId,
+          commentId,
+          text,
+          greenroomUserId
+        );
+      } else if (offer.source === "booking" && offer.bookingId) {
+        await updateBookingComment(
+          offer.bookingId,
+          commentId,
+          text,
+          greenroomUserId
+        );
+      }
+      toast.success("Comment updated");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update comment";
+      toast.error(message);
+      throw error;
+    }
+  };
+
+  const handleDeleteCommentConfirm = async () => {
+    if (isDeletingComment) return;
+    if (!pendingDeleteComment || !greenroomUserId) {
+      setPendingDeleteComment(null);
+      return;
+    }
+    const { offer, commentId } = pendingDeleteComment;
+    setIsDeletingComment(true);
+    try {
+      if (offer.source === "pitch" && offer.pitchId) {
+        await deletePitchComment(offer.pitchId, commentId, greenroomUserId);
+      } else if (offer.source === "booking" && offer.bookingId) {
+        await deleteBookingComment(
+          offer.bookingId,
+          commentId,
+          greenroomUserId
+        );
+      }
+      toast.success("Comment deleted");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete comment";
+      toast.error(message);
+    } finally {
+      setIsDeletingComment(false);
+      setPendingDeleteComment(null);
     }
   };
 
@@ -985,6 +1124,8 @@ export function IncomingOffersAppComponent({
                     userVote={getUserVote(offer)}
                     userInvolved={getUserInvolvement(offer)}
                     counts={voteCounts[offer.id]}
+                    comments={getOfferComments(offer)}
+                    currentUserId={greenroomUserId}
                     onVote={(choice) => handleVote(offer, choice)}
                     onToggleInvolvement={() => handleToggleInvolvement(offer)}
                     onApprove={() => handleApproveClick(offer.id)}
@@ -993,6 +1134,15 @@ export function IncomingOffersAppComponent({
                       offer.source === "pitch"
                         ? handleRejectClick(offer)
                         : setPendingDeclineBookingId(offer.bookingId ?? null)
+                    }
+                    onPostComment={(text, parentCommentId) =>
+                      handlePostComment(offer, text, parentCommentId)
+                    }
+                    onEditComment={(commentId, text) =>
+                      handleEditComment(offer, commentId, text)
+                    }
+                    onRequestDeleteComment={(commentId) =>
+                      setPendingDeleteComment({ offer, commentId })
                     }
                   />
                 ))}
@@ -1081,6 +1231,16 @@ export function IncomingOffersAppComponent({
           description="Permanently delete this logged offer? The booking and the project it created will be removed. This can't be undone."
           confirmDisabled={isDeleting}
         />
+        <ConfirmDialog
+          isOpen={pendingDeleteComment !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingComment) setPendingDeleteComment(null);
+          }}
+          onConfirm={handleDeleteCommentConfirm}
+          title="Delete Comment"
+          description="Permanently delete this comment? This can't be undone."
+          confirmDisabled={isDeletingComment}
+        />
         <ProjectDetailsFormDialog
           isOpen={detailsProjectId !== null}
           title="Complete Project Details"
@@ -1108,11 +1268,16 @@ function OfferCard({
   userVote,
   userInvolved,
   counts,
+  comments,
+  currentUserId,
   onVote,
   onToggleInvolvement,
   onApprove,
   onDelete,
   onReject,
+  onPostComment,
+  onEditComment,
+  onRequestDeleteComment,
 }: {
   offer: Offer;
   isAdmin: boolean;
@@ -1120,14 +1285,20 @@ function OfferCard({
   userVote: PitchVoteChoice | null;
   userInvolved: boolean;
   counts?: PitchVoteCounts;
+  comments: ThreadComment[];
+  currentUserId: number | null;
   onVote: (choice: PitchVoteChoice) => void;
   onToggleInvolvement: () => void;
   onApprove: () => void;
   onDelete: () => void;
   onReject: () => void;
+  onPostComment: (text: string, parentCommentId: number | null) => Promise<void>;
+  onEditComment: (commentId: number, text: string) => Promise<void>;
+  onRequestDeleteComment: (commentId: number) => void;
 }) {
   const { isMacTheme } = useOsTheme();
   const isPitch = offer.source === "pitch";
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   return (
     <AquaCard interactive className="flex flex-col h-full overflow-hidden">
@@ -1187,6 +1358,49 @@ function OfferCard({
           )}
         </div>
       </CardContent>
+      {/* Public, named comment thread — independent of voting; anyone can
+          post/reply regardless of their vote state. */}
+      <div
+        className={cn(
+          "px-6 border-t",
+          isMacTheme ? "border-black/10" : "border-border"
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setCommentsOpen((open) => !open)}
+          aria-expanded={commentsOpen}
+          className={cn(
+            "w-full flex items-center justify-between gap-2 py-2.5 text-xs font-medium touch-manipulation",
+            isMacTheme
+              ? "text-gray-700 dark:text-neutral-300"
+              : "text-muted-foreground"
+          )}
+        >
+          <span className="flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+            Comments ({comments.length})
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              commentsOpen && "rotate-180"
+            )}
+            aria-hidden
+          />
+        </button>
+        {commentsOpen && (
+          <div className="pb-3">
+            <CommentThread
+              comments={comments}
+              currentUserId={currentUserId}
+              onPost={onPostComment}
+              onEdit={onEditComment}
+              onRequestDelete={onRequestDeleteComment}
+            />
+          </div>
+        )}
+      </div>
       {/* Everyone votes Yes/No and can raise a hand to be involved; the
           terminal decisions (Approve / Reject) are admin-only and sit in
           their own divided row so community and admin actions don't blur. */}

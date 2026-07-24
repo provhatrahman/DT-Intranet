@@ -54,6 +54,28 @@ export interface BookingVote {
   wants_involvement?: boolean;
 }
 
+// Mirrors PitchComment exactly — same shape, same comment_type split
+// ("public" comments shown on the Inbox card default here; "feedback" mirrors
+// the pitch anonymized channel for parity, though bookings have no rejection
+// flow today).
+export interface BookingComment {
+  id: number;
+  user_id: number;
+  username: string;
+  comment: string;
+  parent_comment_id: number | null;
+  date_created: string;
+  date_last_updated: string | null;
+  comment_type: "public" | "feedback";
+}
+
+export interface BookingCommentPayload {
+  user_id: number;
+  comment: string;
+  parent_comment_id?: number | null;
+  comment_type?: "public" | "feedback";
+}
+
 export interface BookingDetail {
   booking_id: number;
   artist: { id: number; name: string };
@@ -73,6 +95,7 @@ export interface BookingDetail {
   timings: string | null;
   date_created: string | null;
   votes: BookingVote[];
+  comments: BookingComment[];
 }
 
 // One vote per user, upserted: voting again REPLACES the previous vote.
@@ -197,6 +220,66 @@ export async function voteOnBooking(
   });
   if (!response.ok) {
     throw new Error(await parseError(response, "Failed to vote on booking"));
+  }
+  return await response.json();
+}
+
+// Mirrors pitches.ts addComment/updateComment/deleteComment. Same function
+// names are fine here — consumers alias on import.
+export async function addComment(
+  id: number,
+  payload: BookingCommentPayload
+): Promise<{ message: string; comment_id: number }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/bookings/${id}/comments/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to add comment"));
+  }
+  return await response.json();
+}
+
+export async function updateComment(
+  bookingId: number,
+  commentId: number,
+  payload: { comment: string; user_id: number }
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/bookings/${bookingId}/comments/${commentId}/update/`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to update comment"));
+  }
+  return await response.json();
+}
+
+// user_id is included so dev-mode (no auth header) ownership checks behave
+// like prod — harmless in prod, where the auth token wins.
+export async function deleteComment(
+  bookingId: number,
+  commentId: number,
+  userId: number
+): Promise<{ message: string }> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/bookings/${bookingId}/comments/${commentId}/delete/`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to delete comment"));
   }
   return await response.json();
 }
