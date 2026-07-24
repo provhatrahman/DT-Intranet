@@ -1394,6 +1394,7 @@ function OfferCard({
             <CommentThread
               comments={comments}
               currentUserId={currentUserId}
+              isAdmin={isAdmin}
               onPost={onPostComment}
               onEdit={onEditComment}
               onRequestDelete={onRequestDeleteComment}

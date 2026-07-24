@@ -23,6 +23,9 @@ interface CommentThreadProps {
   // passing them in — this component has no opinion on comment_type.
   comments: ThreadComment[];
   currentUserId: number | null;
+  // Admins can delete anyone's comment (moderation); non-admins only their
+  // own. Editing stays author-only regardless.
+  isAdmin?: boolean;
   onPost: (text: string, parentCommentId: number | null) => Promise<void>;
   onEdit: (commentId: number, text: string) => Promise<void>;
   onRequestDelete: (commentId: number) => void;
@@ -57,6 +60,7 @@ function wasEdited(comment: ThreadComment): boolean {
 export function CommentThread({
   comments,
   currentUserId,
+  isAdmin = false,
   onPost,
   onEdit,
   onRequestDelete,
@@ -177,6 +181,9 @@ export function CommentThread({
   // edit Textarea (and dropping focus) on each keystroke.
   const renderCommentRow = (comment: ThreadComment, isReply: boolean) => {
     const isOwn = currentUserId != null && comment.user_id === currentUserId;
+    // Author can edit + delete their own; an admin can also delete (moderate)
+    // anyone's comment, but not edit someone else's.
+    const canDelete = isOwn || isAdmin;
     const isEditingThis = editingId === comment.id;
 
     return (
@@ -234,22 +241,22 @@ export function CommentThread({
                 </button>
               )}
               {isOwn && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(comment)}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline touch-manipulation"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onRequestDelete(comment.id)}
-                    className="text-[10px] text-muted-foreground hover:text-destructive underline-offset-2 hover:underline touch-manipulation"
-                  >
-                    Delete
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => startEdit(comment)}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline touch-manipulation"
+                >
+                  Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => onRequestDelete(comment.id)}
+                  className="text-[10px] text-muted-foreground hover:text-destructive underline-offset-2 hover:underline touch-manipulation"
+                >
+                  Delete
+                </button>
               )}
             </div>
           </>
