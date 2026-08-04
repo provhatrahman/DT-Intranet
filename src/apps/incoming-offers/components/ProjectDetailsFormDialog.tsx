@@ -27,6 +27,7 @@ export interface ProjectDetailsFormValues {
   country: string;
   promoter_name: string;
   gig_size_id: number | null;
+  curation_deadline: string;
 }
 
 export const EMPTY_PROJECT_DETAILS: ProjectDetailsFormValues = {
@@ -42,6 +43,7 @@ export const EMPTY_PROJECT_DETAILS: ProjectDetailsFormValues = {
   country: "",
   promoter_name: "",
   gig_size_id: null,
+  curation_deadline: "",
 };
 
 // Builds the PATCH payload from the form, skipping blank fields so we never
@@ -63,6 +65,8 @@ export function toUpdatePayload(
   if (values.promoter_name.trim())
     payload.promoter_name = values.promoter_name.trim();
   if (values.gig_size_id !== null) payload.gig_size_id = values.gig_size_id;
+  if (values.curation_deadline)
+    payload.curation_deadline = values.curation_deadline;
   return payload;
 }
 
@@ -249,6 +253,17 @@ export function ProjectDetailsFormDialog({
                   value={values.promoter_name}
                   onChange={(e) => set("promoter_name", e.target.value)}
                 />
+              </Field>
+              <Field label="Curation Deadline" className="sm:col-span-2">
+                <Input
+                  type="date"
+                  value={values.curation_deadline}
+                  onChange={(e) => set("curation_deadline", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Curation vote reminders run until this date. Leave empty for
+                  no reminders.
+                </p>
               </Field>
             </div>
           </div>

@@ -116,6 +116,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
+        // Pull the plain-JS push-notification handlers (public/push-sw.js)
+        // into the generated service worker — see NOTIFICATIONS_PLAN.md.
+        importScripts: ["push-sw.js"],
         // Exclude API routes, iframe content, and app deep links from navigation fallback
         // This prevents the SW from returning index.html for iframe requests
         // and allows the middleware to handle OG meta tags for shared links

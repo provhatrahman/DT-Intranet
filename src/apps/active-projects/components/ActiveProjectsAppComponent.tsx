@@ -641,6 +641,7 @@ function ProjectDetailView({
     gig_size_id: p.gig_size_id,
     drive_parent_folder_id: p.drive_parent_folder_id ?? "",
     feedback: p.feedback ?? "",
+    curation_deadline: toDateInputValue(p.curation_deadline),
   });
 
   const [form, setForm] = useState(() => projectToForm(project));
@@ -734,6 +735,7 @@ function ProjectDetailView({
           gig_size_id: snapshot.gig_size_id ?? undefined,
           drive_parent_folder_id: snapshot.drive_parent_folder_id || undefined,
           feedback: snapshot.feedback || undefined,
+          curation_deadline: snapshot.curation_deadline || undefined,
         });
         savedRef.current = snapshot;
       } catch {
@@ -1004,6 +1006,23 @@ function ProjectDetailView({
                         setForm({ ...form, event_date: e.target.value })
                       }
                     />
+                  </Field>
+                  <Field
+                    label="Curation Deadline"
+                    className="@lg:col-span-3"
+                  >
+                    <Input
+                      type="date"
+                      value={form.curation_deadline}
+                      onChange={(e) =>
+                        setForm({ ...form, curation_deadline: e.target.value })
+                      }
+                      className="max-w-[200px]"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Curation vote reminders run until this date. Leave
+                      empty for no reminders.
+                    </p>
                   </Field>
                 </div>
               </SectionCard>

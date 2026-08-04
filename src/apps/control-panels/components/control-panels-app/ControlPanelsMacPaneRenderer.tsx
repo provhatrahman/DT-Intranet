@@ -11,6 +11,7 @@ import { InternationalPaneContent } from "./InternationalPaneContent";
 import { SoundPaneContent } from "./SoundPaneContent";
 import { DisplaysPaneContent } from "./DisplaysPaneContent";
 import { SoftwareUpdatePaneContent } from "./SoftwareUpdatePaneContent";
+import { NotificationsPaneContent } from "./NotificationsPaneContent";
 
 export type ControlPanelsMacPaneRendererProps = {
   paneId: ControlPanelPaneId;
@@ -158,6 +159,8 @@ export function ControlPanelsMacPaneRenderer(
           handleCheckForUpdates={props.handleCheckForUpdates}
         />
       );
+    case "notifications":
+      return <NotificationsPaneContent t={t} />;
     default:
       return null;
   }

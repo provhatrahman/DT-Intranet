@@ -4,7 +4,8 @@ export type ControlPanelPaneId =
   | "international"
   | "displays"
   | "sound"
-  | "software-update";
+  | "software-update"
+  | "notifications";
 
 /** Legacy tab IDs used by Windows/System7 layout and deep links. */
 export type ControlPanelLegacyTabId = "appearance" | "sound";
@@ -60,6 +61,11 @@ export const CONTROL_PANEL_CATEGORIES: ControlPanelCategory[] = [
     labelKey: "apps.control-panels.panes.softwareUpdate",
     icon: "software-update.png",
   },
+  {
+    id: "notifications",
+    labelKey: "apps.control-panels.panes.notifications",
+    icon: "notifications-pane.png",
+  },
 ];
 
 /** Home grid — functional panes grouped like Mac OS X 10.3 System Preferences. */
@@ -67,7 +73,7 @@ export const CONTROL_PANEL_SECTIONS: ControlPanelSection[] = [
   {
     id: "personal",
     labelKey: "apps.control-panels.sections.personal",
-    paneIds: ["appearance", "desktop-screen-saver", "international"],
+    paneIds: ["appearance", "desktop-screen-saver", "international", "notifications"],
   },
   {
     id: "hardware-system",

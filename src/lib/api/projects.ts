@@ -33,6 +33,10 @@ export interface ProjectListItem {
   source: string | null;
   gig_size_id: number | null;
   gig_size_code: string | null;
+  // Curation vote reminders (see NOTIFICATIONS_PLAN.md) run every ~2 days
+  // while status is "active" and today <= this date; null/unset means no
+  // curation reminders for the project.
+  curation_deadline: string | null;
 }
 
 export interface ProjectMember {
@@ -157,6 +161,7 @@ export interface ProjectFieldsPayload {
   promoter_name?: string;
   source?: string;
   gig_size_id?: number;
+  curation_deadline?: string;
 }
 
 export interface CreateProjectPayload extends ProjectFieldsPayload {

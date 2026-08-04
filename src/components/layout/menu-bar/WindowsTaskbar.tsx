@@ -16,6 +16,7 @@ import { Clock } from "./MenuBarClock";
 import { VolumeControl } from "./VolumeControl";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { MenuBarAccount } from "./MenuBarAccount";
+import { MenuBarNotifications } from "./MenuBarNotifications";
 import { getAppName } from "./menuBarUtils";
 import { getAppletDisplayInfo } from "./getAppletDisplayInfo";
 import { useTaskbarOverflow } from "./useTaskbarOverflow";
@@ -355,6 +356,7 @@ export function WindowsTaskbar({
           <div className="hidden sm:flex">
             <VolumeControl />
           </div>
+          <MenuBarNotifications />
           <div
             className={`text-xs ${isWindowsTheme ? "font-bold" : "font-normal"} ${
               isWindowsTheme ? "" : "px-2"

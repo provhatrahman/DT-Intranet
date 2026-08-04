@@ -796,6 +796,7 @@ export function IncomingOffersAppComponent({
           country: project.country ?? "",
           promoter_name: project.promoter_name ?? "",
           gig_size_id: project.gig_size_id,
+          curation_deadline: toDateInputValue(project.curation_deadline),
         });
         setDetailsProjectId(offer.projectId);
       }

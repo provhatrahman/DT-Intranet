@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { requestCloseWindow } from "@/utils/windowUtils";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { InboxBadgeSync } from "@/apps/incoming-offers/hooks/useInboxBadge";
+import { NotificationsSync } from "@/hooks/useNotificationsSync";
 
 interface AppManagerProps {
   apps: AnyApp[];
@@ -432,6 +433,12 @@ export function AppManager({ apps }: AppManagerProps) {
           only renders once the desktop shell is up (post-auth), which is
           exactly the scope this should run in. */}
       <InboxBadgeSync />
+      {/* Render-nothing singleton driving the per-user notification center:
+          polls the list + unread count (5-min interval + throttled focus
+          refetch), toasts newly-arrived unread notifications, and bridges
+          push-service-worker notificationclick messages into the same
+          /open/... deep-link resolver used above. See NOTIFICATIONS_PLAN.md. */}
+      <NotificationsSync />
       {/* MenuBar: For XP/Win98, this is the taskbar (always shown).
           For Mac/System7, hide when a foreground app is loaded since
           the app renders its own MenuBar. */}

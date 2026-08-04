@@ -17,6 +17,7 @@ import { Clock } from "./MenuBarClock";
 import { VolumeControl } from "./VolumeControl";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { MenuBarAccount } from "./MenuBarAccount";
+import { MenuBarNotifications } from "./MenuBarNotifications";
 import { RefreshButton } from "./RefreshButton";
 import { useDesktopFullscreen } from "./useDesktopFullscreen";
 import { shouldShowDesktopDragDebugZone } from "./desktopDragDebug";
@@ -152,6 +153,7 @@ export function MacTopMenuBar({ children }: MacTopMenuBarProps) {
         <div className="hidden sm:flex">
           <VolumeControl />
         </div>
+        <MenuBarNotifications />
         <Clock enableExposeToggle />
       </div>
     </div>

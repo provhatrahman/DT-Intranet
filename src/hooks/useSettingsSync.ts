@@ -16,6 +16,7 @@ import { useSettingsSyncStore } from "@/stores/useSettingsSyncStore";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useDockStore } from "@/stores/useDockStore";
 import { useDisplaySettingsStore } from "@/stores/useDisplaySettingsStore";
+import { useNotificationsStore } from "@/stores/useNotificationsStore";
 import {
   SETTINGS_SYNC_DEBOUNCE_MS,
   SETTINGS_SYNC_MAX_WAIT_MS,
@@ -79,6 +80,7 @@ export function useSettingsSync() {
       useThemeStore.subscribe(schedule),
       useDockStore.subscribe(schedule),
       useDisplaySettingsStore.subscribe(schedule),
+      useNotificationsStore.subscribe(schedule),
     ];
 
     return () => {

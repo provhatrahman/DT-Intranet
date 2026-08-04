@@ -245,6 +245,28 @@ export const CONTROL_PANEL_SEARCH_ENTRIES: ControlPanelSearchEntry[] = [
     labelKey: `${CP}.checkForUpdates`,
     keywords: ["update", "check", "version"],
   },
+
+  // Notifications
+  {
+    paneId: "notifications",
+    labelKey: `${CP}.panes.notifications`,
+    keywords: ["notifications", "bell", "alerts", "push", "reminders"],
+  },
+  {
+    paneId: "notifications",
+    labelKey: `${CP}.notificationsEnabled`,
+    keywords: ["notifications", "enable", "toggle", "on", "off"],
+  },
+  {
+    paneId: "notifications",
+    labelKey: `${CP}.notificationsDevice`,
+    keywords: ["push", "device", "subscribe", "permission", "browser"],
+  },
+  {
+    paneId: "notifications",
+    labelKey: `${CP}.notificationsTestSection`,
+    keywords: ["test", "admin", "send test notification"],
+  },
 ];
 
 export type ControlPanelSearchResult = {

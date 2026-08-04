@@ -15,6 +15,7 @@ import {
   useDisplaySettingsStore,
   INDEXEDDB_PREFIX,
 } from "@/stores/useDisplaySettingsStore";
+import { useNotificationsStore } from "@/stores/useNotificationsStore";
 import type { OsThemeId, AquaMaterial } from "@/themes/types";
 import type { AccentId } from "@/themes/accents";
 import type { SystemFontId } from "@/themes/systemFonts";
@@ -51,6 +52,13 @@ export interface StylingSnapshot {
     screenSaverIdleTime: number;
     debugMode: boolean;
     htmlPreviewSplit: boolean;
+  };
+  /**
+   * Optional so older snapshots (written before this field existed) still
+   * apply cleanly — absent means notifications stay enabled (the default).
+   */
+  notifications?: {
+    enabled: boolean;
   };
 }
 
@@ -97,6 +105,9 @@ export function collectStylingSettings(): StylingSnapshot {
       screenSaverIdleTime: display.screenSaverIdleTime,
       debugMode: display.debugMode,
       htmlPreviewSplit: display.htmlPreviewSplit,
+    },
+    notifications: {
+      enabled: useNotificationsStore.getState().notificationsEnabled,
     },
   };
 }
@@ -164,6 +175,14 @@ export async function applyStylingSettings(
     });
 
     await applyWallpaper(d.currentWallpaper);
+  }
+
+  // Notifications → master toggle only; absent (older snapshot) leaves the
+  // local default (enabled) untouched.
+  if (snap.notifications && typeof snap.notifications.enabled === "boolean") {
+    useNotificationsStore
+      .getState()
+      .setNotificationsEnabled(snap.notifications.enabled);
   }
 }
 
