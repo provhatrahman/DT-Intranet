@@ -44,6 +44,24 @@ export interface PushSubscriptionPayload {
   user_agent?: string;
 }
 
+export interface SendTestNotificationResult {
+  type: NotificationType | string;
+  /** User ids a notification-center row was created for. */
+  notified: number[];
+  /** Requested ids that got nothing — i.e. notifications switched off. */
+  skipped: number[];
+  /** Push subscriptions (devices) the send was attempted against. */
+  push_targets: number;
+}
+
+export interface UserPushStatus {
+  user_id: number;
+  /** Registered push subscriptions. 0 = a send can only reach the bell. */
+  devices: number;
+  /** false = this user turned notifications off, so a send skips them. */
+  enabled: boolean;
+}
+
 async function parseError(response: Response, fallback: string): Promise<string> {
   const error = await response
     .json()
@@ -144,6 +162,49 @@ export async function unsubscribePush(
       await parseError(response, "Failed to remove push subscription")
     );
   }
+}
+
+/**
+ * Admin-only: send a test notification to OTHER users (full pipeline — row +
+ * real push), so an admin can verify someone else's device actually receives
+ * one. `sendTestNotification` above can only ever prove the caller's own
+ * device works. The response distinguishes notified from skipped because
+ * users with notifications switched off are dropped server-side, silently.
+ */
+export async function sendTestNotificationToUsers(
+  userIds: number[],
+  type: NotificationType = "test"
+): Promise<SendTestNotificationResult> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/users/notifications/send-test/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_ids: userIds, type }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(
+      await parseError(response, "Failed to send test notification")
+    );
+  }
+  return (await response.json()) as SendTestNotificationResult;
+}
+
+/**
+ * Admin-only: per-user device count + notifications-enabled flag, so the
+ * recipient picker can show whether a send can actually reach a phone rather
+ * than only the in-app bell.
+ */
+export async function fetchPushStatus(): Promise<UserPushStatus[]> {
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/users/notifications/push-status/`
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to load push status"));
+  }
+  const data = (await response.json()) as { statuses?: UserPushStatus[] };
+  return data.statuses ?? [];
 }
 
 /**

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { AppProps } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { GreenroomAdminMenuBar } from "./GreenroomAdminMenuBar";
+import { NotificationsAdminTab } from "./NotificationsAdminTab";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { useUsersStore } from "@/stores/useUsersStore";
@@ -258,6 +259,12 @@ export function GreenroomAdminAppComponent({
                 >
                   Feedback
                 </TabsTrigger>
+                <TabsTrigger
+                  className={tabStyles.tabTriggerClasses}
+                  value="notifications"
+                >
+                  Notifications
+                </TabsTrigger>
               </TabsList>
               {activeTab === "users" && (
                 <Button
@@ -395,6 +402,16 @@ export function GreenroomAdminAppComponent({
               )}
             >
               <FeedbackTriageList isMacTheme={isMacTheme} />
+            </TabsContent>
+
+            <TabsContent
+              value="notifications"
+              className={cn(
+                "flex-1 min-h-0 p-4 mt-0",
+                isMacTheme ? "pt-3" : "bg-background"
+              )}
+            >
+              <NotificationsAdminTab users={users} />
             </TabsContent>
           </Tabs>
         </div>
