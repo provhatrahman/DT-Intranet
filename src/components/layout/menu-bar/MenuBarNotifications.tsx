@@ -100,7 +100,11 @@ export function MenuBarNotifications() {
     <Menubar
       value={menuValue}
       onValueChange={setMenuValue}
-      className={`hidden sm:flex items-stretch self-stretch border-none bg-transparent p-0 space-x-0 rounded-none h-full ${
+      // Always visible, including mobile — unlike VolumeControl (which hides
+      // below `sm`), the bell is the only way to reach the notification centre,
+      // and mobile is where a notification is most likely to be read. Matches
+      // RefreshButton/Clock, which are also unconditionally shown.
+      className={`flex items-stretch self-stretch border-none bg-transparent p-0 space-x-0 rounded-none h-full ${
         isWindowsTheme ? "" : "mr-2"
       }`}
     >
@@ -134,7 +138,10 @@ export function MenuBarNotifications() {
           align="end"
           side={isWindowsTheme ? "top" : "bottom"}
           sideOffset={isWindowsTheme ? 8 : 1}
-          className="w-72 p-0 py-1"
+          // Fixed 288px panel would overshoot a ~390px phone once the menu
+          // bar's end-alignment padding is taken into account, so cap it to the
+          // viewport.
+          className="w-72 max-w-[calc(100vw-1.5rem)] p-0 py-1"
         >
           <div className="flex items-center justify-between gap-2 pr-1">
             <MenubarLabel className="text-md opacity-70">

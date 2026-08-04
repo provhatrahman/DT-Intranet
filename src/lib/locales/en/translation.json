@@ -3116,6 +3116,7 @@
       "notificationsSubscribe": "Turn On",
       "notificationsUnsubscribe": "Turn Off",
       "notificationsResubscribe": "Re-subscribe on This Device",
+      "notificationsResubscribeAction": "Resubscribe",
       "notificationsResubscribeDescription": "If push notifications stop arriving on this device, use this to reset the subscription.",
       "notificationsSubscribed": "Push notifications are on for this device.",
       "notificationsNotSubscribed": "Push notifications are off for this device.",

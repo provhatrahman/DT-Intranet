@@ -455,7 +455,7 @@ export function NotificationsPaneContent({ t }: NotificationsPaneContentProps) {
                 disabled={deviceControlsDisabled || !isSubscribed}
                 onClick={handleResubscribe}
               >
-                {t(`${CP}.notificationsResubscribe`)}
+                {t(`${CP}.notificationsResubscribeAction`)}
               </Button>
             </ControlPanelsPrefFormRow>
           </>
