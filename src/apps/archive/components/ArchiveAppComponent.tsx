@@ -5,7 +5,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { AppProps } from "../../base/types";
+import { AppProps, ArchiveInitialData } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ArchiveMenuBar } from "./ArchiveMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
@@ -27,6 +27,8 @@ import type {
   ProjectUpdate,
   ProjectWrapup,
 } from "@/lib/api/projects";
+import { useAppStore } from "@/stores/useAppStore";
+import { generateProjectLink } from "@/utils/deepLinks";
 import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -56,6 +58,7 @@ import {
   ListChecks,
   User,
   ExternalLink,
+  Link as LinkIcon,
   Pencil,
   Trash2,
   ArchiveRestore,
@@ -152,10 +155,11 @@ export function ArchiveAppComponent({
   onClose,
   isForeground,
   skipInitialSound,
+  initialData,
   instanceId,
   onNavigateNext,
   onNavigatePrevious,
-}: AppProps) {
+}: AppProps<ArchiveInitialData>) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   // Viewport-width based (not touch): a touch-enabled desktop keeps the
   // two-pane master-detail layout instead of collapsing to a single pane.
@@ -163,6 +167,16 @@ export function ArchiveAppComponent({
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null
   );
+  // Smart deep-link focus (see src/utils/deepLinks.ts): a project id to select
+  // + scroll into view once it shows up in `archivedProjects`.
+  const [pendingFocusProjectId, setPendingFocusProjectId] = useState<
+    number | null
+  >(null);
+  const clearInstanceInitialData = useAppStore(
+    (state) => state.clearInstanceInitialData
+  );
+  const clearInitialData = useAppStore((state) => state.clearInitialData);
+  const bringToForeground = useAppStore((state) => state.bringToForeground);
 
   const { themeId, isMacTheme, isXpTheme } = useOsTheme();
   const tabStyles = getTabStyles(themeId);
@@ -192,15 +206,88 @@ export function ArchiveAppComponent({
     }
   }, [error, clearError]);
 
+  // --- Smart deep-link focus (path a): consume initialData.focusProjectId on
+  // mount / whenever a fresh value arrives while the window is open. ---
   useEffect(() => {
-    if (
-      !isMobile &&
-      archivedProjects.length > 0 &&
-      selectedProjectId === null
-    ) {
+    if (isWindowOpen && initialData?.focusProjectId != null) {
+      setPendingFocusProjectId(initialData.focusProjectId);
+      if (instanceId) {
+        clearInstanceInitialData(instanceId);
+      } else {
+        clearInitialData("archive");
+      }
+    }
+  }, [
+    isWindowOpen,
+    initialData,
+    instanceId,
+    clearInstanceInitialData,
+    clearInitialData,
+  ]);
+
+  // --- Smart deep-link focus (path b): the window is already open, so
+  // AppManager dispatches "updateApp" instead of remounting us. ---
+  useEffect(() => {
+    const handleUpdateApp = (
+      event: CustomEvent<{
+        appId: string;
+        initialData?: ArchiveInitialData;
+      }>
+    ) => {
+      if (
+        event.detail.appId !== "archive" ||
+        event.detail.initialData?.focusProjectId == null
+      ) {
+        return;
+      }
+      bringToForeground("archive");
+      setPendingFocusProjectId(event.detail.initialData.focusProjectId);
+    };
+    window.addEventListener("updateApp", handleUpdateApp as EventListener);
+    return () => {
+      window.removeEventListener(
+        "updateApp",
+        handleUpdateApp as EventListener
+      );
+    };
+  }, [bringToForeground]);
+
+  // Give up silently after 15s if the project never shows up here.
+  useEffect(() => {
+    if (pendingFocusProjectId === null) return;
+    const timer = setTimeout(() => {
+      setPendingFocusProjectId((current) =>
+        current === pendingFocusProjectId ? null : current
+      );
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [pendingFocusProjectId]);
+
+  // Selection: a pending deep-link focus wins over the default first-project
+  // selection below — process it first and bail out of the effect before the
+  // default branch runs, so it never steals the pane out from under it.
+  useEffect(() => {
+    if (archivedProjects.length === 0) return;
+    if (pendingFocusProjectId !== null) {
+      const target = archivedProjects.find(
+        (p) => p.id === pendingFocusProjectId
+      );
+      if (target) {
+        const id = pendingFocusProjectId;
+        setSelectedProjectId(id);
+        setPendingFocusProjectId(null);
+        setTimeout(() => {
+          document
+            .getElementById(`project-row-${id}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+      }
+      return;
+    }
+    if (!isMobile && selectedProjectId === null) {
       setSelectedProjectId(archivedProjects[0].id);
     }
-  }, [archivedProjects, selectedProjectId, isMobile]);
+  }, [archivedProjects, selectedProjectId, isMobile, pendingFocusProjectId]);
 
   useEffect(() => {
     if (selectedProjectId !== null && !projectDetails[selectedProjectId]) {
@@ -272,6 +359,7 @@ export function ArchiveAppComponent({
                       return (
                         <SidebarRow
                           key={project.id}
+                          id={`project-row-${project.id}`}
                           selected={isSelected}
                           onClick={() => setSelectedProjectId(project.id)}
                         >
@@ -866,6 +954,17 @@ function ProjectSummary({
     project.team.find((m) => m.role === PROJECT_LEAD_ROLE) ?? null;
   const teamMembers = project.team.filter((m) => m.role !== PROJECT_LEAD_ROLE);
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generateProjectLink(project.id));
+      toast.success("Link copied");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to copy link";
+      toast.error(message);
+    }
+  };
+
   return (
     <div className="space-y-4 p-4 pr-6 @container">
       {/* Actions sit beside the title on wide windows and wrap below it on
@@ -873,10 +972,22 @@ function ProjectSummary({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="flex-1 min-w-[14rem] space-y-1.5">
           <h1 className="text-2xl font-semibold break-words">{project.name}</h1>
-          <StatusBadge
-            status={project.status}
-            label={formatProjectStatus(project.status)}
-          />
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <StatusBadge
+              status={project.status}
+              label={formatProjectStatus(project.status)}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCopyLink}
+              title="Copy link to this project"
+              aria-label="Copy link to this project"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground touch-manipulation"
+            >
+              <LinkIcon className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         {(canArchive || canRestore) && (
           <div className="flex flex-row @lg:flex-col items-center @lg:items-end gap-2 shrink-0">

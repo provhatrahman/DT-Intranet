@@ -94,6 +94,22 @@ export interface FinderInitialData {
   path?: string;
 }
 
+// Smart deep-link focus targets (see src/utils/deepLinks.ts). A resolved
+// "/open/{pitch|booking|project}/{id}" link launches one of these apps with
+// the appropriate focus id so the card can be scrolled to / highlighted /
+// selected once it appears in the app's data.
+export interface IncomingOffersInitialData {
+  focusOfferId?: string; // "pitch-{id}" | "booking-{id}"
+}
+
+export interface ActiveProjectsInitialData {
+  focusProjectId?: number;
+}
+
+export interface ArchiveInitialData {
+  focusProjectId?: number;
+}
+
 // Union type for all possible app configurations
 export type AnyApp =
   | BaseApp<ControlPanelsInitialData>
@@ -102,6 +118,9 @@ export type AnyApp =
   | BaseApp<PaintInitialData>
   | BaseApp<VideosInitialData>
   | BaseApp<AppletViewerInitialData>
+  | BaseApp<IncomingOffersInitialData>
+  | BaseApp<ActiveProjectsInitialData>
+  | BaseApp<ArchiveInitialData>
   | BaseApp<unknown>; // For apps without specific initialData
 
 // Type for the initialData that could be any of the specific types
@@ -113,6 +132,9 @@ export type AnyInitialData =
   | VideosInitialData
   | FinderInitialData
   | AppletViewerInitialData
+  | IncomingOffersInitialData
+  | ActiveProjectsInitialData
+  | ArchiveInitialData
   | unknown;
 
 // Theme-aware menu bar pattern:

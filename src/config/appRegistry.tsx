@@ -8,6 +8,9 @@ import type {
   IpodInitialData,
   PaintInitialData,
   VideosInitialData,
+  IncomingOffersInitialData,
+  ActiveProjectsInitialData,
+  ArchiveInitialData,
 } from "@/apps/base/types";
 import type { AppletViewerInitialData } from "@/apps/applet-viewer";
 import { useAppStore } from "@/stores/useAppStore";
@@ -183,12 +186,12 @@ const LazyGreenroomAdminApp = createLazyComponent<unknown>(
   "greenroom-admin"
 );
 
-const LazyIncomingOffersApp = createLazyComponent<unknown>(
+const LazyIncomingOffersApp = createLazyComponent<IncomingOffersInitialData>(
   () => import("@/apps/incoming-offers/components/IncomingOffersAppComponent").then(m => ({ default: m.IncomingOffersAppComponent })),
   "incoming-offers"
 );
 
-const LazyActiveProjectsApp = createLazyComponent<unknown>(
+const LazyActiveProjectsApp = createLazyComponent<ActiveProjectsInitialData>(
   () => import("@/apps/active-projects/components/ActiveProjectsAppComponent").then(m => ({ default: m.ActiveProjectsAppComponent })),
   "active-projects"
 );
@@ -203,7 +206,7 @@ const LazyArtistsApp = createLazyComponent<unknown>(
   "artists"
 );
 
-const LazyArchiveApp = createLazyComponent<unknown>(
+const LazyArchiveApp = createLazyComponent<ArchiveInitialData>(
   () => import("@/apps/archive/components/ArchiveAppComponent").then(m => ({ default: m.ArchiveAppComponent })),
   "archive"
 );

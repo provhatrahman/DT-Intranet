@@ -8,7 +8,49 @@ export interface ThemedIconProps
   name: string; // file name or relative path within theme folder
   alt?: string;
   themeOverride?: string | null; // manual override theme id
+  // Unread-style counter badge (e.g. Inbox app icon). undefined/0 renders
+  // exactly as before this feature existed — no wrapper, no visual change.
+  badge?: number;
+  // "count": red circle with the number (or "9+"). "dot": small red dot, no
+  // text — used for icon sites too small to legibly show a number.
+  badgeVariant?: "count" | "dot";
 }
+
+// Shared badge visuals so every call site (dock, desktop, start menu, apple
+// menu, taskbar) renders an identical red badge regardless of icon size.
+const BadgeOverlay: React.FC<{ count: number; variant: "count" | "dot" }> = ({
+  count,
+  variant,
+}) => {
+  if (variant === "dot") {
+    return (
+      <span
+        aria-hidden
+        className="absolute -top-0.5 -right-0.5 rounded-full bg-red-500"
+        style={{
+          width: 8,
+          height: 8,
+          boxShadow: "0 0 0 1px white",
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className="absolute -top-1 -right-1 flex items-center justify-center rounded-full bg-red-500 text-white font-bold px-1"
+      style={{
+        minWidth: 14,
+        height: 14,
+        fontSize: 10,
+        lineHeight: "10px",
+        boxShadow: "0 0 0 1px white",
+      }}
+    >
+      {count > 9 ? "9+" : String(count)}
+    </span>
+  );
+};
 
 const SAFARI_TRANSLATE_FIX = "translateZ(0.00001px)";
 const SAFARI_USER_AGENT =
@@ -76,15 +118,18 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
   name,
   alt,
   themeOverride,
+  badge,
+  badgeVariant = "count",
   ...imgProps
 }) => {
   const currentTheme = useThemeStore?.((s: any) => s.current) || null;
   const { className, style, ...restImgProps } = imgProps;
   const composedClassName = cn("themed-icon", className);
+  const showBadge = !!badge && badge > 0;
 
   // Simple passthrough for remote resources (avoid theming logic entirely)
   if (/^https?:\/\//i.test(name)) {
-    return (
+    const img = (
       <img
         src={name}
         alt={alt || name}
@@ -93,6 +138,13 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
         {...restImgProps}
       />
     );
+    if (!showBadge) return img;
+    return (
+      <span className="relative inline-flex">
+        {img}
+        <BadgeOverlay count={badge as number} variant={badgeVariant} />
+      </span>
+    );
   }
 
   // Legacy-aware initial resolution (may already be themed path or absolute /icons/...)
@@ -100,7 +152,7 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
 
   // If result is a remote URL (in case resolver passed one through) just use it.
   if (/^https?:\/\//i.test(resolved)) {
-    return (
+    const img = (
       <img
         src={resolved}
         alt={alt || name}
@@ -108,6 +160,13 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
         style={style}
         {...restImgProps}
       />
+    );
+    if (!showBadge) return img;
+    return (
+      <span className="relative inline-flex">
+        {img}
+        <BadgeOverlay count={badge as number} variant={badgeVariant} />
+      </span>
     );
   }
 
@@ -133,7 +192,7 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
       ? applySafariImageStabilizer(style)
       : style;
 
-  return (
+  const img = (
     <img
       src={src}
       data-initial-src={resolved}
@@ -142,5 +201,12 @@ export const ThemedIcon: React.FC<ThemedIconProps> = ({
       style={finalStyle}
       {...restImgProps}
     />
+  );
+  if (!showBadge) return img;
+  return (
+    <span className="relative inline-flex">
+      {img}
+      <BadgeOverlay count={badge as number} variant={badgeVariant} />
+    </span>
   );
 };

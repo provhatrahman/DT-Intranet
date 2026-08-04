@@ -16,6 +16,7 @@ import { STORES } from "@/utils/indexedDB";
 import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { useTranslation } from "react-i18next";
 import { getTranslatedAppName } from "@/utils/i18n";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 interface DesktopStyles {
   backgroundImage?: string;
@@ -41,6 +42,7 @@ export function Desktop({
   desktopStyles,
 }: DesktopProps) {
   const { t } = useTranslation();
+  const inboxUnvotedCount = useInboxUnvotedCount();
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [selectedShortcutPath, setSelectedShortcutPath] = useState<string | null>(null);
   const { wallpaperSource, isVideoWallpaper } = useWallpaper();
@@ -798,6 +800,11 @@ export function Desktop({
                 isSelected={selectedShortcutPath === shortcut.path}
                 size="large"
                 data-desktop-icon="true"
+                badge={
+                  shortcut.appId === "incoming-offers"
+                    ? inboxUnvotedCount
+                    : undefined
+                }
               />
             </div>
           ))}
@@ -824,6 +831,9 @@ export function Desktop({
               isSelected={selectedAppId === app.id}
               size="large"
               data-desktop-icon="true"
+              badge={
+                app.id === "incoming-offers" ? inboxUnvotedCount : undefined
+              }
             />
           ))}
         </div>

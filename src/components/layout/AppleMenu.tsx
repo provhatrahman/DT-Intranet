@@ -17,6 +17,7 @@ import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { getTranslatedAppName } from "@/utils/i18n";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { AUTH_ENABLED } from "@/config/auth";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 interface AppleMenuProps {
   apps: AnyApp[];
@@ -28,6 +29,7 @@ export function AppleMenu({ apps }: AppleMenuProps) {
   const launchApp = useLaunchApp();
   const currentTheme = useThemeStore((state) => state.current);
   const isMacOsxTheme = currentTheme === "macosx";
+  const inboxUnvotedCount = useInboxUnvotedCount();
 
   // Sign-out entry, only meaningful when the login gate is active and a session
   // exists — logout() drops the auth store to "idle", which makes App re-render
@@ -88,6 +90,10 @@ export function AppleMenu({ apps }: AppleMenuProps) {
                   name={app.icon.src}
                   alt={app.name}
                   className="w-4 h-4 [image-rendering:pixelated]"
+                  badge={
+                    app.id === "incoming-offers" ? inboxUnvotedCount : undefined
+                  }
+                  badgeVariant="dot"
                 />
               )}
               {getTranslatedAppName(app.id as AppId)}

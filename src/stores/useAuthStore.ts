@@ -95,6 +95,16 @@ export const useAuthStore = create<AuthState>()(
 
       startLogin: async () => {
         set({ status: "authenticating", error: null });
+        // Mirrors silentReauth below: stash the current path so a logged-out
+        // user opening a deep link (e.g. /open/pitch/123) doesn't lose it —
+        // App.tsx's callback handler restores sessionStorage
+        // "greenroom:return_to" (falling back to "/") once the login completes.
+        if (window.location.pathname !== "/") {
+          sessionStorage.setItem(
+            "greenroom:return_to",
+            window.location.pathname + window.location.search + window.location.hash
+          );
+        }
         await beginGoogleRedirect();
       },
 

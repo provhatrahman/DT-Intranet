@@ -16,6 +16,7 @@ import { isTouchDevice } from "@/utils/device";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useTranslation } from "react-i18next";
 import { getTranslatedFolderNameFromName, getTranslatedAppName, AppId } from "@/utils/i18n";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 export interface FileItem {
   name: string;
@@ -63,6 +64,7 @@ export function FileList({
 }: FileListProps) {
   const { t } = useTranslation();
   const { play: playClick } = useSound(Sounds.BUTTON_CLICK, 0.3);
+  const inboxUnvotedCount = useInboxUnvotedCount();
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const draggedFileRef = useRef<FileItem | null>(null);
   const currentTheme = useThemeStore((state) => state.current);
@@ -593,6 +595,9 @@ export function FileList({
           isDropTarget={dropTargetPath === file.path}
           size={viewType === "large" ? "large" : "small"}
           context="finder"
+          badge={
+            file.appId === "incoming-offers" ? inboxUnvotedCount : undefined
+          }
         />
       </div>
     );

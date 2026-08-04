@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AppProps } from "../../base/types";
+import { AppProps, IncomingOffersInitialData } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { IncomingOffersMenuBar } from "./IncomingOffersMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
@@ -21,11 +21,18 @@ import { useProjectsStore } from "@/stores/useProjectsStore";
 import { useBookingsStore } from "@/stores/useBookingsStore";
 import { useArtistsStore } from "@/stores/useArtistsStore";
 import { useLoggedOffersStore } from "@/stores/useLoggedOffersStore";
+import { useAppStore } from "@/stores/useAppStore";
 import { parsePitchDescription } from "@/lib/api/pitches";
 import { createArtist } from "@/lib/api/artists";
 import { deleteProject } from "@/lib/api/projects";
+import { generateOfferLink } from "@/utils/deepLinks";
 import { toDateInputValue } from "../../active-projects/data";
-import { Offer, PitchVoteCounts, PitchVoteChoice } from "../data";
+import {
+  Offer,
+  PitchVoteCounts,
+  PitchVoteChoice,
+  INBOX_PITCH_STATUSES,
+} from "../data";
 import { toast } from "sonner";
 import {
   CardContent,
@@ -61,6 +68,7 @@ import {
   ChevronDown,
   Clock,
   Inbox,
+  Link as LinkIcon,
   MessageSquare,
   SearchX,
   Trash2,
@@ -68,9 +76,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-
-// Pitch statuses that count as "awaiting a decision" and belong in the Inbox.
-const INBOX_PITCH_STATUSES = ["submitted", "under_review"];
 
 // Incoming offers are for the collective as a whole, not an individual artist,
 // but the backend requires every booking to name an artist. We attach these
@@ -158,12 +163,26 @@ export function IncomingOffersAppComponent({
   onClose,
   isForeground,
   skipInitialSound,
+  initialData,
   instanceId,
   onNavigateNext,
   onNavigatePrevious,
-}: AppProps) {
+}: AppProps<IncomingOffersInitialData>) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  // Smart deep-link focus (see src/utils/deepLinks.ts): the offer id ("pitch-{id}"
+  // | "booking-{id}") to scroll to + highlight once it shows up in `offers`.
+  const [pendingFocusOfferId, setPendingFocusOfferId] = useState<
+    string | null
+  >(null);
+  const [highlightedOfferId, setHighlightedOfferId] = useState<string | null>(
+    null
+  );
+  const clearInstanceInitialData = useAppStore(
+    (state) => state.clearInstanceInitialData
+  );
+  const clearInitialData = useAppStore((state) => state.clearInitialData);
+  const bringToForeground = useAppStore((state) => state.bringToForeground);
   const [sortBy, setSortBy] = useState<
     "date-asc" | "date-desc" | "fee" | "submitted-asc" | "submitted-desc"
   >("submitted-desc");
@@ -363,6 +382,102 @@ export function IncomingOffersAppComponent({
 
     return [...bookingOffers, ...pitchOffers];
   }, [pitches, bookings]);
+
+  // --- Smart deep-link focus (path a): consume initialData.focusOfferId on
+  // mount / whenever a fresh value arrives while the window is open. ---
+  useEffect(() => {
+    if (isWindowOpen && initialData?.focusOfferId) {
+      setPendingFocusOfferId(initialData.focusOfferId);
+      if (instanceId) {
+        clearInstanceInitialData(instanceId);
+      } else {
+        clearInitialData("incoming-offers");
+      }
+    }
+  }, [
+    isWindowOpen,
+    initialData,
+    instanceId,
+    clearInstanceInitialData,
+    clearInitialData,
+  ]);
+
+  // --- Smart deep-link focus (path b): the window is already open, so
+  // AppManager dispatches "updateApp" instead of remounting us. ---
+  useEffect(() => {
+    const handleUpdateApp = (
+      event: CustomEvent<{
+        appId: string;
+        initialData?: IncomingOffersInitialData;
+      }>
+    ) => {
+      if (
+        event.detail.appId !== "incoming-offers" ||
+        !event.detail.initialData?.focusOfferId
+      ) {
+        return;
+      }
+      bringToForeground("incoming-offers");
+      setPendingFocusOfferId(event.detail.initialData.focusOfferId);
+    };
+    window.addEventListener("updateApp", handleUpdateApp as EventListener);
+    return () => {
+      window.removeEventListener(
+        "updateApp",
+        handleUpdateApp as EventListener
+      );
+    };
+  }, [bringToForeground]);
+
+  // Give up silently after 15s in case the offer never shows up in `offers`
+  // (e.g. the vote/booking data never loads, or the id turns out to be stale).
+  useEffect(() => {
+    if (!pendingFocusOfferId) return;
+    const timer = setTimeout(() => {
+      setPendingFocusOfferId((current) =>
+        current === pendingFocusOfferId ? null : current
+      );
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [pendingFocusOfferId]);
+
+  // Once the target offer appears in the computed list, clear any search
+  // filter hiding it, scroll its card into view, and flash a highlight.
+  useEffect(() => {
+    if (!pendingFocusOfferId) return;
+    const target = offers.find((o) => o.id === pendingFocusOfferId);
+    if (!target) return;
+
+    const id = pendingFocusOfferId;
+    const matchesFilter =
+      !filter ||
+      target.name.toLowerCase().includes(filter.toLowerCase()) ||
+      target.promoter.toLowerCase().includes(filter.toLowerCase()) ||
+      target.venue.toLowerCase().includes(filter.toLowerCase()) ||
+      (target.artistName ?? "").toLowerCase().includes(filter.toLowerCase());
+    if (!matchesFilter) {
+      // Clearing the filter re-runs this effect (filter is a dep) with the
+      // card visible; schedule the scroll on that pass instead of this one.
+      setFilter("");
+      return;
+    }
+
+    // Don't clear pendingFocusOfferId synchronously here — that re-runs this
+    // effect immediately and its cleanup would cancel the timer below before
+    // it ever fires. Clear it inside the callback once the scroll happens.
+    const timer = setTimeout(() => {
+      setPendingFocusOfferId((current) => (current === id ? null : current));
+      document
+        .getElementById(`offer-card-${id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedOfferId(id);
+      setTimeout(() => {
+        setHighlightedOfferId((current) => (current === id ? null : current));
+      }, 2500);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [pendingFocusOfferId, offers, filter]);
 
   // The votes on an offer, from whichever backend backs it. Pitches and
   // bookings share the same one-vote-per-user model and vote shape.
@@ -663,11 +778,16 @@ export function IncomingOffersAppComponent({
         if (project.status !== "active") {
           await updateStatus(offer.projectId, "active");
         }
+        // Legacy logged offers stored the fee only on the booking, not the
+        // stand-in project — fall back so Budget still prefills.
+        const bookingFee = bookings.find(
+          (b) => b.booking_id === offer.bookingId
+        )?.agreed_fee;
         setDetailsInitialValues({
           name: project.name,
           description: project.description ?? "",
           project_type: project.project_type ?? "",
-          budget: project.budget ?? "",
+          budget: project.budget ?? bookingFee ?? "",
           event_date: toDateInputValue(project.event_date),
           start_date: toDateInputValue(project.start_date),
           end_date: toDateInputValue(project.end_date),
@@ -942,6 +1062,9 @@ export function IncomingOffersAppComponent({
         city: values.city.trim() || undefined,
         country: values.country.trim() || undefined,
         promoter_name: values.promoter_name.trim() || undefined,
+        // The offered fee doubles as the project budget so it carries through
+        // to the post-approve details form (and everywhere else budget shows).
+        budget: values.agreed_fee.trim() || undefined,
       });
       const bookingId = await createBooking({
         artist_id: artistId,
@@ -1120,6 +1243,7 @@ export function IncomingOffersAppComponent({
                     key={offer.id}
                     offer={offer}
                     isAdmin={isAdmin}
+                    isHighlighted={highlightedOfferId === offer.id}
                     canDelete={canDeleteOffer(offer)}
                     userVote={getUserVote(offer)}
                     userInvolved={getUserInvolvement(offer)}
@@ -1264,6 +1388,7 @@ export function IncomingOffersAppComponent({
 function OfferCard({
   offer,
   isAdmin,
+  isHighlighted,
   canDelete,
   userVote,
   userInvolved,
@@ -1281,6 +1406,7 @@ function OfferCard({
 }: {
   offer: Offer;
   isAdmin: boolean;
+  isHighlighted?: boolean;
   canDelete: boolean;
   userVote: PitchVoteChoice | null;
   userInvolved: boolean;
@@ -1300,8 +1426,26 @@ function OfferCard({
   const isPitch = offer.source === "pitch";
   const [commentsOpen, setCommentsOpen] = useState(false);
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generateOfferLink(offer));
+      toast.success("Link copied");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to copy link";
+      toast.error(message);
+    }
+  };
+
   return (
-    <AquaCard interactive className="flex flex-col h-full overflow-hidden">
+    <AquaCard
+      id={`offer-card-${offer.id}`}
+      interactive
+      className={cn(
+        "flex flex-col h-full overflow-hidden transition-shadow",
+        isHighlighted && "ring-2 ring-blue-500"
+      )}
+    >
       <CardHeader className={cn("pb-3", !isMacTheme && "bg-muted/5")}>
         <div className="flex justify-between items-start gap-2">
           <div className="space-y-1 min-w-0">
@@ -1317,6 +1461,16 @@ function OfferCard({
               tone={isPitch ? "purple" : "blue"}
               className="uppercase tracking-wide"
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCopyLink}
+              title="Copy link to this card"
+              aria-label="Copy link to this card"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground touch-manipulation"
+            >
+              <LinkIcon className="h-4 w-4" />
+            </Button>
             {canDelete && (
               <Button
                 variant="ghost"

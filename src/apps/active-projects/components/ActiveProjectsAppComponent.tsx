@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { AppProps } from "../../base/types";
+import { AppProps, ActiveProjectsInitialData } from "../../base/types";
 import { WindowFrame } from "@/components/layout/WindowFrame";
 import { ActiveProjectsMenuBar } from "./ActiveProjectsMenuBar";
 import HelpGuideDialog from "@/components/help/HelpGuideDialog";
@@ -29,6 +29,8 @@ import {
   useIsGreenroomAdmin,
 } from "@/hooks/useGreenroomAccount";
 import { registerDirtyProvider, consumeEntry } from "@/lib/auth/dirtyStash";
+import { useAppStore } from "@/stores/useAppStore";
+import { generateProjectLink } from "@/utils/deepLinks";
 import { CardContent } from "@/components/ui/card";
 import {
   AquaCard,
@@ -74,6 +76,7 @@ import {
   Trash2,
   FolderOpen,
   ExternalLink,
+  Link as LinkIcon,
   MessageSquare,
   Loader2,
   Search,
@@ -165,10 +168,11 @@ export function ActiveProjectsAppComponent({
   onClose,
   isForeground,
   skipInitialSound,
+  initialData,
   instanceId,
   onNavigateNext,
   onNavigatePrevious,
-}: AppProps) {
+}: AppProps<ActiveProjectsInitialData>) {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [pendingCompleteProjectId, setPendingCompleteProjectId] = useState<
@@ -183,6 +187,16 @@ export function ActiveProjectsAppComponent({
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     null
   );
+  // Smart deep-link focus (see src/utils/deepLinks.ts): a project id to select
+  // + scroll into view once it shows up in `visibleProjects`.
+  const [pendingFocusProjectId, setPendingFocusProjectId] = useState<
+    number | null
+  >(null);
+  const clearInstanceInitialData = useAppStore(
+    (state) => state.clearInstanceInitialData
+  );
+  const clearInitialData = useAppStore((state) => state.clearInitialData);
+  const bringToForeground = useAppStore((state) => state.bringToForeground);
 
   const { themeId, isMacTheme, isXpTheme } = useOsTheme();
   const tabStyles = getTabStyles(themeId);
@@ -251,12 +265,89 @@ export function ActiveProjectsAppComponent({
     }
   }, [error, clearError]);
 
-  // Default selection on desktop.
+  // --- Smart deep-link focus (path a): consume initialData.focusProjectId on
+  // mount / whenever a fresh value arrives while the window is open. ---
   useEffect(() => {
-    if (!isMobile && visibleProjects.length > 0 && selectedProjectId === null) {
+    if (isWindowOpen && initialData?.focusProjectId != null) {
+      setPendingFocusProjectId(initialData.focusProjectId);
+      if (instanceId) {
+        clearInstanceInitialData(instanceId);
+      } else {
+        clearInitialData("active-projects");
+      }
+    }
+  }, [
+    isWindowOpen,
+    initialData,
+    instanceId,
+    clearInstanceInitialData,
+    clearInitialData,
+  ]);
+
+  // --- Smart deep-link focus (path b): the window is already open, so
+  // AppManager dispatches "updateApp" instead of remounting us. ---
+  useEffect(() => {
+    const handleUpdateApp = (
+      event: CustomEvent<{
+        appId: string;
+        initialData?: ActiveProjectsInitialData;
+      }>
+    ) => {
+      if (
+        event.detail.appId !== "active-projects" ||
+        event.detail.initialData?.focusProjectId == null
+      ) {
+        return;
+      }
+      bringToForeground("active-projects");
+      setPendingFocusProjectId(event.detail.initialData.focusProjectId);
+    };
+    window.addEventListener("updateApp", handleUpdateApp as EventListener);
+    return () => {
+      window.removeEventListener(
+        "updateApp",
+        handleUpdateApp as EventListener
+      );
+    };
+  }, [bringToForeground]);
+
+  // Give up silently after 15s if the project never shows up here (e.g. it
+  // resolved to this app but the list fetch is stalled or the id is stale).
+  useEffect(() => {
+    if (pendingFocusProjectId === null) return;
+    const timer = setTimeout(() => {
+      setPendingFocusProjectId((current) =>
+        current === pendingFocusProjectId ? null : current
+      );
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [pendingFocusProjectId]);
+
+  // Selection: a pending deep-link focus wins over the default first-project
+  // selection below — process it first and bail out of the effect before the
+  // default branch runs, so it never steals the pane out from under it.
+  useEffect(() => {
+    if (visibleProjects.length === 0) return;
+    if (pendingFocusProjectId !== null) {
+      const target = visibleProjects.find(
+        (p) => p.id === pendingFocusProjectId
+      );
+      if (target) {
+        const id = pendingFocusProjectId;
+        setSelectedProjectId(id);
+        setPendingFocusProjectId(null);
+        setTimeout(() => {
+          document
+            .getElementById(`project-row-${id}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+      }
+      return;
+    }
+    if (!isMobile && selectedProjectId === null) {
       setSelectedProjectId(visibleProjects[0].id);
     }
-  }, [visibleProjects, selectedProjectId, isMobile]);
+  }, [visibleProjects, selectedProjectId, isMobile, pendingFocusProjectId]);
 
   // Load detail whenever a project is selected.
   useEffect(() => {
@@ -386,6 +477,7 @@ export function ActiveProjectsAppComponent({
                       return (
                         <SidebarRow
                           key={project.id}
+                          id={`project-row-${project.id}`}
                           selected={isSelected}
                           onClick={() => setSelectedProjectId(project.id)}
                         >
@@ -521,6 +613,17 @@ function ProjectDetailView({
   // server-side too (backend allowlist/is_admin enforcement); other status
   // transitions remain open.
   const isAdmin = useIsGreenroomAdmin();
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generateProjectLink(project.id));
+      toast.success("Link copied");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to copy link";
+      toast.error(message);
+    }
+  };
 
   const projectToForm = (p: ProjectDetail) => ({
     name: p.name,
@@ -720,6 +823,16 @@ function ProjectDetailView({
                       status={project.status}
                       label={formatProjectStatus(project.status)}
                     />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleCopyLink}
+                      title="Copy link to this project"
+                      aria-label="Copy link to this project"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground touch-manipulation"
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                    </Button>
                     {/* Autosave state — there's no Save button, so keep the
                         current state visible at the top of the page. */}
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

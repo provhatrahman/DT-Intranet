@@ -15,6 +15,7 @@ import { ThemedIcon } from "@/components/shared/ThemedIcon";
 import { getTranslatedAppName } from "@/utils/i18n";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { AUTH_ENABLED } from "@/config/auth";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 interface StartMenuProps {
   apps: AnyApp[];
@@ -26,6 +27,7 @@ export function StartMenu({ apps }: StartMenuProps) {
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
   const [aboutFinderOpen, setAboutFinderOpen] = useState(false);
   const currentTheme = useThemeStore((state) => state.current);
+  const inboxUnvotedCount = useInboxUnvotedCount();
 
   // Sign-out entry, only meaningful when the login gate is active and a session
   // exists — logout() drops the auth store to "idle", which makes App re-render
@@ -236,6 +238,12 @@ export function StartMenu({ apps }: StartMenuProps) {
                           name={app.icon}
                           alt={app.name}
                           className="w-6 h-6 [image-rendering:pixelated]"
+                          badge={
+                            app.id === "incoming-offers"
+                              ? inboxUnvotedCount
+                              : undefined
+                          }
+                          badgeVariant="dot"
                         />
                       ) : (
                         <div className="w-6 h-6 flex items-center justify-center">
@@ -247,6 +255,12 @@ export function StartMenu({ apps }: StartMenuProps) {
                         name={app.icon.src}
                         alt={app.name}
                         className="w-6 h-6 [image-rendering:pixelated]"
+                        badge={
+                          app.id === "incoming-offers"
+                            ? inboxUnvotedCount
+                            : undefined
+                        }
+                        badgeVariant="dot"
                       />
                     )}
                     {getTranslatedAppName(app.id as AppId)}

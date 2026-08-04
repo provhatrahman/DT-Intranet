@@ -19,6 +19,7 @@ import { MenuBarAccount } from "./MenuBarAccount";
 import { getAppName } from "./menuBarUtils";
 import { getAppletDisplayInfo } from "./getAppletDisplayInfo";
 import { useTaskbarOverflow } from "./useTaskbarOverflow";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 export interface WindowsTaskbarProps {
   apps: AnyApp[];
@@ -43,6 +44,7 @@ export function WindowsTaskbar({
 }: WindowsTaskbarProps) {
   const { runningAreaRef, visibleTaskbarIds, overflowTaskbarIds, allTaskbarIds } =
     useTaskbarOverflow(instances, true);
+  const inboxUnvotedCount = useInboxUnvotedCount();
 
   const isWinXp = currentTheme === "xp";
   const isWin98 = currentTheme === "win98";
@@ -191,6 +193,12 @@ export function WindowsTaskbar({
                         name={displayIcon}
                         alt=""
                         className="w-4 h-4 flex-shrink-0 [image-rendering:pixelated]"
+                        badge={
+                          instance.appId === "incoming-offers"
+                            ? inboxUnvotedCount
+                            : undefined
+                        }
+                        badgeVariant="dot"
                       />
                     )}
                     <span className="truncate text-xs">{displayLabel}</span>
@@ -305,6 +313,12 @@ export function WindowsTaskbar({
                           name={displayIcon}
                           alt=""
                           className="w-4 h-4 [image-rendering:pixelated]"
+                          badge={
+                            instance.appId === "incoming-offers"
+                              ? inboxUnvotedCount
+                              : undefined
+                          }
+                          badgeVariant="dot"
                         />
                       )}
                       <span className="truncate text-xs">{displayLabel}</span>

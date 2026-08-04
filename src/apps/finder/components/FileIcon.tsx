@@ -19,6 +19,9 @@ interface FileIconProps {
   size?: "small" | "large";
   className?: string;
   context?: "desktop" | "finder";
+  // Unread-style counter badge (e.g. Inbox app icon unvoted-item count).
+  // undefined/0 renders exactly as before.
+  badge?: number;
 }
 
 export function FileIcon({
@@ -35,6 +38,7 @@ export function FileIcon({
   size = "small",
   className,
   context = "desktop",
+  badge,
 }: FileIconProps) {
   const { play: playClick } = useSound(Sounds.BUTTON_CLICK, 0.3);
   const currentTheme = useThemeStore((state) => state.current);
@@ -233,6 +237,8 @@ export function FileIcon({
         style={{ imageRendering: "pixelated" } as React.CSSProperties}
         onContextMenu={(e) => e.preventDefault()}
         draggable={false}
+        badge={badge}
+        badgeVariant="count"
       />
     );
   };

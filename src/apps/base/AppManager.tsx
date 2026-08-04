@@ -9,10 +9,12 @@ import { getAppComponent, appRegistry } from "@/config/appRegistry";
 import type { AppId } from "@/config/appRegistry";
 import { useAppStoreShallow } from "@/stores/helpers";
 import { extractCodeFromPath } from "@/utils/sharedUrl";
+import { parseOpenPath, resolveOpenLink } from "@/utils/deepLinks";
 import { AUTH_CALLBACK_PATH } from "@/config/auth";
 import { toast } from "sonner";
 import { requestCloseWindow } from "@/utils/windowUtils";
 import { useThemeStore } from "@/stores/useThemeStore";
+import { InboxBadgeSync } from "@/apps/incoming-offers/hooks/useInboxBadge";
 
 interface AppManagerProps {
   apps: AnyApp[];
@@ -133,7 +135,29 @@ export function AppManager({ apps }: AppManagerProps) {
       // then cleaning) /auth/callback?code=…. The desktop is already mounted
       // during a silent token renewal, so clobbering the URL here would strip
       // the ?code before the auth effect reads it and break the round trip.
-      if (path === AUTH_CALLBACK_PATH) return;
+      //
+      // Cold-login race: this component mounts the moment auth flips to
+      // authenticated, which can be BEFORE App.tsx's callback effect has
+      // replaceState'd the stashed return_to path (e.g. a shared
+      // /open/pitch/{id} deep link). If we bail permanently here, that
+      // restored path is never parsed and the user lands on a bare desktop.
+      // Instead, poll briefly until App.tsx swaps the URL, then re-run.
+      if (path === AUTH_CALLBACK_PATH) {
+        let attempts = 0;
+        const waitForRestore = setInterval(() => {
+          attempts += 1;
+          const current = window.location.pathname;
+          if (current === AUTH_CALLBACK_PATH) {
+            if (attempts >= 60) clearInterval(waitForRestore); // give up after ~15s
+            return;
+          }
+          clearInterval(waitForRestore);
+          if (current !== "/") {
+            handleUrlNavigation();
+          }
+        }, 250);
+        return;
+      }
 
       const launchAppletViewer = () => {
         toast.info("Opening Applet Store...");
@@ -246,6 +270,37 @@ export function AppManager({ apps }: AppManagerProps) {
           }, 0);
           window.history.replaceState({}, "", "/"); // Clean URL
         }
+      } else if (parseOpenPath(path) !== null) {
+        // Smart deep-link: "/open/{pitch|booking|project}/{id}" resolves the
+        // underlying record to wherever it currently lives (see
+        // src/utils/deepLinks.ts) rather than encoding a fixed app. Clean the
+        // URL immediately like the other share-link branches above; the
+        // resolution itself is async, so the launchApp dispatch happens once
+        // it settles rather than behind a fixed setTimeout.
+        const parsed = parseOpenPath(path)!;
+        window.history.replaceState({}, "", "/");
+        console.log("[AppManager] Detected open link:", parsed);
+        resolveOpenLink(parsed.kind, parsed.id)
+          .then(({ appId, initialData }) => {
+            const event = new CustomEvent("launchApp", {
+              detail: { appId, initialData },
+            });
+            window.dispatchEvent(event);
+            console.log(
+              "[AppManager] Dispatched launchApp event for open link.",
+              { appId, initialData }
+            );
+          })
+          .catch((error) => {
+            console.error(
+              "[AppManager] Failed to resolve open link:",
+              parsed,
+              error
+            );
+            toast.error(
+              error instanceof Error ? error.message : "Couldn't open the link"
+            );
+          });
       } else if (path.startsWith("/") && path.length > 1) {
         // Handle direct app launch path (e.g., /soundboard)
         const potentialAppId = path.substring(1) as AppId;
@@ -370,8 +425,15 @@ export function AppManager({ apps }: AppManagerProps) {
         navigateToPreviousApp: navigateToPreviousInstance,
       }}
     >
+      {/* Render-nothing singleton driving the Inbox app icon's unread badge.
+          Mounted once here (rather than inside the Inbox app itself) so it
+          keeps polling/refreshing pitch & booking vote data — and the badge
+          stays accurate — even while the Inbox window is closed. AppManager
+          only renders once the desktop shell is up (post-auth), which is
+          exactly the scope this should run in. */}
+      <InboxBadgeSync />
       {/* MenuBar: For XP/Win98, this is the taskbar (always shown).
-          For Mac/System7, hide when a foreground app is loaded since 
+          For Mac/System7, hide when a foreground app is loaded since
           the app renders its own MenuBar. */}
       {showDesktopMenuBar && <MenuBar />}
       {/* macOS Dock */}

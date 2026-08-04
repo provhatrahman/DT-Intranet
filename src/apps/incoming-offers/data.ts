@@ -10,6 +10,11 @@
 //    (approve) or decline. Event data (date, city, venue) is denormalized from
 //    the linked project.
 
+// Pitch statuses that count as "awaiting a decision" and belong in the Inbox.
+// Shared with the unread-badge counter (useInboxUnvotedCount) so the badge and
+// the app's own list stay in lockstep.
+export const INBOX_PITCH_STATUSES = ["submitted", "under_review"];
+
 export interface Offer {
   id: string; // "pitch-{id}" | "booking-{id}"
   source: "pitch" | "booking";

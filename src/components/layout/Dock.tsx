@@ -14,6 +14,7 @@ import { AppId, getAppIconPath, appRegistry, getNonFinderApps } from "@/config/a
 import { getTranslatedAppName, getTranslatedFolderNameFromName } from "@/utils/i18n";
 import { useLaunchApp } from "@/hooks/useLaunchApp";
 import { useIsGreenroomAdmin } from "@/hooks/useGreenroomAccount";
+import { useInboxUnvotedCount } from "@/apps/incoming-offers/hooks/useInboxBadge";
 import { useFinderStore } from "@/stores/useFinderStore";
 import { useFilesStore } from "@/stores/useFilesStore";
 import { useDockStore, PROTECTED_DOCK_ITEMS, type DockItem } from "@/stores/useDockStore";
@@ -74,6 +75,9 @@ interface IconButtonProps {
   isDraggedOutside?: boolean;
   // Scaled size prop
   baseSize?: number;
+  // Unread-style counter badge (e.g. Inbox app icon unvoted-item count).
+  // undefined/0 renders exactly as before.
+  badge?: number;
 }
 
 // Animated spacer for drop preview - with magnification support
@@ -200,6 +204,7 @@ const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(
       isDragging = false,
       isDraggedOutside = false,
       baseSize: baseSizeProp,
+      badge,
     },
     forwardedRef
   ) => {
@@ -455,6 +460,8 @@ const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(
                   width: "100%",
                   height: "100%",
                 }}
+                badge={badge}
+                badgeVariant="count"
               />
             )}
           </motion.div>
@@ -604,6 +611,8 @@ function MacDock() {
   const isAdmin = username?.toLowerCase() === "ryo";
   // Greenroom-admin gate for domain admin apps (e.g. the Admin Portal).
   const isGreenroomAdmin = useIsGreenroomAdmin();
+  // Inbox app icon's unread-style badge (count of unvoted pitches/bookings).
+  const inboxUnvotedCount = useInboxUnvotedCount();
 
   // Dock store for customization
   const { 
@@ -2144,6 +2153,11 @@ function MacDock() {
                         isDragging={draggingItemId === item.id}
                         isDraggedOutside={draggingItemId === item.id && isDraggedOutside}
                         baseSize={scaledButtonSize}
+                        badge={
+                          appId === "incoming-offers"
+                            ? inboxUnvotedCount
+                            : undefined
+                        }
                       />
                     );
                   } else {
@@ -2276,6 +2290,11 @@ function MacDock() {
                       draggable
                       onDragStart={(e) => handleNonPinnedDragStart(e, item.appId)}
                       baseSize={scaledButtonSize}
+                      badge={
+                        item.appId === "incoming-offers"
+                          ? inboxUnvotedCount
+                          : undefined
+                      }
                     />
                   );
                 }
