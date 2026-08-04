@@ -1,6 +1,9 @@
 # Per-User Push Notifications — Design & Implementation Plan
 
-Status: **in progress** (dev). Owner decisions locked 2026-08-04.
+Status: **LIVE IN PROD** (deployed 2026-08-04, frontend v10.10; sweep = EventBridge rule
+`prod-notifications-sweep` direct-invoking the users Lambda every 6h). Owner decisions locked 2026-08-04.
+Note: the HTTP sweep endpoint's X-Sweep-Secret path is unreachable in prod (REQUIRE_AUTH middleware runs
+first) — the direct Lambda invoke is the only cron path, which is what the EventBridge rule uses.
 
 ## Product decisions (locked)
 
