@@ -56,6 +56,38 @@ export function ControlPanelsMacAnimatedBody({
     CONTROL_PANELS_MAC_MAX_WINDOW_HEIGHT - fixedChromeHeight
   );
 
+  // The ACTUAL height the window currently offers (the h-full wrapper above
+  // .control-panels-mac — its height comes from the window frame only, never
+  // from our content, so observing it cannot feed back into the auto-height
+  // measure loop). The animated body height below is clamped to this: the
+  // constant window cap alone is not enough, because the real window can be
+  // shorter than the cap (user drag-resize within min/max constraints, or a
+  // small viewport clamping the frame). Without the clamp the body keeps its
+  // capped height, overflows the frame (it's shrink-0), and its scrollbar is
+  // clipped by the window edge with the bottom of the pane unreachable.
+  const [wrapperHeight, setWrapperHeight] = useState<number | null>(null);
+  useEffect(() => {
+    // measure div → body (motion.div) → .control-panels-mac → h-full wrapper.
+    const wrapper =
+      measureRef.current?.parentElement?.parentElement?.parentElement;
+    if (!wrapper || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const height = entries[0]?.contentRect?.height;
+      if (typeof height === "number" && height > 0) {
+        setWrapperHeight(height);
+      }
+    });
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, []);
+
+  // Space genuinely available to the body right now. The wrapper contains the
+  // toolbar + body (the titlebar/menubar sit outside it in the window frame).
+  const liveBodyCap =
+    wrapperHeight === null
+      ? maxBodyHeight
+      : Math.max(0, Math.min(maxBodyHeight, wrapperHeight - toolbarHeight));
+
   const readNaturalHeight = useCallback(() => {
     const root = measureRef.current;
     if (!root) return;
@@ -137,12 +169,17 @@ export function ControlPanelsMacAnimatedBody({
     };
   }, [navKey, readNaturalHeight]);
 
-  const animatedHeight =
+  // What the window auto-resize AIMS for (constant cap — navigation to a tall
+  // pane must still grow the window even if it is currently small)…
+  const desiredBodyHeight =
     naturalHeight === null ? undefined : Math.min(naturalHeight, maxBodyHeight);
+  // …versus what the body may actually occupy on screen right now.
+  const animatedHeight =
+    naturalHeight === null ? undefined : Math.min(naturalHeight, liveBodyCap);
   const needsScroll =
     !isMeasuring &&
     naturalHeight !== null &&
-    naturalHeight > maxBodyHeight;
+    naturalHeight > liveBodyCap;
 
   // The minimum content area below the toolbar (window floor minus titlebar and
   // toolbar). The window auto-sizes to content but never shrinks below this floor,
@@ -160,15 +197,18 @@ export function ControlPanelsMacAnimatedBody({
   );
 
   useLayoutEffect(() => {
-    if (!instanceId || animatedHeight === undefined) return;
+    if (!instanceId || desiredBodyHeight === undefined) return;
 
     // Respect the window's min/max height: never auto-shrink below the configured
     // minimum (matches windowConstraints.minHeight) even when content is short.
+    // Sized from desiredBodyHeight (constant cap), NOT the live-clamped render
+    // height — otherwise a manually-shrunk window would stop auto-growing for
+    // taller panes on navigation.
     const totalWindowHeight = Math.max(
       CONTROL_PANELS_MAC_MIN_WINDOW_HEIGHT,
       Math.min(
         CONTROL_PANELS_MAC_MAX_WINDOW_HEIGHT,
-        fixedChromeHeight + animatedHeight
+        fixedChromeHeight + desiredBodyHeight
       )
     );
 
@@ -187,7 +227,7 @@ export function ControlPanelsMacAnimatedBody({
         height: totalWindowHeight,
       }
     );
-  }, [instanceId, animatedHeight, fixedChromeHeight]);
+  }, [instanceId, desiredBodyHeight, fixedChromeHeight]);
 
   return (
     <motion.div

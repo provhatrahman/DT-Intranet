@@ -184,9 +184,10 @@ export function ProjectDetailsFormDialog({
                   <p className="text-xs text-destructive">{budgetError}</p>
                 )}
               </Field>
-              <Field label="Event Date">
+              <Field label="Event Date" className="min-w-0">
                 <Input
                   type="date"
+                  className="min-w-0 appearance-none"
                   value={values.event_date}
                   onChange={(e) => set("event_date", e.target.value)}
                 />
@@ -215,16 +216,18 @@ export function ProjectDetailsFormDialog({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Start Date">
+              <Field label="Start Date" className="min-w-0">
                 <Input
                   type="date"
+                  className="min-w-0 appearance-none"
                   value={values.start_date}
                   onChange={(e) => set("start_date", e.target.value)}
                 />
               </Field>
-              <Field label="End Date">
+              <Field label="End Date" className="min-w-0">
                 <Input
                   type="date"
+                  className="min-w-0 appearance-none"
                   value={values.end_date}
                   onChange={(e) => set("end_date", e.target.value)}
                 />
@@ -254,9 +257,10 @@ export function ProjectDetailsFormDialog({
                   onChange={(e) => set("promoter_name", e.target.value)}
                 />
               </Field>
-              <Field label="Curation Deadline" className="sm:col-span-2">
+              <Field label="Curation Deadline" className="min-w-0 sm:col-span-2">
                 <Input
                   type="date"
+                  className="min-w-0 appearance-none"
                   value={values.curation_deadline}
                   onChange={(e) => set("curation_deadline", e.target.value)}
                 />

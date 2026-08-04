@@ -979,37 +979,44 @@ function ProjectDetailView({
               </SectionCard>
 
               <SectionCard icon={Calendar} title="Schedule">
+                {/* Date inputs: min-w-0 + appearance-none are load-bearing on
+                    iOS — WebKit gives <input type="date"> an intrinsic min
+                    width that ignores w-full and spills out of grid tracks
+                    (text inputs don't have this). */}
                 <div className="grid grid-cols-1 @lg:grid-cols-3 gap-4">
-                  <Field label="Start Date">
+                  <Field label="Start Date" className="min-w-0">
                     <Input
                       type="date"
                       value={form.start_date}
                       onChange={(e) =>
                         setForm({ ...form, start_date: e.target.value })
                       }
+                      className="min-w-0 appearance-none"
                     />
                   </Field>
-                  <Field label="End Date">
+                  <Field label="End Date" className="min-w-0">
                     <Input
                       type="date"
                       value={form.end_date}
                       onChange={(e) =>
                         setForm({ ...form, end_date: e.target.value })
                       }
+                      className="min-w-0 appearance-none"
                     />
                   </Field>
-                  <Field label="Event Date">
+                  <Field label="Event Date" className="min-w-0">
                     <Input
                       type="date"
                       value={form.event_date}
                       onChange={(e) =>
                         setForm({ ...form, event_date: e.target.value })
                       }
+                      className="min-w-0 appearance-none"
                     />
                   </Field>
                   <Field
                     label="Curation Deadline"
-                    className="@lg:col-span-3"
+                    className="min-w-0 @lg:col-span-3"
                   >
                     <Input
                       type="date"
@@ -1017,7 +1024,7 @@ function ProjectDetailView({
                       onChange={(e) =>
                         setForm({ ...form, curation_deadline: e.target.value })
                       }
-                      className="max-w-[200px]"
+                      className="min-w-0 appearance-none max-w-[200px]"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       Curation vote reminders run until this date. Leave
