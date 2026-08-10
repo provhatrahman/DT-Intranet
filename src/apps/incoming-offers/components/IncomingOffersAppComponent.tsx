@@ -1074,6 +1074,9 @@ export function IncomingOffersAppComponent({
         agreed_fee: values.agreed_fee.trim() || undefined,
         notes: values.notes.trim() || undefined,
         timings: values.timings.trim() || undefined,
+        // Notify everyone a new offer landed in the inbox (the pitch route
+        // does the same on create). Server-side fan-out; failures are silent.
+        notify_offer: true,
       });
       // Remember that this user logged this offer so they can delete their own
       // card later even without admin rights (ownership is client-side only).

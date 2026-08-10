@@ -118,6 +118,9 @@ export interface CreateBookingPayload {
   agreed_fee?: string | number;
   notes?: string;
   timings?: string;
+  // Opt-in "new offer logged" fan-out to all users. Only the Inbox Log Offer
+  // dialog sets this — lineup bookings must stay silent.
+  notify_offer?: boolean;
 }
 
 export interface UpdateBookingPayload {
