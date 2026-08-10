@@ -13,6 +13,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  clearNotifications,
   fetchNotifications,
   markNotificationsRead,
   type GreenroomNotification,
@@ -30,6 +31,8 @@ interface NotificationsState {
   fetch: (userId?: number | null) => Promise<void>;
   /** Mark specific ids, or all, as read — optimistic with rollback on failure. */
   markRead: (ids: number[] | "all", userId?: number | null) => Promise<void>;
+  /** Delete specific ids, or all — optimistic with rollback on failure. */
+  clear: (ids: number[] | "all", userId?: number | null) => Promise<void>;
   setNotificationsEnabled: (enabled: boolean) => void;
   /** Clear transient (server-derived) state; leaves notificationsEnabled intact. */
   reset: () => void;
@@ -89,6 +92,36 @@ export const useNotificationsStore = create<NotificationsState>()(
             notifications: previousNotifications,
             unreadCount: previousUnreadCount,
           });
+        }
+      },
+
+      clear: async (ids, userId) => {
+        const previousNotifications = get().notifications;
+        const previousUnreadCount = get().unreadCount;
+
+        const nextNotifications =
+          ids === "all"
+            ? []
+            : previousNotifications.filter((n) => !ids.includes(n.id));
+
+        set({
+          notifications: nextNotifications,
+          unreadCount: nextNotifications.filter((n) => !n.read_at).length,
+        });
+
+        try {
+          // Trust the server's count over the locally derived one: we only hold
+          // the most recent page, so unread items beyond it wouldn't be counted.
+          const { unreadCount } = await clearNotifications(ids, userId);
+          set({ unreadCount });
+        } catch (e) {
+          console.error("[useNotificationsStore] clear failed:", e);
+          // Roll back the optimistic update on failure.
+          set({
+            notifications: previousNotifications,
+            unreadCount: previousUnreadCount,
+          });
+          throw e;
         }
       },
 

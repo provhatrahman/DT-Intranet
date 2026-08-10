@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell } from "@phosphor-icons/react";
+import { Bell, X } from "@phosphor-icons/react";
 import {
   Menubar,
   MenubarMenu,
@@ -10,6 +10,7 @@ import {
   MenubarLabel,
   MenubarSeparator,
 } from "@/components/ui/menubar";
+import { ConfirmDialog } from "@/components/dialogs/ConfirmDialog";
 import { useThemeFlags } from "@/hooks/useThemeFlags";
 import { useEffectiveGreenroomAccount } from "@/hooks/useGreenroomAccount";
 import { useNotificationsStore } from "@/stores/useNotificationsStore";
@@ -17,6 +18,18 @@ import { openNotificationLink } from "@/hooks/useNotificationsSync";
 import type { GreenroomNotification } from "@/lib/api/notifications";
 
 const MENU_VALUE = "notifications";
+
+/**
+ * Stops a click inside a MenubarItem from activating the item itself. Radix
+ * selects an item on click, and falls back to synthesising one on pointerup
+ * when the pointerdown didn't land on it — so all three have to be contained
+ * for a nested control (the per-row dismiss button) to work without also
+ * opening the notification's deep link.
+ */
+function stopMenuActivation(event: SyntheticEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+}
 
 /** Formats an ISO timestamp as a short relative age ("3m ago", "2d ago", …).
  * No shared helper exists for this in the repo — the closest precedent
@@ -64,8 +77,11 @@ export function MenuBarNotifications() {
   );
   const fetchNotifications = useNotificationsStore((s) => s.fetch);
   const markRead = useNotificationsStore((s) => s.markRead);
+  const clear = useNotificationsStore((s) => s.clear);
 
   const [menuValue, setMenuValue] = useState("");
+  const [isClearAllOpen, setIsClearAllOpen] = useState(false);
+  const [isClearingAll, setIsClearingAll] = useState(false);
 
   // Refresh the moment the panel opens — the background poller
   // (NotificationsSync) keeps things fresh generally, but a fresh fetch on
@@ -79,6 +95,8 @@ export function MenuBarNotifications() {
   if (userId == null || !notificationsEnabled) return null;
 
   const bellLabel = t("common.menuBar.notifications", "Notifications");
+  const dismissLabel = t("common.menuBar.notificationsDismiss", "Dismiss");
+  const clearAllLabel = t("common.menuBar.notificationsClearAll", "Clear all");
 
   const handleSelectNotification = (notification: GreenroomNotification) => {
     if (!notification.read_at) {
@@ -96,8 +114,31 @@ export function MenuBarNotifications() {
     markRead("all", userId);
   };
 
+  const handleDismiss = (notification: GreenroomNotification) => {
+    // Dismissing one row is a small, single-item action, so it goes through
+    // without a confirm — the panel stays open so several can be cleared in a
+    // row. Failures roll the row back in the store.
+    clear([notification.id], userId).catch(() => {
+      /* store logs and restores the row */
+    });
+  };
+
+  const handleConfirmClearAll = async () => {
+    setIsClearingAll(true);
+    try {
+      await clear("all", userId);
+      setIsClearAllOpen(false);
+    } catch {
+      // The store rolls the list back; keep the dialog open so the failure is
+      // visible rather than looking like it worked.
+    } finally {
+      setIsClearingAll(false);
+    }
+  };
+
   return (
-    <Menubar
+    <>
+      <Menubar
       value={menuValue}
       onValueChange={setMenuValue}
       // Always visible, including mobile — unlike VolumeControl (which hides
@@ -174,30 +215,74 @@ export function MenuBarNotifications() {
                   <MenubarItem
                     key={notification.id}
                     onSelect={() => handleSelectNotification(notification)}
-                    className="flex-col items-start gap-0.5 py-2"
+                    className="items-start gap-1 py-2"
                   >
-                    <span
-                      className={`w-full truncate text-sm ${
-                        isUnread ? "font-semibold" : "opacity-80"
-                      }`}
-                    >
-                      {notification.title}
-                    </span>
-                    {notification.body && (
-                      <span className="w-full truncate text-xs opacity-70">
-                        {notification.body}
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                      <span
+                        className={`w-full truncate text-sm ${
+                          isUnread ? "font-semibold" : "opacity-80"
+                        }`}
+                      >
+                        {notification.title}
                       </span>
-                    )}
-                    <span className="text-[11px] opacity-50">
-                      {formatRelativeTime(notification.created_at)}
-                    </span>
+                      {notification.body && (
+                        <span className="w-full truncate text-xs opacity-70">
+                          {notification.body}
+                        </span>
+                      )}
+                      <span className="text-[11px] opacity-50">
+                        {formatRelativeTime(notification.created_at)}
+                      </span>
+                    </div>
+                    {/* Always visible rather than hover-only: the bell is
+                        explicitly a mobile surface, and touch has no hover. */}
+                    <button
+                      type="button"
+                      aria-label={dismissLabel}
+                      title={dismissLabel}
+                      onPointerDown={stopMenuActivation}
+                      onPointerUp={stopMenuActivation}
+                      onClick={(event) => {
+                        stopMenuActivation(event);
+                        handleDismiss(notification);
+                      }}
+                      className="-mr-1 mt-0.5 flex size-5 shrink-0 items-center justify-center rounded opacity-40 hover:bg-black/10 hover:opacity-100"
+                    >
+                      <X size={10} weight="bold" />
+                    </button>
                   </MenubarItem>
                 );
               })
             )}
           </div>
+          {notifications.length > 0 && (
+            <>
+              <MenubarSeparator />
+              {/* Destructive and bulk, so it confirms first — and unlike "Mark
+                  all read" it lets the menu close, since a Radix dialog and an
+                  open menu would otherwise compete for the focus trap. */}
+              <MenubarItem
+                onSelect={() => setIsClearAllOpen(true)}
+                className="text-xs opacity-80"
+              >
+                {clearAllLabel}
+              </MenubarItem>
+            </>
+          )}
         </MenubarContent>
       </MenubarMenu>
-    </Menubar>
+      </Menubar>
+      <ConfirmDialog
+        isOpen={isClearAllOpen}
+        onOpenChange={setIsClearAllOpen}
+        onConfirm={handleConfirmClearAll}
+        confirmDisabled={isClearingAll}
+        title={clearAllLabel}
+        description={t(
+          "common.menuBar.notificationsClearAllConfirm",
+          "Clear all notifications? This removes them from every device and can't be undone."
+        )}
+      />
+    </>
   );
 }

@@ -199,7 +199,8 @@ export default async function middleware(request: Request) {
   // Default values
   let imageUrl = `${baseUrl}/icons/mac-512.png`;
   let title = "Greenroom";
-  let description = "An AI OS experience, made with Cursor";
+  let description =
+    "The DAYTIMERS operating system for artists, bookings, and projects.";
   let matched = false;
 
   // App URLs: /soundboard, /paint, /ipod, etc.

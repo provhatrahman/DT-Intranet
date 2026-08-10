@@ -11,6 +11,15 @@ import type {
   UpdateArtistPayload,
 } from "@/lib/api/artists";
 import {
+  ALL,
+  actTypeTokens,
+  collectOptions,
+  matchesBookingFilter,
+  recentBookingCutoff,
+  toComboboxOptions,
+  type BookingFilter,
+} from "../utils/filters";
+import {
   AppToolbar,
   ArtistFacts,
   EmptyState,
@@ -32,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
@@ -58,6 +68,7 @@ import {
   Star,
   User,
   Users,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -498,6 +509,10 @@ export function ArtistsAppComponent({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [genreFilter, setGenreFilter] = useState(ALL);
+  const [cityFilter, setCityFilter] = useState(ALL);
+  const [actTypeFilter, setActTypeFilter] = useState(ALL);
+  const [bookingFilter, setBookingFilter] = useState<BookingFilter>(ALL);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   // Viewport-width based (not touch): a touch-enabled desktop keeps the
   // two-pane master-detail layout instead of collapsing to a single pane.
@@ -543,6 +558,59 @@ export function ArtistsAppComponent({
     }
   }, [error, clearError]);
 
+  // Filter dropdown options, derived from the roster itself so they only ever
+  // offer values that actually match something.
+  const genreOptions = useMemo(
+    () => toComboboxOptions("Genre: All", collectOptions(artists, (a) => a.genres)),
+    [artists]
+  );
+  const cityOptions = useMemo(
+    () =>
+      toComboboxOptions(
+        "City: All",
+        collectOptions(artists, (a) => a.locations.map((l) => l.city))
+      ),
+    [artists]
+  );
+  const actTypeOptions = useMemo(
+    () =>
+      toComboboxOptions(
+        "Act: All",
+        collectOptions(artists, (a) => actTypeTokens(a.type_of_act))
+      ),
+    [artists]
+  );
+
+  const selectedGenreLabel = genreOptions.find((o) => o.value === genreFilter)?.label;
+  const selectedCityLabel = cityOptions.find((o) => o.value === cityFilter)?.label;
+  const selectedActTypeLabel = actTypeOptions.find(
+    (o) => o.value === actTypeFilter
+  )?.label;
+
+  const hasNonSearchFilters =
+    statusFilter !== "active" ||
+    genreFilter !== ALL ||
+    cityFilter !== ALL ||
+    actTypeFilter !== ALL ||
+    bookingFilter !== ALL;
+
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    statusFilter !== "active" ||
+    genreFilter !== ALL ||
+    cityFilter !== ALL ||
+    actTypeFilter !== ALL ||
+    bookingFilter !== ALL;
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("active");
+    setGenreFilter(ALL);
+    setCityFilter(ALL);
+    setActTypeFilter(ALL);
+    setBookingFilter(ALL);
+  };
+
   // Live client-side filter over the whole roster (a few hundred rows, so no
   // debounce/server round-trip needed). Matches names, genres, and cities; an
   // empty query shows the entire database so it's browsable without searching.
@@ -551,6 +619,29 @@ export function ArtistsAppComponent({
     let list = artists;
     if (statusFilter !== "all") {
       list = list.filter((a) => a.is_active === (statusFilter === "active"));
+    }
+    if (genreFilter !== ALL) {
+      list = list.filter((a) =>
+        a.genres.some((g) => g.trim().toLowerCase() === genreFilter)
+      );
+    }
+    if (cityFilter !== ALL) {
+      list = list.filter((a) =>
+        a.locations.some((l) => l.city.trim().toLowerCase() === cityFilter)
+      );
+    }
+    if (actTypeFilter !== ALL) {
+      list = list.filter((a) =>
+        actTypeTokens(a.type_of_act).some(
+          (t) => t.toLowerCase() === actTypeFilter
+        )
+      );
+    }
+    if (bookingFilter !== ALL) {
+      const cutoff = recentBookingCutoff();
+      list = list.filter((a) =>
+        matchesBookingFilter(stats[a.id], bookingFilter, cutoff)
+      );
     }
     if (query) {
       list = list.filter(
@@ -580,7 +671,17 @@ export function ArtistsAppComponent({
       sorted.sort((a, b) => a.artist_name.localeCompare(b.artist_name));
     }
     return sorted;
-  }, [artists, search, statusFilter, sortKey, stats]);
+  }, [
+    artists,
+    search,
+    statusFilter,
+    genreFilter,
+    cityFilter,
+    actTypeFilter,
+    bookingFilter,
+    sortKey,
+    stats,
+  ]);
 
   // Default selection on desktop.
   useEffect(() => {
@@ -733,6 +834,63 @@ export function ArtistsAppComponent({
                   <SelectItem value="all">All</SelectItem>
                 </SelectContent>
               </Select>
+              <Combobox
+                value={genreFilter}
+                onChange={setGenreFilter}
+                options={genreOptions}
+                displayValue={
+                  genreFilter === ALL
+                    ? "Genre: All"
+                    : `Genre: ${selectedGenreLabel ?? genreFilter}`
+                }
+                searchPlaceholder="Search genres…"
+                searchAriaLabel="Search genres"
+                emptyMessage="No genres"
+                className="w-36 shrink-0"
+              />
+              <Combobox
+                value={cityFilter}
+                onChange={setCityFilter}
+                options={cityOptions}
+                displayValue={
+                  cityFilter === ALL
+                    ? "City: All"
+                    : `City: ${selectedCityLabel ?? cityFilter}`
+                }
+                searchPlaceholder="Search cities…"
+                searchAriaLabel="Search cities"
+                emptyMessage="No cities"
+                className="w-36 shrink-0"
+              />
+              <Combobox
+                value={actTypeFilter}
+                onChange={setActTypeFilter}
+                options={actTypeOptions}
+                displayValue={
+                  actTypeFilter === ALL
+                    ? "Act: All"
+                    : `Act: ${selectedActTypeLabel ?? actTypeFilter}`
+                }
+                searchPlaceholder="Search act types…"
+                searchAriaLabel="Search act types"
+                emptyMessage="No act types"
+                className="w-36 shrink-0"
+              />
+              <Select
+                value={bookingFilter}
+                onValueChange={(v) => setBookingFilter(v as BookingFilter)}
+              >
+                <SelectTrigger className="w-44 shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Booked: Any</SelectItem>
+                  <SelectItem value="recent">Booked: Last 12 months</SelectItem>
+                  <SelectItem value="stale">Booked: Over a year ago</SelectItem>
+                  <SelectItem value="booked">Booked: Ever</SelectItem>
+                  <SelectItem value="never">Booked: Never</SelectItem>
+                </SelectContent>
+              </Select>
               <Select
                 value={sortKey}
                 onValueChange={(v) => setSortKey(v as SortKey)}
@@ -746,6 +904,19 @@ export function ArtistsAppComponent({
                   <SelectItem value="last_booked">Sort: Last booked</SelectItem>
                 </SelectContent>
               </Select>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  onClick={clearFilters}
+                  className="shrink-0 min-h-8 touch-manipulation"
+                  title="Reset search and filters"
+                >
+                  <span className="inline-flex items-center">
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setIsCreateDialogOpen(true)}
@@ -789,6 +960,11 @@ export function ArtistsAppComponent({
                       search.trim() ? (
                         <EmptyState
                           title={`No artists match "${search.trim()}"`}
+                          hint={
+                            hasNonSearchFilters
+                              ? "Other filters are also narrowing the list."
+                              : undefined
+                          }
                           className="py-6"
                         >
                           <Button
@@ -800,6 +976,24 @@ export function ArtistsAppComponent({
                             <span className="inline-flex items-center">
                               <Plus className="h-4 w-4 mr-1" />
                               Create "{search.trim()}"
+                            </span>
+                          </Button>
+                        </EmptyState>
+                      ) : hasActiveFilters ? (
+                        <EmptyState
+                          title="No artists match these filters"
+                          hint="Widen or reset them to see more of the roster."
+                          className="py-6"
+                        >
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="mt-3 touch-manipulation"
+                          >
+                            <span className="inline-flex items-center">
+                              <X className="h-4 w-4 mr-1" />
+                              Clear filters
                             </span>
                           </Button>
                         </EmptyState>

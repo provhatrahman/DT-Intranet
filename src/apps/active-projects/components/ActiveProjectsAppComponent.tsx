@@ -1638,11 +1638,6 @@ function CurationTab({ projectId }: { projectId: number }) {
                           </a>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {suggestion.curated_by_username
-                          ? `Suggested by ${suggestion.curated_by_username}`
-                          : "Suggested"}
-                      </div>
                     </div>
                     <Button
                       variant={myVote === 1 ? "secondary" : "ghost"}

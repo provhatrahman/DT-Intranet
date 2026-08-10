@@ -90,7 +90,8 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "Greenroom",
         short_name: "Greenroom",
-        description: "An AI OS experience, made with Cursor",
+        description:
+          "The DAYTIMERS operating system for artists, bookings, and projects.",
         theme_color: "#000000",
         background_color: "#000000",
         display: "standalone",

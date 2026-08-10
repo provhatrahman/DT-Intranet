@@ -64,7 +64,10 @@
       "volume": "Volume",
       "notifications": "Notifications",
       "notificationsMarkAllRead": "Mark all read",
-      "notificationsEmpty": "No notifications yet"
+      "notificationsEmpty": "No notifications yet",
+      "notificationsDismiss": "Dismiss",
+      "notificationsClearAll": "Clear all",
+      "notificationsClearAllConfirm": "Clear all notifications? This removes them from every device and can't be undone."
     },
     "offline": {
       "title": "You're Offline",

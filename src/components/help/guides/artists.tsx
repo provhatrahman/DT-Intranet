@@ -138,7 +138,7 @@ export const artistsGuide: HelpGuide = {
     {
       id: "browse",
       title: "Browse the artist database",
-      body: "The Artists app is the roster's home: every artist in the database, searchable by name, genre, or city, with filters for active/inactive artists and sorting by name, gig score, or last booked. No need to go through a project or event to find someone.",
+      body: "The Artists app is the roster's home: every artist in the database, searchable by name, genre, or city. Narrow the list with the filters — active/inactive, genre, city, act type (DJ, live act, producer…), and booking activity (booked in the last 12 months, over a year ago, ever, or never) — and sort by name, gig score, or last booked. Filters combine, and Clear resets them. No need to go through a project or event to find someone.",
       snapshot: <BrowseMock />,
     },
     {

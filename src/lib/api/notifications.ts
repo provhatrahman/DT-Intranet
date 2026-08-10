@@ -119,6 +119,44 @@ export async function markNotificationsRead(
   }
 }
 
+export interface ClearNotificationsResult {
+  deleted: number;
+  /** Server-recomputed unread count after the delete. */
+  unreadCount: number;
+}
+
+/**
+ * Delete specific notification ids, or every one of the user's notifications.
+ * Unlike mark-read this removes the rows; the backend scopes the delete to the
+ * caller, so ids belonging to anyone else are simply ignored.
+ */
+export async function clearNotifications(
+  ids: number[] | "all",
+  userId?: number | null
+): Promise<ClearNotificationsResult> {
+  const body: Record<string, unknown> = ids === "all" ? { all: true } : { ids };
+  if (userId != null) body.user_id = userId;
+  const response = await greenroomFetch(
+    `${GREENROOM_API_BASE}/users/notifications/clear/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await parseError(response, "Failed to clear notifications"));
+  }
+  const data = (await response.json().catch(() => ({}))) as {
+    deleted?: number;
+    unread_count?: number;
+  };
+  return {
+    deleted: data.deleted ?? 0,
+    unreadCount: data.unread_count ?? 0,
+  };
+}
+
 /** Upsert this device's push subscription (creates it, or reassigns an
  * existing endpoint row to the current user). */
 export async function subscribePush(

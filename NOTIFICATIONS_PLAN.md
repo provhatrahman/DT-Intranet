@@ -5,6 +5,28 @@ Status: **LIVE IN PROD** (deployed 2026-08-04, frontend v10.10; sweep = EventBri
 Note: the HTTP sweep endpoint's X-Sweep-Secret path is unreachable in prod (REQUIRE_AUTH middleware runs
 first) — the direct Lambda invoke is the only cron path, which is what the EventBridge rule uses.
 
+**Send window (added 2026-08-10, NOT YET DEPLOYED — see "Send window rollout" below).** The original
+`rate(6 hours)` rule fired at 01:32 / 07:32 / 13:32 / 19:32 London, so reminders landed in the middle of
+the night. Two changes fix that, and **both are needed**:
+1. `run_notifications_sweep()` now refuses to create reminders outside a *local* time window — default
+   **18:00–22:00 Europe/London**, overridable per-Lambda with env `NOTIFICATIONS_SEND_WINDOW` (`"18-22"`,
+   end-exclusive) and `NOTIFICATIONS_SEND_WINDOW_TZ`. Local, not UTC, so BST doesn't slide the window an
+   hour every summer. Outside the window the sweep is a no-op returning
+   `{vote_reminder: 0, curation_reminder: 0, skipped: "outside_send_window", local_time, send_window}`.
+   Bypass with `force`: `{"task":"notifications_sweep","force":true}` on the direct invoke, or `force` in
+   the body/query of the HTTP endpoint (which **defaults to forcing** for an admin bearer caller — a human
+   pressing a button wants results now — and to *respecting* the window for the secret-authorized cron
+   caller).
+2. The EventBridge rule moves off `rate(...)` to an explicit UTC cron, so the firing time is stated rather
+   than inherited from whenever the rule happened to be created.
+
+⚠️ A `rate(N hours)` schedule and this window are incompatible in principle: rate offsets are anchored to
+rule-creation time, so a rule recreated at the wrong moment can have **none** of its slots inside
+18:00–22:00 local, and reminders would silently stop entirely. Always pair the window with a cron.
+
+Cadence is unaffected: the 47h dedupe still gives each user a given reminder every ~2 days, so one evening
+run per day is sufficient (two gives a free retry — the second is deduped the same evening).
+
 ## Product decisions (locked)
 
 - **Proper Web Push** notifications (VAPID), modeled on `C:\Projects\Budgeting` (web-push + per-user
@@ -100,6 +122,12 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS curation_deadline DATE;
   `lambdas/users/urls.py` (users domain owns this):
   - `GET  /api/users/notifications/?limit=50` → `{ notifications: [...], unread_count }` (auth user's, newest first)
   - `POST /api/users/notifications/mark-read/` body `{ids:[...]} | {all:true}`
+  - `POST /api/users/notifications/clear/` body `{ids:[...]} | {all:true}` → `{message, deleted, unread_count}`
+    (added 2026-08-10, NOT YET DEPLOYED). **Deletes** the rows — the centre is a transient feed the sweep
+    regenerates, not an audit log. Always scoped to the resolved user, so an id list can only ever clear
+    that caller's own rows (ids belonging to anyone else match nothing and come back `deleted: 0`). Returns
+    the recomputed `unread_count` because the client only holds the most recent page and so can't derive
+    the new count by subtracting locally.
   - `POST /api/users/notifications/subscribe/` body `{endpoint,p256dh,auth,user_agent?}` (upsert on endpoint, reassign user)
   - `POST /api/users/notifications/unsubscribe/` body `{endpoint}`
   - `POST /api/users/notifications/test/` (admin-only) → row + real push to self
@@ -135,6 +163,14 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS curation_deadline DATE;
 - **Menu-bar bell** `src/components/layout/menu-bar/MenuBarNotifications.tsx`: unread badge; popover panel
   listing notifications (unread emphasized, relative time), click → mark read + deep-link resolve in-app;
   "mark all read". Mounted in BOTH `MacTopMenuBar.tsx` status controls and `WindowsTaskbar.tsx` tray.
+  - **Clearing (added 2026-08-10):** a per-row `X` dismisses one notification (no confirm — single item,
+    panel stays open so several can go in a row), and a "Clear all" footer item confirms via
+    `ConfirmDialog` first. Both call `useNotificationsStore.clear()`, which is optimistic with rollback on
+    failure, then takes the server's `unread_count` as truth. Two non-obvious constraints: the row's `X`
+    must stop `pointerdown`/`pointerup`/`click` propagation or Radix activates the enclosing `MenubarItem`
+    and deep-links instead of dismissing; and "Clear all" must let the menu close (unlike "Mark all read",
+    which `preventDefault`s to stay open) because an open Radix menu and a Radix dialog fight over the
+    focus trap. The `X` is always visible, not hover-only — the bell is explicitly a mobile surface.
 - **Control Panels pane** `notifications`: new `ControlPanelPaneId` + category + section slot +
   `NotificationsPaneContent.tsx` + case in `ControlPanelsMacPaneRenderer.tsx` (check Windows-theme legacy
   layout reachability; extend legacy tabs if that's the established route). Contents: master toggle
@@ -158,3 +194,46 @@ ALTER TABLE projects ADD COLUMN IF NOT EXISTS curation_deadline DATE;
    (handler branch) or API-destination POST to the sweep endpoint with the secret header.
 5. Frontend: `VITE_VAPID_PUBLIC_KEY=<prod pub> AWS_PROFILE=greenroom-cli .\deploy.ps1`.
 6. Admin test: Control Panels → Notifications → Send test notification.
+
+## Send window rollout (prepared 2026-08-10, awaiting owner approval — backend-only, no frontend deploy)
+
+Order matters: ship the Lambda first (it tolerates the old `rate` schedule, since the current 19:32 London
+slot happens to fall inside 18:00–22:00 in both BST and GMT), then swap the schedule.
+
+1. Backend: push `greenroom-develop` → `main`, let Actions build, **verify the zip actually imports**
+   (see the dependency-less-zip incident in the 2026-08-04 notes), then:
+   ```
+   aws lambda update-function-code --function-name prod-users-service \
+     --s3-bucket prod-lambda-artifacts-471028617262 --s3-key users-service.zip \
+     --profile greenroom-cli --region eu-west-2
+   ```
+   Only the users Lambda changes — the window lives in the sweep, and the sweep only runs there. This same
+   redeploy also ships the `notifications/clear/` endpoint (below), so the two go out together.
+2. Replace the `rate(6 hours)` schedule with an explicit evening cron (UTC — EventBridge Rules have no
+   timezone support, which is exactly why the window guard is London-local):
+   ```
+   aws events put-rule --name prod-notifications-sweep --schedule-expression "cron(0 18,20 * * ? *)" \
+     --state ENABLED --description "Greenroom notification reminder sweep (vote + curation reminders)" \
+     --profile greenroom-cli --region eu-west-2
+   ```
+   Firing times: winter 18:00 & 20:00 GMT; summer 19:00 & 21:00 BST. All four inside the window, so the
+   sweep runs in both seasons and the second run is a free retry (deduped if the first succeeded).
+   `put-rule` preserves the existing target — confirm anyway with
+   `aws events list-targets-by-rule --rule prod-notifications-sweep`.
+3. Verify: `aws events describe-rule --name prod-notifications-sweep` shows the cron, then next evening
+   check the users-Lambda log for a sweep that is *not* `skipped`. To confirm the guard bites, invoke
+   off-window: `aws lambda invoke --function-name prod-users-service --payload '{"task":"notifications_sweep"}' out.json`
+   → expect `skipped: outside_send_window`.
+4. Rollback: `put-rule` back to `--schedule-expression "rate(6 hours)"`, and/or set env
+   `NOTIFICATIONS_SEND_WINDOW=0-24` on `prod-users-service` to disable the window without a redeploy.
+
+**Clearing notifications** ships in the same wave and needs both halves — the users-Lambda redeploy in
+step 1 above (for `POST /api/users/notifications/clear/`) **and** a frontend deploy (`AWS_PROFILE=greenroom-cli
+.\deploy.ps1`, remembering `VITE_VAPID_PUBLIC_KEY`). Backend first: with the old Lambda still live the
+dismiss/Clear-all controls 404 and the store rolls the rows straight back, so the UI would look broken.
+No DDL — it only deletes from the existing `user_notifications` table.
+
+**Still unguarded (deliberate — needs an owner decision):** the event-driven notifications `offer_logged`
+and `offer_activated` fire *immediately* on the triggering action, so logging an offer at 01:00 still
+pushes to everyone at 01:00. Deferring those means queueing them until the window opens (a backlog
+mechanism the sweep doesn't need), so it's out of scope here.

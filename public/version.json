@@ -1,8 +1,8 @@
 {
   "version": "10.12",
-  "buildNumber": "c778878",
-  "commitSha": "c778878cc610bf1de25308f3fe47106ad6ab98b5",
-  "buildTime": "2026-08-04T20:23:46.258Z",
+  "buildNumber": "b9670ad",
+  "commitSha": "b9670adf68ad4ec1923be0f21b9f7c288359595c",
+  "buildTime": "2026-08-10T16:22:36.757Z",
   "majorVersion": 10,
   "minorVersion": 12,
   "desktopVersion": "1.0.1"

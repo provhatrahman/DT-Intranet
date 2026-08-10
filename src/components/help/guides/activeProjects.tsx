@@ -160,9 +160,6 @@ function CurationMock() {
             <AquaCard key={a.name} className="flex items-center gap-2 p-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium">{a.name}</div>
-                <div className="text-[10px] text-muted-foreground">
-                  Suggested by Sam
-                </div>
               </div>
               <span className="flex items-center gap-0.5 text-[10px] text-green-700 dark:text-green-300">
                 <ThumbsUp className="h-3.5 w-3.5" /> {a.up}
